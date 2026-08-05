@@ -23,3 +23,58 @@ button { font:inherit; }
 @media (max-width:1100px) { .battle-layout { grid-template-columns:190px minmax(540px,1fr); }.detail-panel { display:none; }.command-deck { grid-template-columns:220px 1fr; }.hint { display:none; } }
 @media (max-width:760px) { .game-shell { overflow:auto; }.topbar { grid-template-columns:1fr auto;height:58px;padding:0 12px; }.room-status,.supply { display:none; }.battle-layout { height:auto;min-height:700px;display:block;padding:7px; }.event-panel { display:none; }.board-area { height:640px; }.arena { inset:58px 0 20px;transform:scale(.78); }.player-seat { width:150px; }.command-deck { position:sticky;bottom:0;z-index:10;height:auto;min-height:108px;display:block;padding:8px; }.identity { display:none; }.skill-deck { justify-content:center; }.role-grid { grid-template-columns:repeat(2,1fr); }.mode-banner { min-width:280px; }.skill-button { width:82px;height:84px; } }
 @media (max-width:760px) { .final-roster { grid-template-columns:repeat(2,1fr); }.game-over-panel { padding:20px 12px; }.game-over-panel h1 { font-size:26px; } }
+
+/* Readability pass: larger command cards, seats, and body text. */
+@media (min-width:761px) {
+  .battle-layout { height:calc(100vh - 202px);min-height:620px;grid-template-columns:280px minmax(680px,1fr) 292px; }
+  .player-seat { width:196px;min-height:92px;grid-template-columns:62px 1fr;gap:11px;padding:10px; }
+  .portrait { width:60px;height:60px; }
+  .player-copy strong { font-size:15px; }
+  .player-copy small { font-size:11px; }
+  .life-state { font-size:10px;padding:4px 8px; }
+  .panel-heading { height:50px;font-size:13px; }
+  .panel-heading button,.panel-heading b { font-size:11px; }
+  .event-row { grid-template-columns:36px 1fr;padding:14px 8px; }
+  .event-icon { width:32px;height:32px; }
+  .event-row p { font-size:13px; }
+  .event-row time { font-size:11px; }
+  .intel-note { font-size:12px;padding:14px; }
+  .role-card p,.private-result p { font-size:12px; }
+  .role-kicker,.private-result span,.faction-tag { font-size:11px; }
+  .command-deck { height:134px;grid-template-columns:300px minmax(300px,1fr) auto;padding:14px 22px; }
+  .skill-button { width:96px;height:102px; }
+  .skill-button strong { font-size:12px; }
+  .skill-button small,.skill-button kbd { font-size:10px; }
+  .skill-icon { font-size:29px;line-height:39px; }
+  .identity span,.identity small,.identity .health { font-size:11px; }
+  .identity strong { font-size:16px; }
+  .hint strong { font-size:13px; }
+  .hint small { font-size:10px; }
+}
+
+@media (max-width:760px) {
+  .topbar { height:62px;padding:0 14px; }
+  .brand strong { font-size:16px; }
+  .brand small { font-size:10px; }
+  .battle-layout { min-height:760px;padding:8px; }
+  .board-area { height:auto;min-height:720px;padding:78px 10px 18px;overflow:visible; }
+  .arena { position:relative;inset:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 10px;transform:none; }
+  .table-core { display:none; }
+  .player-seat { position:relative!important;left:auto!important;top:auto!important;transform:none!important;width:100%;min-height:118px;grid-template-columns:64px 1fr;padding:11px 8px; }
+  .player-seat:hover { transform:none!important; }
+  .portrait { width:62px;height:78px; }
+  .player-copy strong { font-size:15px; }
+  .player-copy small { font-size:11px;white-space:normal;line-height:1.35; }
+  .life-state { top:-9px;font-size:9px; }
+  .mode-banner { min-width:0;width:calc(100% - 20px);top:16px; }
+  .mode-banner strong { font-size:13px;line-height:1.4; }
+  .command-deck { min-height:122px;padding:10px 6px 12px; }
+  .skill-deck { gap:7px; }
+  .deck-label { display:none; }
+  .skill-button { width:30vw;max-width:104px;height:100px; }
+  .skill-button strong { font-size:12px; }
+  .skill-button small,.skill-button kbd { font-size:10px; }
+  .role-grid button { min-height:72px;font-size:13px; }
+  .role-modal h2 { font-size:18px; }
+  .target-summary strong { font-size:14px; }
+}
