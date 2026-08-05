@@ -29,10 +29,10 @@ const initialPlayers: Player[] = [
   { id: 2, name: "민준", announced: "사립탐정", role: "사립탐정", faction: "citizen", alive: true },
   { id: 3, name: "하린", announced: "순찰경찰", role: "순찰경찰", faction: "citizen", alive: true },
   { id: 4, name: "도윤", announced: "마피아일원", role: "자경단원", faction: "citizen", alive: true },
-  { id: 5, name: "서아", announced: "공무원", role: "공무원", faction: "citizen", alive: true },
+  { id: 5, name: "서아", announced: "경찰반장", role: "경찰반장", faction: "citizen", alive: true },
   { id: 6, name: "지호", announced: "탐정조수", role: "히트맨", faction: "mafia", alive: true },
   { id: 7, name: "나", announced: "마피아일원", role: "마피아일원", faction: "mafia", alive: true, isMe: true },
-  { id: 8, name: "예린", announced: "여자연인", role: "여자연인", faction: "citizen", alive: false },
+  { id: 8, name: "예린", announced: "탐정조수", role: "탐정조수", faction: "citizen", alive: false },
 ];
 
 const skills: Skill[] = [
@@ -41,10 +41,20 @@ const skills: Skill[] = [
   { id: "attack", key: "E", name: "상급 공격", icon: "✦", cost: 40, target: true, needsRole: true, tone: "red" },
 ];
 
-const rolesByFaction = {
-  mafia: ["마피아대부", "히트맨", "마피아일원", "마피아후계자", "스파이"],
-  citizen: ["경찰반장", "자경단원", "사립탐정", "순찰경찰", "탐정조수", "남자연인", "여자연인", "공무원"],
-};
+const formation = [
+  { name: "마피아대부", faction: "mafia" as const },
+  { name: "히트맨", faction: "mafia" as const },
+  { name: "마피아일원", faction: "mafia" as const },
+  { name: "경찰반장", faction: "citizen" as const },
+  { name: "자경단원", faction: "citizen" as const },
+  { name: "사립탐정", faction: "citizen" as const },
+  { name: "순찰경찰", faction: "citizen" as const },
+  { name: "탐정조수", faction: "citizen" as const },
+];
+
+function factionOf(role: string): Faction {
+  return formation.find((item) => item.name === role)?.faction ?? "citizen";
+}
 
 const seatPositions = [
   [50, 2], [75, 12], [92, 38], [78, 72], [50, 84], [22, 72], [8, 38], [25, 12],
@@ -66,8 +76,8 @@ export function GameBoard() {
   const me = players.find((player) => player.isMe)!;
   const modalRoles = useMemo(() => {
     if (!selectedSkill) return [];
-    if (selectedSkill.id === "announce") return [...rolesByFaction.mafia, ...rolesByFaction.citizen];
-    return rolesByFaction.citizen;
+    if (selectedSkill.id === "announce") return formation;
+    return formation.filter((item) => item.faction === "citizen");
   }, [selectedSkill]);
 
   function chooseSkill(skill: Skill) {
@@ -169,7 +179,7 @@ export function GameBoard() {
                 >
                   <span className="seat-pointer" />
                   <span className="portrait"><span>{player.name.slice(0, 1)}</span>{!player.alive && <b>☠</b>}</span>
-                  <span className="player-copy"><strong>{player.name}{player.isMe && <em>YOU</em>}</strong><small>공표 · <b className={player.announced.includes("마피아") ? "mafia-text" : "citizen-text"}>{player.announced}</b></small>{!player.alive && <small className="revealed-role">실제 · {player.role}</small>}</span>
+                  <span className="player-copy"><strong>{player.name}{player.isMe && <em>YOU</em>}</strong><small>공표 · <b className={`${factionOf(player.announced)}-text`}>{player.announced}</b></small>{!player.alive && <small className={`revealed-role ${factionOf(player.role)}-text`}>실제 · {player.role}</small>}</span>
                   <span className={`life-state ${player.alive ? "" : "down"}`}>{player.alive ? "생존" : "사망 · 직업 공개"}</span>
                 </button>
               );
@@ -204,7 +214,7 @@ export function GameBoard() {
             <header><span>{selectedSkill.icon}</span><div><small>{selectedSkill.name}</small><h2>{selectedTarget ? `${selectedTarget.name}의 직업을 지정하세요` : "공표할 직업을 선택하세요"}</h2></div><button onClick={cancelTargeting}>×</button></header>
             {selectedTarget && <div className="target-summary"><span>선택 대상</span><strong>{selectedTarget.name}</strong><small>공표 · {selectedTarget.announced}</small></div>}
             <div className="role-grid">
-              {modalRoles.map((role) => <button key={role} onClick={() => resolveSkill(selectedSkill, selectedTarget, role)}><span>{role.includes("마피아") || role === "히트맨" || role === "스파이" ? "◆" : "◇"}</span>{role}</button>)}
+              {modalRoles.map((role) => <button className={`role-choice ${role.faction}`} key={role.name} onClick={() => resolveSkill(selectedSkill, selectedTarget, role.name)}>{role.name}<small>{role.faction === "mafia" ? "마피아 진영" : "시민 진영"}</small></button>)}
             </div>
             <footer><span>격발 전까지 마나가 소모되지 않습니다.</span><button onClick={cancelTargeting}>취소</button></footer>
           </section>
