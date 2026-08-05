@@ -88,9 +88,17 @@ export function GameBoard() {
   }
 
   function chooseTarget(player: Player) {
-    if (!selectedSkill?.target || !player.alive || player.isMe) return;
+    if (!selectedSkill?.target || !isTargetable(player, selectedSkill)) return;
     setSelectedTarget(player);
     if (!selectedSkill.needsRole) resolveSkill(selectedSkill, player);
+  }
+
+  function isTargetable(player: Player, skill: Skill) {
+    if (!player.alive || player.isMe) return false;
+    const announcedFaction = factionOf(player.announced);
+    if (skill.id === "ally-check") return announcedFaction === me.faction;
+    if (skill.id === "enemy-check") return announcedFaction !== me.faction;
+    return true;
   }
 
   function resolveSkill(skill: Skill, target: Player | null, guessedRole?: string) {
@@ -168,10 +176,11 @@ export function GameBoard() {
             </div>
             {players.map((player, index) => {
               const [left, top] = seatPositions[index];
-              const selectable = Boolean(selectedSkill?.target && player.alive && !player.isMe);
+              const selectable = Boolean(selectedSkill?.target && isTargetable(player, selectedSkill));
+              const untargetable = Boolean(selectedSkill?.target && !selectable);
               return (
                 <button
-                  className={`player-seat ${player.alive ? "alive" : "dead"} ${player.isMe ? "me" : ""} ${selectable ? "selectable" : ""} ${effectTarget === player.id ? "hit-effect" : ""}`}
+                  className={`player-seat ${player.alive ? "alive" : "dead"} ${player.isMe ? "me" : ""} ${selectable ? "selectable" : ""} ${untargetable ? "untargetable" : ""} ${effectTarget === player.id ? "hit-effect" : ""}`}
                   style={{ left: `${left}%`, top: `${top}%` }}
                   key={player.id}
                   onClick={() => chooseTarget(player)}
