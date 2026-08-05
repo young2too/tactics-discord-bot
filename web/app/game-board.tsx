@@ -22,6 +22,7 @@ type Skill = {
   target: boolean;
   needsRole: boolean;
   tone: string;
+  cooldown: number;
 };
 
 type GameResult = { winner: Faction; reason: string } | null;
@@ -38,9 +39,9 @@ const initialPlayers: Player[] = [
 ];
 
 const skills: Skill[] = [
-  { id: "announce", key: "Q", name: "공표", icon: "⚑", cost: 0, target: false, needsRole: true, tone: "gold" },
-  { id: "ally-check", key: "W", name: "아군 확인", icon: "◉", cost: 5, target: true, needsRole: false, tone: "blue" },
-  { id: "attack", key: "E", name: "상급 공격", icon: "✦", cost: 40, target: true, needsRole: true, tone: "red" },
+  { id: "announce", key: "Q", name: "공표", icon: "⚑", cost: 0, target: false, needsRole: true, tone: "gold", cooldown: 120 },
+  { id: "ally-check", key: "W", name: "아군 확인", icon: "◉", cost: 5, target: true, needsRole: false, tone: "blue", cooldown: 10 },
+  { id: "attack", key: "E", name: "상급 공격", icon: "✦", cost: 40, target: true, needsRole: true, tone: "red", cooldown: 10 },
 ];
 
 const formation = [
@@ -100,6 +101,7 @@ export function GameBoard() {
   const [mana, setMana] = useState(20);
   const [manaTickSeconds, setManaTickSeconds] = useState(2 * 60 + 14);
   const [gameResult, setGameResult] = useState<GameResult>(null);
+  const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
   const [effectTarget, setEffectTarget] = useState<number | null>(null);
@@ -117,6 +119,10 @@ export function GameBoard() {
     if (gameResult) return;
     const timer = window.setInterval(() => {
       setManaTickSeconds((seconds) => Math.max(0, seconds - 1));
+      setCooldowns((current) => {
+        const next = Object.fromEntries(Object.entries(current).map(([id, seconds]) => [id, Math.max(0, seconds - 1)]));
+        return Object.values(next).some((seconds) => seconds > 0) ? next : {};
+      });
     }, 1000);
     return () => window.clearInterval(timer);
   }, [gameResult]);
@@ -135,7 +141,7 @@ export function GameBoard() {
   }, [selectedSkill]);
 
   function chooseSkill(skill: Skill) {
-    if (gameResult || mana < skill.cost) return;
+    if (gameResult || mana < skill.cost || (cooldowns[skill.id] ?? 0) > 0) return;
     setSelectedTarget(null);
     setSelectedSkill(skill);
     setNotice(skill.target ? `${skill.name}: 게임판에서 대상을 선택하세요.` : `${skill.name}: 공표할 직업을 선택하세요.`);
@@ -157,6 +163,7 @@ export function GameBoard() {
 
   function resolveSkill(skill: Skill, target: Player | null, guessedRole?: string) {
     setMana((value) => Math.max(0, value - skill.cost));
+    setCooldowns((current) => ({ ...current, [skill.id]: skill.cooldown }));
     setSelectedSkill(null);
     setSelectedTarget(null);
 
@@ -274,8 +281,10 @@ export function GameBoard() {
         <div className="skill-deck">
           <div className="deck-label"><span>스킬</span><small>클릭하여 사용</small></div>
           {skills.map((skill) => (
-            <button className={`skill-button ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""}`} key={skill.id} onClick={() => chooseSkill(skill)} disabled={Boolean(gameResult) || mana < skill.cost}>
+            <button className={`skill-button ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${(cooldowns[skill.id] ?? 0) > 0 ? "cooling" : ""}`} key={skill.id} onClick={() => chooseSkill(skill)} disabled={Boolean(gameResult) || mana < skill.cost || (cooldowns[skill.id] ?? 0) > 0}>
+              {(cooldowns[skill.id] ?? 0) > 0 && <span className="cooldown-fill" style={{ width: `${(1 - (cooldowns[skill.id] ?? 0) / skill.cooldown) * 100}%` }} />}
               <kbd>{skill.key}</kbd><span className="skill-icon">{skill.icon}</span><strong>{skill.name}</strong><small>{skill.cost === 0 ? "무료" : `◆ ${skill.cost}`}</small>
+              {(cooldowns[skill.id] ?? 0) > 0 && <span className="cooldown-time">{cooldowns[skill.id]}초</span>}
             </button>
           ))}
         </div>

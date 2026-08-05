@@ -78,3 +78,11 @@ button { font:inherit; }
   .role-modal h2 { font-size:18px; }
   .target-summary strong { font-size:14px; }
 }
+
+.skill-button.cooling { opacity:1;filter:saturate(.45);border-color:#303b43;cursor:not-allowed; }
+.skill-button.cooling>*:not(.cooldown-fill):not(.cooldown-time) { position:relative;z-index:2;opacity:.42; }
+.cooldown-fill { position:absolute;z-index:1;left:0;top:0;bottom:0;background:#ffffff0d;box-shadow:inset -1px 0 #ffffff30;transition:width 1s linear;pointer-events:none; }
+.skill-button.red .cooldown-fill { background:linear-gradient(90deg,#5d1d1a99,#bd403777);box-shadow:inset -1px 0 #ef665c99; }
+.skill-button.blue .cooldown-fill { background:linear-gradient(90deg,#123e5399,#288fba77);box-shadow:inset -1px 0 #55c7f299; }
+.skill-button.gold .cooldown-fill { background:linear-gradient(90deg,#4d3d1799,#a9853277);box-shadow:inset -1px 0 #e1bd6099; }
+.cooldown-time { position:absolute;z-index:3;inset:0;display:grid;place-items:center;color:#f1f5f7;font:700 16px monospace;text-shadow:0 2px 8px #000,0 0 12px #000;pointer-events:none; }
