@@ -24,6 +24,8 @@ type Skill = {
   tone: string;
 };
 
+type GameResult = { winner: Faction; reason: string } | null;
+
 const initialPlayers: Player[] = [
   { id: 1, name: "윤서", announced: "경찰반장", role: "마피아대부", faction: "mafia", alive: true },
   { id: 2, name: "민준", announced: "사립탐정", role: "사립탐정", faction: "citizen", alive: true },
@@ -63,11 +65,28 @@ const seatPositions = [
 const MANA_MAX = 200;
 const MANA_TICK = 20;
 const MANA_INTERVAL_SECONDS = 3 * 60;
+const ATTACKER_ROLES = new Set(["마피아대부", "히트맨", "마피아일원", "자경단원", "순찰경찰"]);
+
+function checkVictory(players: Player[]): GameResult {
+  const citizenLeader = players.find((player) => player.role === "경찰반장");
+  if (citizenLeader && !citizenLeader.alive) return { winner: "mafia", reason: "경찰반장 사망" };
+
+  const mafiaBoss = players.find((player) => player.role === "마피아대부");
+  if (mafiaBoss && !mafiaBoss.alive) return { winner: "citizen", reason: "마피아 대부 사망(후계자 없음/사망)" };
+
+  const mafiaAttackers = players.filter((player) => player.alive && player.faction === "mafia" && ATTACKER_ROLES.has(player.role));
+  if (mafiaAttackers.length === 0) return { winner: "citizen", reason: "마피아 공격권자 전멸" };
+
+  const citizenAttackers = players.filter((player) => player.alive && player.faction === "citizen" && ATTACKER_ROLES.has(player.role));
+  if (citizenAttackers.length === 0) return { winner: "mafia", reason: "시민 공격권자 전멸" };
+  return null;
+}
 
 export function GameBoard() {
   const [players, setPlayers] = useState(initialPlayers);
   const [mana, setMana] = useState(20);
   const [manaTickSeconds, setManaTickSeconds] = useState(2 * 60 + 14);
+  const [gameResult, setGameResult] = useState<GameResult>(null);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
   const [effectTarget, setEffectTarget] = useState<number | null>(null);
@@ -82,11 +101,12 @@ export function GameBoard() {
   const manaTickLabel = `${String(Math.floor(manaTickSeconds / 60)).padStart(2, "0")}:${String(manaTickSeconds % 60).padStart(2, "0")}`;
 
   useEffect(() => {
+    if (gameResult) return;
     const timer = window.setInterval(() => {
       setManaTickSeconds((seconds) => Math.max(0, seconds - 1));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [gameResult]);
 
   useEffect(() => {
     if (manaTickSeconds !== 0) return;
@@ -102,7 +122,7 @@ export function GameBoard() {
   }, [selectedSkill]);
 
   function chooseSkill(skill: Skill) {
-    if (mana < skill.cost) return;
+    if (gameResult || mana < skill.cost) return;
     setSelectedTarget(null);
     setSelectedSkill(skill);
     setNotice(skill.target ? `${skill.name}: 게임판에서 대상을 선택하세요.` : `${skill.name}: 공표할 직업을 선택하세요.`);
@@ -143,7 +163,15 @@ export function GameBoard() {
     if (skill.id === "attack") {
       const hit = guessedRole === target.role;
       if (hit) {
-        setPlayers((current) => current.map((player) => player.id === target.id ? { ...player, alive: false } : player));
+        const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
+        const result = checkVictory(nextPlayers);
+        setPlayers(nextPlayers);
+        if (result) {
+          setGameResult(result);
+          setLogs((current) => [{ time: "지금", icon: "🏁", text: `게임 종료 · ${result.winner === "mafia" ? "마피아" : "시민"} 진영 승리`, tone: "danger" }, { time: "지금", icon: "✦", text: `${me.role}이 ${target.role}을 처치했습니다.`, tone: "danger" }, ...current]);
+          setNotice(`게임 종료 · ${result.reason}`);
+          return;
+        }
         setLogs((current) => [{ time: "지금", icon: "✦", text: `${me.role}이 ${target.role}을 처치했습니다.`, tone: "danger" }, ...current]);
         setNotice(`공격 명중 · ${target.name}의 실제 직업은 ${target.role}이었습니다.`);
       } else {
@@ -233,7 +261,7 @@ export function GameBoard() {
         <div className="skill-deck">
           <div className="deck-label"><span>스킬</span><small>클릭하여 사용</small></div>
           {skills.map((skill) => (
-            <button className={`skill-button ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""}`} key={skill.id} onClick={() => chooseSkill(skill)} disabled={mana < skill.cost}>
+            <button className={`skill-button ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""}`} key={skill.id} onClick={() => chooseSkill(skill)} disabled={Boolean(gameResult) || mana < skill.cost}>
               <kbd>{skill.key}</kbd><span className="skill-icon">{skill.icon}</span><strong>{skill.name}</strong><small>{skill.cost === 0 ? "무료" : `◆ ${skill.cost}`}</small>
             </button>
           ))}
@@ -249,6 +277,24 @@ export function GameBoard() {
               {modalRoles.map((role) => <button className={`role-choice ${role.faction}`} key={role.name} onClick={() => resolveSkill(selectedSkill, selectedTarget, role.name)}>{role.name}<small>{role.faction === "mafia" ? "마피아 진영" : "시민 진영"}</small></button>)}
             </div>
             <footer><span>격발 전까지 마나가 소모되지 않습니다.</span><button onClick={cancelTargeting}>취소</button></footer>
+          </section>
+        </div>
+      )}
+
+      {gameResult && (
+        <div className="game-over-backdrop">
+          <section className={`game-over-panel ${gameResult.winner}`} role="dialog" aria-modal="true" aria-label="게임 종료 결과">
+            <span className="result-kicker">GAME OVER</span>
+            <h1>{gameResult.winner === "mafia" ? "마피아 진영 승리" : "시민 진영 승리"}</h1>
+            <p>{gameResult.reason}</p>
+            <div className="final-roster">
+              {players.map((player) => (
+                <div className={player.faction} key={player.id}>
+                  <span>{player.alive ? "생존" : "사망"}</span><strong>{player.name}</strong><b>{player.role}</b><small>공표 · {player.announced}</small>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => window.location.reload()}>프로토타입 다시 시작</button>
           </section>
         </div>
       )}
