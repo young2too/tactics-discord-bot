@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Faction = "mafia" | "citizen";
 type Player = {
@@ -60,9 +60,14 @@ const seatPositions = [
   [50, 2], [75, 12], [92, 38], [78, 72], [50, 84], [22, 72], [8, 38], [25, 12],
 ];
 
+const MANA_MAX = 200;
+const MANA_TICK = 20;
+const MANA_INTERVAL_SECONDS = 3 * 60;
+
 export function GameBoard() {
   const [players, setPlayers] = useState(initialPlayers);
-  const [mana, setMana] = useState(86);
+  const [mana, setMana] = useState(20);
+  const [manaTickSeconds, setManaTickSeconds] = useState(2 * 60 + 14);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
   const [effectTarget, setEffectTarget] = useState<number | null>(null);
@@ -74,6 +79,22 @@ export function GameBoard() {
   ]);
 
   const me = players.find((player) => player.isMe)!;
+  const manaTickLabel = `${String(Math.floor(manaTickSeconds / 60)).padStart(2, "0")}:${String(manaTickSeconds % 60).padStart(2, "0")}`;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setManaTickSeconds((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (manaTickSeconds !== 0) return;
+    setMana((current) => Math.min(MANA_MAX, current + MANA_TICK));
+    setLogs((current) => [{ time: "지금", icon: "+", text: `마나 보급 · 모든 플레이어 +${MANA_TICK}`, tone: "mana" }, ...current]);
+    setNotice(`마나 보급 완료 · 마나가 ${MANA_TICK} 회복되었습니다.`);
+    setManaTickSeconds(MANA_INTERVAL_SECONDS);
+  }, [manaTickSeconds]);
   const modalRoles = useMemo(() => {
     if (!selectedSkill) return [];
     if (selectedSkill.id === "announce") return formation;
@@ -107,9 +128,11 @@ export function GameBoard() {
     setSelectedTarget(null);
 
     if (skill.id === "announce" && guessedRole) {
+      const announceGain = guessedRole === me.role ? 10 : 5;
+      setMana((current) => Math.min(MANA_MAX, current + announceGain));
       setPlayers((current) => current.map((player) => player.isMe ? { ...player, announced: guessedRole } : player));
       setLogs((current) => [{ time: "지금", icon: "⚑", text: `내가 ${guessedRole}을 공표했습니다.`, tone: "plain" }, ...current]);
-      setNotice(`${guessedRole} 공표 완료 · 진명 여부는 다른 플레이어에게 공개되지 않습니다.`);
+      setNotice(`${guessedRole} 공표 완료 · 마나 +${announceGain} · 진명 여부와 보상량은 비공개입니다.`);
       return;
     }
 
@@ -145,7 +168,7 @@ export function GameBoard() {
       <header className="topbar">
         <div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>실시간 마피아 전술전</small></div></div>
         <div className="room-status"><span className="live-dot" /> ROOM 7K2F <b>8 / 8</b></div>
-        <div className="supply"><span>다음 마나 보급</span><strong>02:14</strong><div className="supply-track"><i /></div></div>
+        <div className="supply"><span>다음 마나 보급</span><strong>{manaTickLabel}</strong><div className="supply-track"><i style={{ width: `${((MANA_INTERVAL_SECONDS - manaTickSeconds) / MANA_INTERVAL_SECONDS) * 100}%` }} /></div></div>
         <button className="sound-button" aria-label="소리 설정">♪</button>
       </header>
 
@@ -200,7 +223,7 @@ export function GameBoard() {
           <div className="panel-heading"><span>전술 정보</span><b>PRIVATE</b></div>
           <div className="role-card"><span className="role-kicker">나의 실제 직업</span><div className="role-emblem">♜</div><h2>{me.role}</h2><p>시민 진영을 제거하고 팀의 승리 조건을 완성하십시오.</p><span className="faction-tag">마피아 진영</span></div>
           <div className="private-result"><span>개인 판정</span><p>{notice}</p></div>
-          <div className="mana-block"><div><span>현재 마나</span><strong>{mana}<small>/ 200</small></strong></div><div className="mana-track"><i style={{ width: `${mana / 2}%` }} /></div></div>
+          <div className="mana-block"><div><span>현재 마나</span><strong>{mana}<small>/ {MANA_MAX}</small></strong></div><div className="mana-track"><i style={{ width: `${(mana / MANA_MAX) * 100}%` }} /></div></div>
         </aside>
       </section>
 
