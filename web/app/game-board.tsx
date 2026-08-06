@@ -51,15 +51,15 @@ const skillCatalog: Record<string, Skill> = {
   "boss-check": { id: "boss-check", key: "W", name: "보스 확인", icon: "♛", cost: 10, target: true, needsRole: false, tone: "red", cooldown: 10 },
   "detective-check": { id: "detective-check", key: "W", name: "탐정 확인", icon: "⌕", cost: 10, target: true, needsRole: false, tone: "blue", cooldown: 10 },
   support: { id: "support", key: "W", name: "지원", icon: "+", cost: 20, target: true, needsRole: false, tone: "blue", cooldown: 10 },
-  leadership: { id: "leadership", key: "W", name: "리더쉽", icon: "♜", cost: 50, target: false, needsRole: true, tone: "gold", cooldown: 10 },
+  leadership: { id: "leadership", key: "W", name: "리더쉽", icon: "⚑", cost: 50, target: false, needsRole: true, tone: "gold", cooldown: 10 },
   successor: { id: "successor", key: "E", name: "후계자 지정", icon: "♚", cost: 0, target: true, needsRole: false, tone: "gold", cooldown: 10 },
   arrest: { id: "arrest", key: "R", name: "검거", icon: "⚖", cost: 0, target: true, needsRole: false, tone: "blue", cooldown: 10 },
-  snipe: { id: "snipe", key: "R", name: "저격", icon: "⊕", cost: 150, target: true, needsRole: false, tone: "red", cooldown: 10 },
+  snipe: { id: "snipe", key: "R", name: "저격", icon: "⌾", cost: 150, target: true, needsRole: false, tone: "red", cooldown: 10 },
   revenge: { id: "revenge", key: "R", name: "복수귀", icon: "☠", cost: 150, target: true, needsRole: false, tone: "red", cooldown: 10 },
   deception: { id: "deception", key: "W", name: "기만", icon: "◈", cost: 0, target: false, needsRole: false, tone: "gold", cooldown: 0 },
   proclamation: { id: "proclamation", key: "E", name: "공문", icon: "✉", cost: 20, target: false, needsRole: false, needsText: true, tone: "blue", cooldown: 10 },
-  "ally-add": { id: "ally-add", key: "A", name: "동맹 추가", icon: "◇+", cost: 0, target: true, needsRole: false, tone: "gold", cooldown: 5 },
-  "ally-remove": { id: "ally-remove", key: "S", name: "동맹 파기", icon: "◇×", cost: 0, target: true, needsRole: false, tone: "red", cooldown: 5 },
+  "ally-add": { id: "ally-add", key: "A", name: "동맹 추가", icon: "🤝", cost: 0, target: true, needsRole: false, tone: "gold", cooldown: 5 },
+  "ally-remove": { id: "ally-remove", key: "S", name: "동맹 파기", icon: "🤝", cost: 0, target: true, needsRole: false, tone: "red", cooldown: 5 },
 };
 
 const roleSkillIds: Record<string, string[]> = {
@@ -629,7 +629,7 @@ export function GameBoard() {
         <div className="skill-deck">
           <div className="deck-label"><span>스킬</span><small>클릭하여 사용</small></div>
           {availableSkills.map((skill) => (
-            <button className={`skill-button ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${(cooldowns[skill.id] ?? 0) > 0 ? "cooling" : ""}`} key={skill.id} onClick={() => chooseSkill(skill)} disabled={Boolean(gameResult) || (cooldowns[skill.id] ?? 0) > 0}>
+            <button className={`skill-button skill-${skill.id} ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${(cooldowns[skill.id] ?? 0) > 0 ? "cooling" : ""}`} key={skill.id} onClick={() => chooseSkill(skill)} disabled={Boolean(gameResult) || (cooldowns[skill.id] ?? 0) > 0}>
               {(cooldowns[skill.id] ?? 0) > 0 && <span className="cooldown-fill" style={{ width: `${(1 - (cooldowns[skill.id] ?? 0) / skill.cooldown) * 100}%` }} />}
               <kbd>{skill.key}</kbd><span className="skill-icon">{skill.icon}</span><strong>{skill.name}</strong><small>{skill.cost === 0 ? "무료" : `◆ ${skill.cost}`}</small>
               {(cooldowns[skill.id] ?? 0) > 0 && <span className="cooldown-time">{cooldowns[skill.id]}초</span>}
