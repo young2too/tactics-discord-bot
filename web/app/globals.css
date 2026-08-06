@@ -56,6 +56,10 @@ button { font:inherit; }
 .skill-ally-remove .skill-icon::after { content:"×";position:absolute;right:-7px;top:-7px;display:grid;place-items:center;width:17px;height:17px;border:2px solid #ff6b61;border-radius:50%;background:#63201d;color:#fff;font:900 17px/13px Arial;text-shadow:0 1px 2px #000;box-shadow:0 0 8px #ff4038; }
 .skill-snipe .skill-icon { font:700 34px/34px Georgia;color:#ff7166; }
 .skill-leadership .skill-icon { font:700 31px/34px Georgia;color:#edc967;text-shadow:0 0 10px #d39b36aa;transform:skewY(-5deg); }
+.skill-announce .skill-icon { font-family:"Segoe UI Emoji",sans-serif;font-size:27px;filter:saturate(.72) brightness(1.15); }
+.skill-button.spent { opacity:.52;filter:grayscale(.8);border-color:#59636a;cursor:not-allowed;transform:none; }
+.skill-button.spent>*:not(.spent-label) { opacity:.35; }
+.spent-label { position:absolute;z-index:4;inset:0;display:grid;place-items:center;background:#152027b8;color:#d2dce1;font:800 11px monospace;letter-spacing:.08em;text-shadow:0 1px 4px #000; }
 
 @media (max-width:760px) {
   .topbar { height:62px;padding:0 14px; }

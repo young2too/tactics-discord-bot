@@ -41,7 +41,7 @@ const initialPlayers: Player[] = [
 ];
 
 const skillCatalog: Record<string, Skill> = {
-  announce: { id: "announce", key: "Q", name: "공표", icon: "⚑", cost: 0, target: false, needsRole: true, tone: "gold", cooldown: 90 },
+  announce: { id: "announce", key: "Q", name: "공표", icon: "📋", cost: 0, target: false, needsRole: true, tone: "gold", cooldown: 90 },
   "ally-check": { id: "ally-check", key: "W", name: "아군 확인", icon: "◉", cost: 5, target: true, needsRole: false, tone: "blue", cooldown: 10 },
   "enemy-check": { id: "enemy-check", key: "W", name: "적군 확인", icon: "◉", cost: 5, target: true, needsRole: false, tone: "blue", cooldown: 10 },
   "ally-scan": { id: "ally-scan", key: "E", name: "아군 스캔", icon: "⌁", cost: 15, target: true, needsRole: true, tone: "blue", cooldown: 10 },
@@ -629,10 +629,11 @@ export function GameBoard() {
         <div className="skill-deck">
           <div className="deck-label"><span>스킬</span><small>클릭하여 사용</small></div>
           {availableSkills.map((skill) => (
-            <button className={`skill-button skill-${skill.id} ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${(cooldowns[skill.id] ?? 0) > 0 ? "cooling" : ""}`} key={skill.id} onClick={() => chooseSkill(skill)} disabled={Boolean(gameResult) || (cooldowns[skill.id] ?? 0) > 0}>
+            <button className={`skill-button skill-${skill.id} ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${(cooldowns[skill.id] ?? 0) > 0 ? "cooling" : ""} ${skill.id === "leadership" && usedOnce.leadership ? "spent" : ""}`} key={skill.id} onClick={() => chooseSkill(skill)} disabled={Boolean(gameResult) || (cooldowns[skill.id] ?? 0) > 0 || (skill.id === "leadership" && Boolean(usedOnce.leadership))}>
               {(cooldowns[skill.id] ?? 0) > 0 && <span className="cooldown-fill" style={{ width: `${(1 - (cooldowns[skill.id] ?? 0) / skill.cooldown) * 100}%` }} />}
               <kbd>{skill.key}</kbd><span className="skill-icon">{skill.icon}</span><strong>{skill.name}</strong><small>{skill.cost === 0 ? "무료" : `◆ ${skill.cost}`}</small>
-              {(cooldowns[skill.id] ?? 0) > 0 && <span className="cooldown-time">{cooldowns[skill.id]}초</span>}
+              {(cooldowns[skill.id] ?? 0) > 0 && !(skill.id === "leadership" && usedOnce.leadership) && <span className="cooldown-time">{cooldowns[skill.id]}초</span>}
+              {skill.id === "leadership" && usedOnce.leadership && <span className="spent-label">사용 완료</span>}
             </button>
           ))}
         </div>
