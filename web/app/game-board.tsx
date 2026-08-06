@@ -287,9 +287,10 @@ export function GameBoard() {
     }
 
     if (!target) return;
-    const publicEffectType = skill.id.includes("scan") ? "scan" : skill.id.includes("attack") || skill.id === "snipe" || skill.id === "revenge" ? "attack" : "inspect";
-    setEffectTarget({ id: target.id, type: publicEffectType });
-    window.setTimeout(() => setEffectTarget(null), 1400);
+    const inspectSkills = ["ally-scan", "enemy-scan", "ally-check", "enemy-check", "boss-check", "detective-check"];
+    const attackSkills = ["upper-attack", "lower-attack", "snipe", "revenge", "arrest"];
+    const publicEffectType = inspectSkills.includes(skill.id) ? "inspect" : attackSkills.includes(skill.id) ? "attack" : null;
+    if (publicEffectType) { setEffectTarget({ id: target.id, type: publicEffectType }); window.setTimeout(() => setEffectTarget(null), 1400); }
 
     if (skill.id === "ally-scan" || skill.id === "enemy-scan") {
       const hit = guessedRole === target.role;

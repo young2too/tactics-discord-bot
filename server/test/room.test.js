@@ -124,6 +124,7 @@ test("snipe command result is public while its target stays private", () => {
   const wrongTarget = room.join({ nickname: "wrong", socket: {} });
   room.start(boss.id); boss.role = "마피아대부"; wrongTarget.role = "자경단원";
   room.act(boss.id, { skillId: "snipe-command", targetId: wrongTarget.id });
+  assert.equal(room.effect, null);
   assert.equal(room.logs.at(-1).text, "마피아대부의 저격명령이 실패했습니다.");
   assert.doesNotMatch(room.logs.at(-1).text, /wrong|히트맨|자경단원/);
   assert.match(boss.privateLogs.at(-1).text, /실패/);
