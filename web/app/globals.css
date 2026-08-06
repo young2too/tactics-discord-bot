@@ -133,3 +133,11 @@ html,body { background:#142029; }
 .identity span,.identity small,.hint small,.deck-label small { color:#9dafba; }.hint strong { color:#dce5ea; }
 .skill-button { border-color:#586d79;background:linear-gradient(145deg,#30434e,#21313a);color:#d2dde3; }.skill-button small { color:#a3b7c1; }.skill-button kbd { color:#afc0c8; }
 .role-modal { background:linear-gradient(145deg,#2b3e49,#1b2a33); }.target-summary { background:#21333d; }.role-grid button { background:#263943;color:#d4dfe4; }
+
+@media (min-width:761px) {
+  .mode-banner { top:50%;transform:translate(-50%,-50%);min-width:310px;max-width:42%;padding:14px 18px;border:1px solid #66808d;background:#1d3039e8;box-shadow:0 10px 30px #07101580,inset 0 0 22px #ffffff08;backdrop-filter:blur(4px);pointer-events:none; }
+  .mode-banner span { color:#a9bdc7; }
+  .mode-banner strong { color:#edf4f7;font-size:13px;line-height:1.45; }
+  .mode-banner button { position:relative;z-index:1;pointer-events:auto;border-color:#718995;background:#2b414b;color:#e1ebef; }
+  .table-core .round-label,.table-core>strong,.table-core>small { visibility:hidden; }
+}
