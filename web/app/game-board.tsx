@@ -8,9 +8,11 @@ import { CommunicationPanel, DebugLobby, PrivateRolePanel, SkillDeck } from "../
 import { Battlefield } from "../components/battlefield";
 import { GameOverModal, ProclamationModal, RoleChoiceModal } from "../components/game-modals";
 import { ModeLobby, MultiplayerLobby } from "../components/multiplayer-lobby";
+import { FirstVisitPrompt, TrainingCenter } from "../components/tutorial";
 
 export function GameBoard() {
-  const [entryMode, setEntryMode] = useState<"choose" | "debug" | "multiplayer">("choose");
+  const [entryMode, setEntryMode] = useState<"choose" | "debug" | "multiplayer" | "tutorial">("choose");
+  const [firstVisit, setFirstVisit] = useState<boolean | null>(null);
   const [started, setStarted] = useState(false);
   const [playerCount, setPlayerCount] = useState(8);
   const [debugRole, setDebugRole] = useState("마피아일원");
@@ -46,6 +48,16 @@ export function GameBoard() {
   const mySeatIndex = players.findIndex((player) => player.isMe);
   const manaTickLabel = `${String(Math.floor(manaTickSeconds / 60)).padStart(2, "0")}:${String(manaTickSeconds % 60).padStart(2, "0")}`;
   const availableSkills = useMemo(() => [skillCatalog.announce, ...(roleSkillIds[me.role] ?? []).map((id) => skillCatalog[id]), skillCatalog["ally-add"], skillCatalog["ally-remove"]].map((skill, index) => ({ ...skill, key: ["Q", "W", "E", "R", "T", "Y"][index] ?? String(index + 1) })), [me.role]);
+
+  useEffect(() => {
+    setFirstVisit(!localStorage.getItem("tactics-onboarding-dismissed") && !localStorage.getItem("tactics-tutorial-complete"));
+  }, []);
+
+  function finishOnboarding(nextMode: "choose" | "tutorial") {
+    localStorage.setItem("tactics-onboarding-dismissed", "true");
+    setFirstVisit(false);
+    setEntryMode(nextMode);
+  }
 
   function setNotice(message: string) {
     setNoticeState(message);
@@ -460,7 +472,10 @@ export function GameBoard() {
   }
 
   if (!started) {
-    if (entryMode === "choose") return <ModeLobby onDebug={() => setEntryMode("debug")} onMultiplayer={() => setEntryMode("multiplayer")} />;
+    if (firstVisit === null) return <main className="welcome-gate loading"><span>TACTICS</span></main>;
+    if (firstVisit) return <FirstVisitPrompt onTutorial={() => finishOnboarding("tutorial")} onSkip={() => finishOnboarding("choose")} />;
+    if (entryMode === "tutorial") return <TrainingCenter onExit={() => setEntryMode("choose")} />;
+    if (entryMode === "choose") return <ModeLobby onDebug={() => setEntryMode("debug")} onMultiplayer={() => setEntryMode("multiplayer")} onTutorial={() => setEntryMode("tutorial")} />;
     if (entryMode === "multiplayer") return <MultiplayerLobby />;
     return <DebugLobby playerCount={playerCount} debugRole={debugRole} setPlayerCount={setPlayerCount} setDebugRole={setDebugRole} onStart={startDebugGame} />;
   }

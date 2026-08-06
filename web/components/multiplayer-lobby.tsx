@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMultiplayerRoom } from "../hooks/use-multiplayer-room";
 import { MultiplayerGame } from "./multiplayer-game";
 
-export function ModeLobby({ onDebug, onMultiplayer }: { onDebug: () => void; onMultiplayer: () => void }) {
+export function ModeLobby({ onDebug, onMultiplayer, onTutorial }: { onDebug: () => void; onMultiplayer: () => void; onTutorial: () => void }) {
   return <main className="debug-lobby"><section className="lobby-card mode-card">
     <span className="result-kicker">TACTICS WEB</span>
     <h1>게임 모드 선택</h1>
@@ -12,6 +12,7 @@ export function ModeLobby({ onDebug, onMultiplayer }: { onDebug: () => void; onM
     <div className="mode-actions">
       <button className="start-debug" onClick={onMultiplayer}>멀티플레이 입장</button>
       <button className="secondary-mode" onClick={onDebug}>AI 디버그 게임</button>
+      <button className="secondary-mode tutorial-mode" onClick={onTutorial}>전술 튜토리얼</button>
     </div>
   </section></main>;
 }
