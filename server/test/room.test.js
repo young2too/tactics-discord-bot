@@ -151,30 +151,32 @@ test("both sides receive distinct alliance and shared hostility notifications", 
   assert.equal(room.snapshotFor(target).notification.tone, "hostile");
 });
 
-test("a living captain with an unused arrest prevents mafia victory after citizen attackers die", () => {
+test("a living captain always prevents an attacker-extinction victory", () => {
   const players = [
     { role: "마피아대부", alive: true }, { role: "마피아일원", alive: true },
     { role: "경찰반장", alive: true }, { role: "자경단원", alive: false }, { role: "순찰경찰", alive: false },
   ];
   assert.equal(checkVictory(players, null), null);
+  // A used arrest is already a terminal game state. Even malformed restored data
+  // must not reinterpret a living captain as having no remaining victory route.
   players.find((player) => player.role === "경찰반장").usedOnce = { arrest: true };
-  assert.deepEqual(checkVictory(players, null), { winner: "mafia", reason: "시민의 남은 처치 수단 소진" });
+  assert.equal(checkVictory(players, null), null);
 });
 
 test("unused revenge and a viable snipe command chain count as comeback threats", () => {
   const base = [
     { role: "마피아대부", alive: true, usedOnce: {} }, { role: "히트맨", alive: true, usedOnce: {}, snipeAuthorized: false },
-    { role: "경찰반장", alive: true, usedOnce: { arrest: true } }, { role: "남자연인", alive: true, usedOnce: {} },
+    { role: "경찰반장", alive: true, usedOnce: {} }, { role: "남자연인", alive: true, usedOnce: {} },
     { role: "자경단원", alive: false }, { role: "순찰경찰", alive: false },
     { id: 6, role: "마피아후계자", alive: true },
   ];
   assert.equal(checkVictory(base, null), null);
   base.find((player) => player.role === "남자연인").usedOnce.revenge = true;
-  assert.deepEqual(checkVictory(base, null), { winner: "mafia", reason: "시민의 남은 처치 수단 소진" });
+  assert.equal(checkVictory(base, null), null);
   const mafiaOnlySnipe = base.map((player) => ({ ...player, usedOnce: { ...(player.usedOnce ?? {}) } }));
   mafiaOnlySnipe.find((player) => player.role === "마피아대부").alive = false;
   mafiaOnlySnipe.find((player) => player.role === "히트맨").snipeAuthorized = true;
-  assert.deepEqual(checkVictory(mafiaOnlySnipe, 6), { winner: "mafia", reason: "시민의 남은 처치 수단 소진" });
+  assert.equal(checkVictory(mafiaOnlySnipe, 6), null);
   mafiaOnlySnipe.find((player) => player.role === "히트맨").usedOnce.snipe = true;
   assert.deepEqual(checkVictory(mafiaOnlySnipe, 6), { winner: "citizen", reason: "마피아의 남은 처치 수단 소진" });
 });

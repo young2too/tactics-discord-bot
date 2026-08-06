@@ -13,7 +13,9 @@ export function checkVictory(players, successorId) {
   const mafiaThreatAlive = Boolean(bossAlive || alive("마피아일원") || hitmanCanSnipe);
   if (!mafiaThreatAlive) return { winner: "citizen", reason: "마피아의 남은 처치 수단 소진" };
   const captainThreat = alive("경찰반장");
-  const arrestAvailable = Boolean(captainThreat && !captainThreat.usedOnce?.arrest);
+  // 검거는 성공과 실패 모두 즉시 게임을 끝낸다. 따라서 승패가 정해지지 않은
+  // 상태에서 살아 있는 경찰반장의 검거가 이미 소진된 경우는 존재할 수 없다.
+  const arrestAvailable = Boolean(captainThreat);
   const revengeAvailable = players.some((player) => player.alive && ["남자연인", "여자연인"].includes(player.role) && !player.usedOnce?.revenge);
   const citizenThreatAlive = Boolean(alive("자경단원") || alive("순찰경찰") || arrestAvailable || revengeAvailable);
   if (!citizenThreatAlive) return { winner: "mafia", reason: "시민의 남은 처치 수단 소진" };
