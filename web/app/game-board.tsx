@@ -159,7 +159,7 @@ export function GameBoard() {
   const [notice, setNotice] = useState("상급 공격을 준비하려면 우하단 스킬을 선택하세요.");
   const [logs, setLogs] = useState([
     { time: "21:08", icon: "⚑", text: "윤서가 경찰반장을 공표했습니다.", tone: "plain" },
-    { time: "21:07", icon: "◉", text: "누군가 민준을 살피고 있습니다.", tone: "scan" },
+    { time: "21:07", icon: "🔍", text: "누군가 민준을 살피고 있습니다.", tone: "scan" },
     { time: "21:05", icon: "+", text: "마나 보급 · 모든 플레이어 +20", tone: "mana" },
   ]);
 
@@ -235,7 +235,7 @@ export function GameBoard() {
         setBotMana((current) => ({ ...current, [actor.id]: (current[actor.id] ?? 20) - 5 }));
         setEffectTarget({ id: target.id, type: effectType });
         window.setTimeout(() => setEffectTarget(null), 1400);
-        setLogs((current) => [{ time: "지금", icon: "◉", text: `누군가 ${target.name}을 ${effectType === "scan" ? "스캔하고" : "살피고"} 있습니다.`, tone: "scan" }, ...current]);
+        setLogs((current) => [{ time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
       }
     }, 2800);
     return () => window.clearTimeout(timer);
@@ -401,7 +401,7 @@ export function GameBoard() {
 
     if (skill.id === "ally-scan" || skill.id === "enemy-scan") {
       const hit = guessedRole === target.role;
-      setLogs((current) => [{ time: "지금", icon: "⌁", text: `누군가 ${target.name}을 스캔하고 있습니다.`, tone: "scan" }, ...current]);
+      setLogs((current) => [{ time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
       setNotice(hit ? `스캔 성공 · ${target.name}은(는) ${target.role}입니다.` : `스캔 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.`);
       return;
     }
@@ -509,7 +509,7 @@ export function GameBoard() {
       return;
     }
 
-    setLogs((current) => [{ time: "지금", icon: "◉", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
+    setLogs((current) => [{ time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
     const spyFooled = skill.id === "ally-check" && target.role === "스파이" && target.faction === "mafia" && factionOf(target.announced) === "citizen" && me.faction === "citizen";
     setNotice(`${target.name}의 공표는 ${spyFooled || target.announced === target.role ? "진명" : "가명"}입니다.`);
   }
