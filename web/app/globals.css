@@ -60,6 +60,13 @@ button { font:inherit; }
 .skill-button.spent { opacity:.52;filter:grayscale(.8);border-color:#59636a;cursor:not-allowed;transform:none; }
 .skill-button.spent>*:not(.spent-label) { opacity:.35; }
 .spent-label { position:absolute;z-index:4;inset:0;display:grid;place-items:center;background:#152027b8;color:#d2dce1;font:800 11px monospace;letter-spacing:.08em;text-shadow:0 1px 4px #000; }
+.player-seat.attack-effect { animation:hitFlash .9s ease; }
+.player-seat.inspect-effect,.player-seat.scan-effect { border-color:#6fd4f5;box-shadow:0 0 0 2px #4abce455,0 0 30px #30aedeaa; }
+.public-action-effect { position:absolute;z-index:8;left:50%;top:-42px;width:42px;height:42px;transform:translateX(-50%);display:grid;place-items:center;border:1px solid #7bdcff;border-radius:50%;background:#173d4bea;color:#bceeff;box-shadow:0 0 22px #34bce8;pointer-events:none;animation:publicEye 1.4s ease-out both; }
+.public-action-effect b { z-index:2;font-size:24px;line-height:1;text-shadow:0 0 10px #7ee6ff; }.public-action-effect i { position:absolute;inset:-6px;border:1px solid #67d9ff;border-radius:50%;animation:eyeWave 1.4s ease-out infinite; }.public-action-effect i:last-child { animation-delay:.3s; }.public-action-effect.scan { border-radius:4px;color:#e0f8ff; }.public-action-effect.scan::after { content:"";position:absolute;left:4px;right:4px;top:5px;height:2px;background:#9aebff;box-shadow:0 0 8px #fff;animation:scanLine 1s ease-in-out infinite alternate; }
+@keyframes publicEye { 0% { opacity:0;transform:translateX(-50%) translateY(8px) scale(.65); } 18%,78% { opacity:1;transform:translateX(-50%) translateY(0) scale(1); } 100% { opacity:0;transform:translateX(-50%) translateY(-5px) scale(1.1); } }
+@keyframes eyeWave { from { opacity:.8;transform:scale(.7); } to { opacity:0;transform:scale(1.55); } }
+@keyframes scanLine { from { transform:translateY(0); } to { transform:translateY(29px); } }
 
 @media (max-width:760px) {
   .topbar { height:62px;padding:0 14px; }

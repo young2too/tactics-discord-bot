@@ -155,7 +155,7 @@ export function GameBoard() {
   const [skillText, setSkillText] = useState("");
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
-  const [effectTarget, setEffectTarget] = useState<number | null>(null);
+  const [effectTarget, setEffectTarget] = useState<{ id: number; type: "inspect" | "scan" | "attack" } | null>(null);
   const [notice, setNotice] = useState("상급 공격을 준비하려면 우하단 스킬을 선택하세요.");
   const [logs, setLogs] = useState([
     { time: "21:08", icon: "⚑", text: "윤서가 경찰반장을 공표했습니다.", tone: "plain" },
@@ -231,8 +231,11 @@ export function GameBoard() {
       const inspectTargets = players.filter((player) => player.alive && player.id !== actor.id && player.announced !== "미공표");
       if (currentMana >= 5 && inspectTargets.length > 0) {
         const target = inspectTargets[Math.floor(Math.random() * inspectTargets.length)];
+        const effectType = ["히트맨", "마피아후계자", "사립탐정"].includes(actor.role) ? "scan" : "inspect";
         setBotMana((current) => ({ ...current, [actor.id]: (current[actor.id] ?? 20) - 5 }));
-        setLogs((current) => [{ time: "지금", icon: "◉", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
+        setEffectTarget({ id: target.id, type: effectType });
+        window.setTimeout(() => setEffectTarget(null), 1400);
+        setLogs((current) => [{ time: "지금", icon: "◉", text: `누군가 ${target.name}을 ${effectType === "scan" ? "스캔하고" : "살피고"} 있습니다.`, tone: "scan" }, ...current]);
       }
     }, 2800);
     return () => window.clearTimeout(timer);
@@ -392,8 +395,9 @@ export function GameBoard() {
     }
 
     if (!target) return;
-    setEffectTarget(target.id);
-    window.setTimeout(() => setEffectTarget(null), 900);
+    const publicEffectType = skill.id.includes("scan") ? "scan" : skill.id.includes("attack") || skill.id === "snipe" || skill.id === "revenge" ? "attack" : "inspect";
+    setEffectTarget({ id: target.id, type: publicEffectType });
+    window.setTimeout(() => setEffectTarget(null), 1400);
 
     if (skill.id === "ally-scan" || skill.id === "enemy-scan") {
       const hit = guessedRole === target.role;
@@ -597,13 +601,14 @@ export function GameBoard() {
               const untargetable = Boolean(selectedSkill?.target && !selectable);
               return (
                 <button
-                  className={`player-seat ${player.alive ? "alive" : "dead"} ${player.isMe ? "me" : ""} ${selectable ? "selectable" : ""} ${untargetable ? "untargetable" : ""} ${effectTarget === player.id ? "hit-effect" : ""}`}
+                  className={`player-seat ${player.alive ? "alive" : "dead"} ${player.isMe ? "me" : ""} ${selectable ? "selectable" : ""} ${untargetable ? "untargetable" : ""} ${effectTarget?.id === player.id ? `${effectTarget.type}-effect` : ""}`}
                   style={{ left: `${left}%`, top: `${top}%` }}
                   key={player.id}
                   onClick={() => chooseTarget(player)}
                   disabled={Boolean(selectedSkill?.target) && !selectable}
                 >
                   <span className="seat-pointer" /><span className="seat-number">{player.id}</span>
+                  {effectTarget?.id === player.id && effectTarget.type !== "attack" && <span className={`public-action-effect ${effectTarget.type}`} aria-label={effectTarget.type === "scan" ? "스캔당하는 중" : "확인당하는 중"}><b>◉</b><i /><i /></span>}
                   <span className="portrait"><span className="portrait-art" style={portraitStyle(player.role)} />{!player.alive && <b>☠</b>}</span>
                   <span className="player-copy"><strong>{player.name}{player.isMe && <em>YOU</em>}</strong><small>공표 · <b className={`${factionOf(player.announced)}-text`}>{player.announced}</b></small><small className={`revealed-role ${factionOf(player.role)}-text`}>실제 · {player.role}</small></span>
                   <span className={`life-state ${player.alive ? "" : "down"}`}>{player.alive ? "생존" : "사망 · 직업 공개"}</span>
