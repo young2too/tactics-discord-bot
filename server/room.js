@@ -22,7 +22,7 @@ export class SingleRoom {
     this.players.push(player); if (this.hostId === null) this.hostId = player.id; this.totalPlayers = Math.max(this.totalPlayers, this.players.length); return player;
   }
   createPlayer(id, nickname, isBot, socket = null, ownerToken = null) {
-    return { id, nickname, ownerToken, socket, connected: true, isBot, aiControlled: isBot, alive: true, role: null, announced: "미공표", mana: 20, cooldowns: {}, usedOnce: {}, alliances: new Set(), privateLogs: [], lowAttackFails: 0, whisper: null, verdict: null, snipeAuthorized: false };
+    return { id, nickname, ownerToken, socket, connected: true, isBot, aiControlled: isBot, alive: true, role: null, announced: "미공표", mana: 20, cooldowns: {}, usedOnce: {}, alliances: new Set(), privateLogs: [], lowAttackFails: 0, whisper: null, verdict: null, notification: null, snipeAuthorized: false };
   }
   disconnect(socket) {
     const player = this.players.find((entry) => entry.socket === socket); if (!player) return;
@@ -92,7 +92,15 @@ export class SingleRoom {
     if (skillId === "deception") { this.private(actor, "기만은 지속 효과입니다. 시민 직업 공표 시 시민의 아군 확인을 속입니다."); return; }
     if (skillId === "leadership") { const match = this.players.find((player) => player.alive && player.role === guessedRole); this.private(actor, match ? `리더십 결과 · ${guessedRole}은(는) ${match.id}번 ${match.nickname}` : `리더십 결과 · 생존한 ${guessedRole} 없음`); return; }
     if (skillId === "proclamation") { if (!text) throw new Error("공문 내용을 입력하세요."); this.chats.push({ id: this.now(), from: actor.id, text: `[공문] ${text}`, channel: "public" }); this.addLog("📢", `공무원 공문 · ${text}`, "plain"); return; }
-    if (skillId === "ally-add" || skillId === "ally-remove") { const adding = skillId === "ally-add"; if (adding) { actor.alliances.add(target.id); target.alliances.add(actor.id); } else { actor.alliances.delete(target.id); target.alliances.delete(actor.id); } this.private(actor, `${target.id}번 ${target.nickname}과(와) 동맹을 ${adding ? "맺었습니다" : "파기했습니다"}.`); this.private(target, `${actor.id}번 ${actor.nickname}이(가) 동맹을 ${adding ? "맺었습니다" : "파기했습니다"}.`); return; }
+    if (skillId === "ally-add" || skillId === "ally-remove") {
+      const adding = skillId === "ally-add";
+      if (adding) { actor.alliances.add(target.id); target.alliances.add(actor.id); } else { actor.alliances.delete(target.id); target.alliances.delete(actor.id); }
+      const actorMessage = adding ? `${target.id}번 ${target.nickname}와 동맹이 되었습니다.` : `${target.id}번 ${target.nickname}와 적대관계가 되었습니다.`;
+      const targetMessage = adding ? `${actor.id}번 ${actor.nickname}에게 동맹을 받았습니다.` : `${actor.id}번 ${actor.nickname}와 적대관계가 되었습니다.`;
+      this.private(actor, actorMessage); this.private(target, targetMessage);
+      this.notify(actor, adding ? "동맹 체결" : "동맹 파기", actorMessage, adding ? "alliance" : "hostile");
+      this.notify(target, adding ? "동맹 요청 수신" : "동맹 파기", targetMessage, adding ? "alliance" : "hostile"); return;
+    }
     if (["ally-scan", "enemy-scan"].includes(skillId)) { this.effect = { id: target.id, type: "inspect", until: this.now() + 1500 }; const hit = guessedRole === target.role; const message = hit ? `${target.nickname}은(는) ${target.role}입니다.` : `${target.nickname}은(는) ${guessedRole}이(가) 아닙니다.`; this.addLog("🔎", `누군가가 ${target.nickname}을(를) 살피고 있습니다.`, "scan"); this.private(actor, `스캔 ${hit ? "성공" : "실패"} · ${message}`); this.verdict(actor, "스캔 판정", hit, message); return; }
     if (["ally-check", "enemy-check"].includes(skillId)) { this.effect = { id: target.id, type: "inspect", until: this.now() + 1500 }; const fooled = skillId === "ally-check" && target.role === "스파이" && factionOf(target.announced) === "citizen" && factionOf(actor.role) === "citizen"; const hit = fooled || target.announced === target.role; const message = `${target.nickname}의 ${target.announced} 공표는 ${hit ? "진명" : "가명"}입니다.`; this.addLog("🔎", `누군가가 ${target.nickname}을(를) 살피고 있습니다.`, "scan"); this.private(actor, message); this.verdict(actor, "공표 확인", hit, message); return; }
     if (skillId === "boss-check" || skillId === "detective-check") { this.effect = { id: target.id, type: "inspect", until: this.now() + 1500 }; const role = skillId === "boss-check" ? "마피아대부" : "사립탐정"; const hit = target.role === role; const message = `${target.nickname}은(는) ${role}${hit ? "이 맞습니다" : "이 아닙니다"}.`; this.private(actor, message); this.verdict(actor, "직업 확인", hit, message); return; }
@@ -159,6 +167,7 @@ export class SingleRoom {
       snipeAuthorized: viewer.snipeAuthorized,
       effect: this.effect && this.effect.until > current ? { id: this.effect.id, type: this.effect.type } : null,
       verdict: viewer.verdict && viewer.verdict.until > current ? { id: viewer.verdict.id, title: viewer.verdict.title, success: viewer.verdict.success, message: viewer.verdict.message } : null,
+      notification: viewer.notification && viewer.notification.until > current ? { id: viewer.notification.id, title: viewer.notification.title, message: viewer.notification.message, tone: viewer.notification.tone } : null,
       whisper: viewer.whisper && viewer.whisper.until > current ? { from: viewer.whisper.from, to: viewer.whisper.to, text: viewer.whisper.text } : null,
       chats: this.chats.filter((chat) => chat.channel === "public" || chat.recipients?.includes(viewer.id)).map(({ recipients, ...chat }) => chat),
       players: this.players.map((player) => ({ id: player.id, nickname: player.nickname, connected: player.connected, isBot: player.isBot, aiControlled: player.aiControlled, alive: player.alive, announced: player.announced, faction: player.id === viewer.id || !player.alive || this.result ? factionOf(player.role) : null, role: player.id === viewer.id || !player.alive || this.result ? player.role : null })),
@@ -167,6 +176,7 @@ export class SingleRoom {
   addLog(icon, text, tone) { this.logs.push({ time: nowLabel(), icon, text, tone }); this.logs = this.logs.slice(-60); }
   private(player, text) { player.privateLogs.push({ time: nowLabel(), text }); player.privateLogs = player.privateLogs.slice(-40); }
   verdict(player, title, success, message) { player.verdict = { id: this.now() + this.random(), title, success, message, until: this.now() + 4500 }; }
+  notify(player, title, message, tone) { player.notification = { id: this.now() + this.random(), title, message, tone, until: this.now() + 4500 }; }
   player(id) { const player = this.players.find((entry) => entry.id === id); if (!player) throw new Error("플레이어를 찾을 수 없습니다."); return player; }
   assertGame() { if (this.phase !== "game" || this.result) throw new Error("진행 중인 게임이 없습니다."); }
   nextSeat() { for (let id = 1; id <= 13; id += 1) if (!this.players.some((player) => player.id === id)) return id; throw new Error("빈 좌석이 없습니다."); }

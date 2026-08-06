@@ -129,3 +129,23 @@ test("snipe command result is public while its target stays private", () => {
   assert.doesNotMatch(room.logs.at(-1).text, /wrong|히트맨|자경단원/);
   assert.match(boss.privateLogs.at(-1).text, /실패/);
 });
+
+test("both sides receive distinct alliance and shared hostility notifications", () => {
+  let now = 1_000;
+  const room = new SingleRoom({ now: () => now, random: () => 0.5 });
+  const actor = room.join({ nickname: "alpha", socket: {} });
+  const target = room.join({ nickname: "beta", socket: {} });
+  room.start(actor.id);
+  room.act(actor.id, { skillId: "ally-add", targetId: target.id });
+  assert.equal(actor.privateLogs.at(-1).text, `${target.id}번 beta와 동맹이 되었습니다.`);
+  assert.equal(target.privateLogs.at(-1).text, `${actor.id}번 alpha에게 동맹을 받았습니다.`);
+  assert.equal(room.snapshotFor(actor).notification.tone, "alliance");
+  assert.equal(room.snapshotFor(target).notification.tone, "alliance");
+  assert.equal(actor.alliances.has(target.id), true); assert.equal(target.alliances.has(actor.id), true);
+  now += 6_000;
+  room.act(actor.id, { skillId: "ally-remove", targetId: target.id });
+  assert.equal(actor.privateLogs.at(-1).text, `${target.id}번 beta와 적대관계가 되었습니다.`);
+  assert.equal(target.privateLogs.at(-1).text, `${actor.id}번 alpha와 적대관계가 되었습니다.`);
+  assert.equal(room.snapshotFor(actor).notification.tone, "hostile");
+  assert.equal(room.snapshotFor(target).notification.tone, "hostile");
+});

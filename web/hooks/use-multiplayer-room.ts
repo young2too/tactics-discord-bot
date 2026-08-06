@@ -21,6 +21,7 @@ export type RoomState = {
   effect?: { id: number; type: "inspect" | "attack" } | null;
   whisper?: { from: number; to: number; text: string } | null;
   verdict?: { id: number; title: string; success: boolean; message: string } | null;
+  notification?: { id: number; title: string; message: string; tone: "alliance" | "hostile" } | null;
   result?: { winner: "mafia" | "citizen"; reason: string } | null;
   players: {
     id: number;
