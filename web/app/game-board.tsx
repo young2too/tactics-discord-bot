@@ -113,6 +113,7 @@ export function GameBoard() {
   ]);
 
   const me = players.find((player) => player.isMe)!;
+  const mySeatIndex = players.findIndex((player) => player.isMe);
   const manaTickLabel = `${String(Math.floor(manaTickSeconds / 60)).padStart(2, "0")}:${String(manaTickSeconds % 60).padStart(2, "0")}`;
 
   useEffect(() => {
@@ -246,7 +247,8 @@ export function GameBoard() {
               <strong>8</strong><small>플레이어</small>
             </div>
             {players.map((player, index) => {
-              const [left, top] = seatPositions[index];
+              const rotatedSeatIndex = (index - mySeatIndex + 4 + players.length) % players.length;
+              const [left, top] = seatPositions[rotatedSeatIndex];
               const selectable = Boolean(selectedSkill?.target && isTargetable(player, selectedSkill));
               const untargetable = Boolean(selectedSkill?.target && !selectable);
               return (
