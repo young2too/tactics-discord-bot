@@ -28,6 +28,7 @@ export function GameBoard() {
   const [usedOnce, setUsedOnce] = useState<Record<string, boolean>>({});
   const [lowAttackFails, setLowAttackFails] = useState(0);
   const [successorId, setSuccessorId] = useState<number | null>(null);
+  const [snipeAuthorized, setSnipeAuthorized] = useState(false);
   const [skillText, setSkillText] = useState("");
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
@@ -157,6 +158,7 @@ export function GameBoard() {
     setUsedOnce({});
     setLowAttackFails(0);
     setSuccessorId(null);
+    setSnipeAuthorized(false);
     setSkillText("");
     setLogs([{ time: "지금", icon: "◆", text: `${playerCount}인 디버그 게임이 시작되었습니다.`, tone: "plain" }]);
     setPrivateLogs([{ time: "지금", text: "직업이 배정되었습니다. 먼저 직업을 공표하세요." }]);
@@ -166,7 +168,7 @@ export function GameBoard() {
 
   function chooseSkill(skill: Skill) {
     if (gameResult || (cooldowns[skill.id] ?? 0) > 0) return;
-    if (["leadership", "successor", "arrest", "snipe", "revenge"].includes(skill.id) && usedOnce[skill.id]) {
+    if (["leadership", "successor", "snipe-command", "arrest", "snipe", "revenge"].includes(skill.id) && usedOnce[skill.id]) {
       setNotice(`${skill.name}은(는) 게임 중 1회만 사용할 수 있습니다.`);
       return;
     }
@@ -179,6 +181,7 @@ export function GameBoard() {
       const partner = players.find((player) => player.role === partnerRole);
       if (!partner || partner.alive) { setNotice("상대 연인이 사망한 뒤에만 복수귀가 활성화됩니다."); return; }
     }
+    if (skill.id === "snipe" && !snipeAuthorized) { setNotice("마피아대부의 저격명령을 받은 뒤 저격을 사용할 수 있습니다."); return; }
     if (skill.id === "deception") { setNotice("기만은 패시브입니다. 시민 직업을 공표하면 시민의 아군 확인을 속입니다."); return; }
     setSelectedTarget(null);
     setSelectedSkill(skill);
@@ -346,6 +349,19 @@ export function GameBoard() {
       return;
     }
 
+    if (skill.id === "snipe-command") {
+      setUsedOnce((current) => ({ ...current, "snipe-command": true }));
+      if (target.role === "히트맨") {
+        setSnipeAuthorized(true);
+        setNotice(`저격명령 성공 · ${target.id}번 ${target.name}의 저격이 활성화되었습니다.`);
+        setLogs((current) => [...current, { time: "지금", icon: "⚑", text: "마피아대부가 저격명령을 내렸습니다.", tone: "danger" }]);
+      } else {
+        setNotice(`저격명령 실패 · ${target.name}은(는) 히트맨이 아닙니다.`);
+        setLogs((current) => [...current, { time: "지금", icon: "⚑", text: "마피아대부의 저격명령이 실패했습니다.", tone: "danger" }]);
+      }
+      return;
+    }
+
     if (skill.id === "arrest") {
       setUsedOnce((current) => ({ ...current, arrest: true }));
       if (target.role !== "마피아대부") {
@@ -367,6 +383,7 @@ export function GameBoard() {
 
     if (skill.id === "snipe" || skill.id === "revenge") {
       setUsedOnce((current) => ({ ...current, [skill.id]: true }));
+      if (skill.id === "snipe") setSnipeAuthorized(false);
       const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
       setPlayers(nextPlayers);
       setLogs((current) => [...current, { time: "지금", icon: "☠", text: `${skill.name} 발동 · ${target.name}(${target.role}) 사망`, tone: "danger" }]);
@@ -433,7 +450,7 @@ export function GameBoard() {
         <PrivateRolePanel me={me} notice={notice} logs={privateLogs} />
       </section>
 
-      <SkillDeck me={me} notice={notice} skills={availableSkills} selectedSkill={selectedSkill} cooldowns={cooldowns} usedOnce={usedOnce} gameResult={gameResult} onChoose={chooseSkill} />
+      <SkillDeck me={me} notice={notice} skills={availableSkills} selectedSkill={selectedSkill} cooldowns={cooldowns} usedOnce={usedOnce} gameResult={gameResult} onChoose={chooseSkill} disabledSkills={!snipeAuthorized ? ["snipe"] : []} />
 
       {selectedSkill?.needsRole && (selectedTarget || !selectedSkill.target) && <RoleChoiceModal skill={selectedSkill} target={selectedTarget} roles={modalRoles} onResolve={(role) => resolveSkill(selectedSkill, selectedTarget, role)} onCancel={cancelTargeting} />}
 

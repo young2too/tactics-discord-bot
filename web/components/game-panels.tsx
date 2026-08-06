@@ -51,8 +51,8 @@ export function PrivateRolePanel({ me, notice, logs }: { me: Player; notice: str
   </aside>;
 }
 
-export function SkillDeck({ me, notice, skills, selectedSkill, cooldowns, usedOnce, gameResult, onChoose }: {
-  me: Player; notice: string; skills: Skill[]; selectedSkill: Skill | null; cooldowns: Record<string, number>; usedOnce: Record<string, boolean>; gameResult: GameResult; onChoose: (skill: Skill) => void;
+export function SkillDeck({ me, notice, skills, selectedSkill, cooldowns, usedOnce, gameResult, onChoose, disabledSkills = [] }: {
+  me: Player; notice: string; skills: Skill[]; selectedSkill: Skill | null; cooldowns: Record<string, number>; usedOnce: Record<string, boolean>; gameResult: GameResult; onChoose: (skill: Skill) => void; disabledSkills?: string[];
 }) {
   return <footer className="command-deck">
     <div className="identity"><div className="mini-portrait"><span style={portraitStyle(me.role)} /></div><div><span>현재 공표</span><strong>{me.announced}</strong><small>실제 직업 · {me.role}</small></div><span className="health">● 생존</span></div>
@@ -60,7 +60,7 @@ export function SkillDeck({ me, notice, skills, selectedSkill, cooldowns, usedOn
     <div className="skill-deck"><div className="deck-label"><span>스킬</span><small>클릭하여 사용</small></div>{skills.map((skill) => {
       const spent = skill.id === "leadership" && Boolean(usedOnce.leadership);
       const remaining = cooldowns[skill.id] ?? 0;
-      return <button className={`skill-button skill-${skill.id} ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${remaining > 0 ? "cooling" : ""} ${spent ? "spent" : ""}`} key={skill.id} onClick={() => onChoose(skill)} disabled={Boolean(gameResult) || remaining > 0 || spent}>
+      return <button className={`skill-button skill-${skill.id} ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${remaining > 0 ? "cooling" : ""} ${spent ? "spent" : ""}`} key={skill.id} onClick={() => onChoose(skill)} disabled={Boolean(gameResult) || remaining > 0 || spent || disabledSkills.includes(skill.id)}>
         {remaining > 0 && <span className="cooldown-fill" style={{ width: `${(1 - remaining / skill.cooldown) * 100}%` }} />}<kbd>{skill.key}</kbd><span className="skill-icon">{skill.icon}</span><strong>{skill.name}</strong><small>{skill.cost === 0 ? "무료" : `◆ ${skill.cost}`}</small>
         {remaining > 0 && !spent && <span className="cooldown-time">{remaining}초</span>}{spent && <span className="spent-label">사용 완료</span>}
       </button>;

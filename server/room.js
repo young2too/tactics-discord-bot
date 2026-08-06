@@ -22,7 +22,7 @@ export class SingleRoom {
     this.players.push(player); if (this.hostId === null) this.hostId = player.id; this.totalPlayers = Math.max(this.totalPlayers, this.players.length); return player;
   }
   createPlayer(id, nickname, isBot, socket = null, ownerToken = null) {
-    return { id, nickname, ownerToken, socket, connected: true, isBot, aiControlled: isBot, alive: true, role: null, announced: "미공표", mana: 20, cooldowns: {}, usedOnce: {}, alliances: new Set(), privateLogs: [], lowAttackFails: 0, whisper: null, verdict: null };
+    return { id, nickname, ownerToken, socket, connected: true, isBot, aiControlled: isBot, alive: true, role: null, announced: "미공표", mana: 20, cooldowns: {}, usedOnce: {}, alliances: new Set(), privateLogs: [], lowAttackFails: 0, whisper: null, verdict: null, snipeAuthorized: false };
   }
   disconnect(socket) {
     const player = this.players.find((entry) => entry.socket === socket); if (!player) return;
@@ -82,7 +82,7 @@ export class SingleRoom {
       if ((skillId === "ally-check") !== same) throw new Error("공표 진영에 맞는 대상만 선택할 수 있습니다.");
     }
     if (skillId === "leadership" && actor.announced !== actor.role) throw new Error("진명 공표 후에만 리더십을 사용할 수 있습니다.");
-    if (skillId === "snipe" && !this.players.some((player) => player.role === "마피아대부" && player.usedOnce.leadership)) throw new Error("대부가 리더십으로 저격 명령을 내려야 합니다.");
+    if (skillId === "snipe" && !actor.snipeAuthorized) throw new Error("마피아대부가 히트맨에게 저격명령을 내려야 합니다.");
     if (skillId === "revenge") { const partner = this.players.find((player) => player.role === (actor.role === "남자연인" ? "여자연인" : "남자연인")); if (!partner || partner.alive) throw new Error("연인이 사망한 뒤 사용할 수 있습니다."); }
     if (skillId === "ally-add" && actor.alliances.has(target.id)) throw new Error("이미 동맹입니다.");
     if (skillId === "ally-remove" && !actor.alliances.has(target.id)) throw new Error("현재 동맹이 아닙니다.");
@@ -90,7 +90,7 @@ export class SingleRoom {
   resolve(actor, skillId, target, guessedRole, text) {
     if (skillId === "announce") { actor.announced = guessedRole; const gain = guessedRole === actor.role ? 10 : 5; actor.mana = Math.min(MANA_MAX, actor.mana + gain); this.addLog("📜", `${actor.nickname}이(가) ${guessedRole}(을)를 공표했습니다.`, "plain"); this.private(actor, `공표 완료 · 마나 +${gain}`); return; }
     if (skillId === "deception") { this.private(actor, "기만은 지속 효과입니다. 시민 직업 공표 시 시민의 아군 확인을 속입니다."); return; }
-    if (skillId === "leadership") { const match = this.players.find((player) => player.alive && player.role === guessedRole); this.private(actor, match ? `리더십 결과 · ${guessedRole}은(는) ${match.id}번 ${match.nickname}` : `리더십 결과 · 생존한 ${guessedRole} 없음`); if (actor.role === "마피아대부") this.addLog("⚑", "마피아대부가 저격 명령을 내렸습니다.", "danger"); return; }
+    if (skillId === "leadership") { const match = this.players.find((player) => player.alive && player.role === guessedRole); this.private(actor, match ? `리더십 결과 · ${guessedRole}은(는) ${match.id}번 ${match.nickname}` : `리더십 결과 · 생존한 ${guessedRole} 없음`); return; }
     if (skillId === "proclamation") { if (!text) throw new Error("공문 내용을 입력하세요."); this.chats.push({ id: this.now(), from: actor.id, text: `[공문] ${text}`, channel: "public" }); this.addLog("📢", `공무원 공문 · ${text}`, "plain"); return; }
     if (skillId === "ally-add" || skillId === "ally-remove") { const adding = skillId === "ally-add"; if (adding) { actor.alliances.add(target.id); target.alliances.add(actor.id); } else { actor.alliances.delete(target.id); target.alliances.delete(actor.id); } this.private(actor, `${target.id}번 ${target.nickname}과(와) 동맹을 ${adding ? "맺었습니다" : "파기했습니다"}.`); this.private(target, `${actor.id}번 ${actor.nickname}이(가) 동맹을 ${adding ? "맺었습니다" : "파기했습니다"}.`); return; }
     this.effect = { id: target.id, type: ["upper-attack", "lower-attack", "snipe", "revenge", "arrest"].includes(skillId) ? "attack" : "inspect", until: this.now() + 1500 };
@@ -99,8 +99,15 @@ export class SingleRoom {
     if (skillId === "boss-check" || skillId === "detective-check") { const role = skillId === "boss-check" ? "마피아대부" : "사립탐정"; const hit = target.role === role; const message = `${target.nickname}은(는) ${role}${hit ? "이 맞습니다" : "이 아닙니다"}.`; this.private(actor, message); this.verdict(actor, "직업 확인", hit, message); return; }
     if (skillId === "support") { target.mana = Math.min(MANA_MAX, target.mana + 30); this.addLog("+", `공무원이 ${target.nickname}에게 마나를 지원합니다.`, "mana"); this.private(actor, `${target.nickname}에게 마나 30을 지원했습니다.`); this.private(target, "공무원에게서 마나 30을 지원받았습니다."); return; }
     if (skillId === "successor") { if (target.role === "마피아후계자") { this.successorId = target.id; this.private(actor, `${target.nickname}을(를) 후계자로 지정했습니다.`); } else this.private(actor, `${target.nickname}은(는) 마피아후계자가 아닙니다.`); this.addLog("♛", "마피아대부가 후계자를 지정했습니다.", "plain"); return; }
+    if (skillId === "snipe-command") {
+      const hit = target.role === "히트맨";
+      if (hit) { target.snipeAuthorized = true; this.private(actor, `${target.nickname}에게 저격명령을 내렸습니다.`); this.private(target, "마피아대부의 저격명령을 받았습니다. 저격 1회가 활성화됩니다."); }
+      else this.private(actor, `${target.nickname}은(는) 히트맨이 아닙니다. 저격명령이 실패했습니다.`);
+      this.verdict(actor, "저격명령", hit, hit ? `${target.nickname}의 저격을 활성화했습니다.` : `${target.nickname}은(는) 히트맨이 아닙니다.`);
+      this.addLog("⚑", `마피아대부가 저격명령을 ${hit ? "내렸습니다" : "시도했지만 실패했습니다"}.`, "danger"); return;
+    }
     if (skillId === "arrest") { if (target.role !== "마피아대부") this.result = { winner: "mafia", reason: "경찰반장의 검거 실패" }; else { this.kill(target, "검거"); const successorAlive = this.successorId && this.player(this.successorId).alive; if (!successorAlive) this.result = { winner: "citizen", reason: "마피아대부 검거 성공" }; } return; }
-    if (["snipe", "revenge"].includes(skillId)) { this.kill(target, skillId === "snipe" ? "저격" : "복수"); return; }
+    if (["snipe", "revenge"].includes(skillId)) { if (skillId === "snipe") actor.snipeAuthorized = false; this.kill(target, skillId === "snipe" ? "저격" : "복수"); return; }
     if (["upper-attack", "lower-attack"].includes(skillId)) {
       if (guessedRole === target.role) { this.kill(target, "공격"); const message = `${target.nickname} 공격 명중 · 실제 직업은 ${target.role}입니다.`; this.private(actor, message); this.verdict(actor, "공격 판정", true, message); }
       else {
@@ -149,6 +156,7 @@ export class SingleRoom {
       mana: viewer.mana, nextManaIn: this.nextManaAt ? Math.max(0, Math.ceil((this.nextManaAt - current) / 1000)) : 0,
       cooldowns: Object.fromEntries(Object.entries(viewer.cooldowns).map(([id, until]) => [id, Math.max(0, Math.ceil((until - current) / 1000))])),
       usedOnce: viewer.usedOnce, alliances: [...viewer.alliances], logs: this.logs.slice(-60), privateLogs: viewer.privateLogs.slice(-40), lowAttackFails: viewer.lowAttackFails, result: this.result,
+      snipeAuthorized: viewer.snipeAuthorized,
       effect: this.effect && this.effect.until > current ? { id: this.effect.id, type: this.effect.type } : null,
       verdict: viewer.verdict && viewer.verdict.until > current ? { id: viewer.verdict.id, title: viewer.verdict.title, success: viewer.verdict.success, message: viewer.verdict.message } : null,
       whisper: viewer.whisper && viewer.whisper.until > current ? { from: viewer.whisper.from, to: viewer.whisper.to, text: viewer.whisper.text } : null,

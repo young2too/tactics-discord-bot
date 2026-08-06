@@ -98,3 +98,22 @@ test("a living patrol blocks the police-captain attack choice before inspecting 
   assert.equal(unrelatedTarget.boss.privateLogs.at(-1).text, actualCaptain.boss.privateLogs.at(-1).text);
   assert.equal(unrelatedTarget.room.snapshotFor(unrelatedTarget.boss).verdict.message, actualCaptain.room.snapshotFor(actualCaptain.boss).verdict.message);
 });
+
+test("leadership does not unlock snipe but a correct one-use snipe command does", () => {
+  let now = 1_000;
+  const room = new SingleRoom({ now: () => now, random: () => 0.5 });
+  const boss = room.join({ nickname: "boss", socket: {} });
+  const hitman = room.join({ nickname: "hitman", socket: {} });
+  const victim = room.join({ nickname: "victim", socket: {} });
+  room.start(boss.id); boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.mana = 200; hitman.role = "히트맨"; victim.role = "자경단원";
+  room.act(boss.id, { skillId: "leadership", role: "히트맨" });
+  assert.equal(hitman.snipeAuthorized, false);
+  assert.equal(room.logs.some((log) => /저격명령/.test(log.text)), false);
+  assert.throws(() => room.act(hitman.id, { skillId: "snipe", targetId: victim.id }), /저격명령/);
+  now += 11_000;
+  room.act(boss.id, { skillId: "snipe-command", targetId: hitman.id });
+  assert.equal(hitman.snipeAuthorized, true); assert.equal(boss.usedOnce["snipe-command"], true);
+  const manaBefore = hitman.mana;
+  room.act(hitman.id, { skillId: "snipe", targetId: victim.id });
+  assert.equal(hitman.mana, manaBefore); assert.equal(hitman.snipeAuthorized, false); assert.equal(victim.alive, false);
+});

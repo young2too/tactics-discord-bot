@@ -24,8 +24,9 @@ export const skillCatalog: Record<string, Skill> = {
   support: { id: "support", key: "W", name: "지원", icon: "+", cost: 20, target: true, needsRole: false, tone: "blue", cooldown: 10 },
   leadership: { id: "leadership", key: "W", name: "리더쉽", icon: "⚑", cost: 50, target: false, needsRole: true, tone: "gold", cooldown: 10 },
   successor: { id: "successor", key: "E", name: "후계자 지정", icon: "♚", cost: 0, target: true, needsRole: false, tone: "gold", cooldown: 10 },
+  "snipe-command": { id: "snipe-command", key: "R", name: "저격명령", icon: "⚑", cost: 0, target: true, needsRole: false, tone: "gold", cooldown: 10 },
   arrest: { id: "arrest", key: "R", name: "검거", icon: "⚖", cost: 0, target: true, needsRole: false, tone: "blue", cooldown: 10 },
-  snipe: { id: "snipe", key: "R", name: "저격", icon: "⌾", cost: 150, target: true, needsRole: false, tone: "red", cooldown: 10 },
+  snipe: { id: "snipe", key: "R", name: "저격", icon: "⌾", cost: 0, target: true, needsRole: false, tone: "red", cooldown: 10 },
   revenge: { id: "revenge", key: "R", name: "복수귀", icon: "☠", cost: 150, target: true, needsRole: false, tone: "red", cooldown: 10 },
   deception: { id: "deception", key: "W", name: "기만", icon: "◈", cost: 0, target: false, needsRole: false, tone: "gold", cooldown: 0 },
   proclamation: { id: "proclamation", key: "E", name: "공문", icon: "✉", cost: 20, target: false, needsRole: false, needsText: true, tone: "blue", cooldown: 10 },
@@ -34,7 +35,7 @@ export const skillCatalog: Record<string, Skill> = {
 };
 
 export const roleSkillIds: Record<string, string[]> = {
-  마피아대부: ["leadership", "lower-attack", "successor"], 히트맨: ["enemy-scan", "snipe"], 마피아일원: ["upper-attack"],
+  마피아대부: ["leadership", "lower-attack", "successor", "snipe-command"], 히트맨: ["enemy-scan", "snipe"], 마피아일원: ["upper-attack"],
   마피아후계자: ["ally-scan", "boss-check"], 스파이: ["deception"], 경찰반장: ["ally-check", "leadership", "arrest"],
   자경단원: ["upper-attack"], 사립탐정: ["enemy-scan"], 순찰경찰: ["ally-check", "lower-attack"],
   탐정조수: ["detective-check", "enemy-check"], 남자연인: ["ally-check", "revenge"], 여자연인: ["enemy-check", "revenge"], 공무원: ["support", "proclamation"],
