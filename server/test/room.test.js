@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SingleRoom } from "../room.js";
+import { checkVictory } from "../game-rules.js";
 
 test("fills one room with bots and privately assigns roles", () => {
   const room = new SingleRoom();
@@ -148,4 +149,13 @@ test("both sides receive distinct alliance and shared hostility notifications", 
   assert.equal(target.privateLogs.at(-1).text, `${actor.id}번 alpha와 적대관계가 되었습니다.`);
   assert.equal(room.snapshotFor(actor).notification.tone, "hostile");
   assert.equal(room.snapshotFor(target).notification.tone, "hostile");
+});
+
+test("a living captain with an unused arrest prevents mafia victory after citizen attackers die", () => {
+  const players = [
+    { role: "마피아대부", alive: true }, { role: "마피아일원", alive: true },
+    { role: "경찰반장", alive: true }, { role: "자경단원", alive: false }, { role: "순찰경찰", alive: false },
+  ];
+  assert.equal(checkVictory(players, null, true), null);
+  assert.deepEqual(checkVictory(players, null, false), { winner: "mafia", reason: "시민 공격권자 및 검거권 소진" });
 });

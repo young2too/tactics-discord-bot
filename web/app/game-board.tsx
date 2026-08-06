@@ -108,7 +108,7 @@ export function GameBoard() {
         setBotMana((current) => ({ ...current, [actor.id]: (current[actor.id] ?? 20) - attackCost }));
         if (hit) {
           const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
-          const result = checkVictory(nextPlayers, successorId);
+          const result = checkVictory(nextPlayers, successorId, !usedOnce.arrest);
           setPlayers(nextPlayers);
           setLogs((current) => [...current, { time: "지금", icon: "✦", text: `${actor.role}이(가) ${target.role}을(를) 처치했습니다.`, tone: "danger" }]);
           if (result) { setGameResult(result); setNotice(`게임 종료 · ${result.reason}`); }
@@ -305,7 +305,7 @@ export function GameBoard() {
       const hit = guessedRole === target.role;
       if (hit) {
         const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
-        const result = checkVictory(nextPlayers, successorId);
+        const result = checkVictory(nextPlayers, successorId, !usedOnce.arrest);
         setPlayers(nextPlayers);
         showVerdict("공격 판정", true, `${target.name} 공격 명중 · 실제 직업은 ${target.role}입니다.`);
         if (result) {
@@ -322,7 +322,7 @@ export function GameBoard() {
           setLowAttackFails(failures);
           if (failures >= 2) {
             const nextPlayers = players.map((player) => player.isMe ? { ...player, alive: false } : player);
-            const result = checkVictory(nextPlayers, successorId);
+            const result = checkVictory(nextPlayers, successorId, !usedOnce.arrest);
             setPlayers(nextPlayers);
             setLogs((current) => [...current, { time: "지금", icon: "☠", text: `${me.role}이 하급 공격을 2회 실패하여 사망했습니다.`, tone: "danger" }]);
             setNotice("하급 공격 2회 누적 실패 · 자멸했습니다.");
@@ -405,7 +405,7 @@ export function GameBoard() {
       const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
       setPlayers(nextPlayers);
       setLogs((current) => [...current, { time: "지금", icon: "☠", text: `${skill.name} 발동 · ${target.name}(${target.role}) 사망`, tone: "danger" }]);
-      const result = checkVictory(nextPlayers, successorId);
+      const result = checkVictory(nextPlayers, successorId, !usedOnce.arrest);
       if (result) setGameResult(result);
       setNotice(`${skill.name} 성공 · ${target.name}을(를) 즉사시켰습니다.`);
       return;

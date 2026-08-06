@@ -72,7 +72,8 @@ export class SingleRoom {
     }
     actor.mana -= skill.cost; if (!skill.once) actor.cooldowns[skillId] = current + skill.cooldown * 1000; if (skill.once) actor.usedOnce[skillId] = true;
     this.resolve(actor, skillId, target, guessedRole, String(payload.text ?? "").trim().slice(0, 200));
-    if (!this.result) this.result = checkVictory(this.players, this.successorId);
+    const captain = this.players.find((player) => player.role === "경찰반장");
+    if (!this.result) this.result = checkVictory(this.players, this.successorId, Boolean(captain && !captain.usedOnce.arrest));
     if (this.result) this.addLog("🏁", `게임 종료 · ${this.result.winner === "mafia" ? "마피아" : "시민"} 진영 승리`, "danger");
   }
   validateSpecial(actor, skillId, target) {

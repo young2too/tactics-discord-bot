@@ -10,14 +10,15 @@ export function portraitStyle(role: string) {
   return { backgroundPosition: `${(index % 4) * 33.333}% ${Math.floor(index / 4) * 33.333}%` };
 }
 
-export function checkVictory(players: Player[], successorId: number | null = null): GameResult {
+export function checkVictory(players: Player[], successorId: number | null = null, captainArrestAvailable = true): GameResult {
   const citizenLeader = players.find((player) => player.role === "경찰반장");
   if (citizenLeader && !citizenLeader.alive) return { winner: "mafia", reason: "경찰반장 사망" };
   const mafiaBoss = players.find((player) => player.role === "마피아대부");
   const successorAlive = successorId !== null && players.some((player) => player.id === successorId && player.alive);
   if (mafiaBoss && !mafiaBoss.alive && !successorAlive) return { winner: "citizen", reason: "마피아 대부 사망(후계자 없음/사망)" };
   if (!players.some((player) => player.alive && player.faction === "mafia" && ATTACKER_ROLES.has(player.role))) return { winner: "citizen", reason: "마피아 공격권자 전멸" };
-  if (!players.some((player) => player.alive && player.faction === "citizen" && ATTACKER_ROLES.has(player.role))) return { winner: "mafia", reason: "시민 공격권자 전멸" };
+  const citizenThreatAlive = players.some((player) => player.alive && player.faction === "citizen" && (ATTACKER_ROLES.has(player.role) || (player.role === "경찰반장" && captainArrestAvailable)));
+  if (!citizenThreatAlive) return { winner: "mafia", reason: "시민 공격권자 및 검거권 소진" };
   return null;
 }
 
