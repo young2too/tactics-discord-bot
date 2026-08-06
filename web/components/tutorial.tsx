@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { formations, skillCatalog } from "../game/catalog";
 import { trainingTracks } from "../game/guide-data";
 import { factionOf } from "../game/rules";
@@ -67,6 +67,7 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
   const me = players[0];
   const skills = [skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"]].map((skill, index) => ({ ...skill, key: ["Q", "W", "E"][index] }));
   const expectedSkill = [null, "announce", null, null, "ally-check", "lower-attack", "lower-attack"][step];
+  const spotlightSelector = step === 0 ? ".board-area" : step === 1 ? ".skill-announce" : step === 2 || step === 3 ? ".chat-form" : step === 4 ? (selectedSkill ? ".player-seat:nth-of-type(4)" : ".skill-ally-check") : (selectedSkill ? ".player-seat:nth-of-type(3)" : ".skill-lower-attack");
   const notice = `${step + 1}/${basicSteps.length} · ${basicSteps[step][0]} — ${basicSteps[step][1]}`;
   const modalRoles = useMemo(() => formations[8].map((name) => ({ name, faction: factionOf(name) })), []);
 
@@ -93,6 +94,7 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
   }
 
   return <main className={`game-shell size-8 tutorial-live tutorial-step-${step} ${selectedSkill ? "tutorial-target-phase" : ""}`}>
+    <SpotlightOverlay selector={spotlightSelector}/>
     <header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>기본 전술 훈련</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {basicSteps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header>
     <div className="tutorial-guide" role="status"><small>STEP {step + 1}</small><strong>{basicSteps[step][0]}</strong><span>{basicSteps[step][1]}</span>{step === 0 && <button onClick={() => { record("좌석과 공개 정보를 확인했습니다."); next(); }}>확인했어요</button>}</div>
     <section className="battle-layout"><CommunicationPanel players={players} messages={messages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs}/><Battlefield players={players} mySeatIndex={0} selectedSkill={selectedSkill} notice={notice} effectTarget={effect} alliances={[]} whisper={whisper} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }} onTarget={chooseTarget} isTargetable={(player) => !player.isMe && player.alive}/><PrivateRolePanel me={me} notice={notice} logs={privateLogs}/></section>
@@ -105,5 +107,32 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
 
 function TrackTraining({ track, step, onAdvance, onExit }: { track: (typeof trainingTracks)[number]; step: number; onAdvance: () => void; onExit: () => void }) {
   const players = initialTrainingPlayers;
-  return <main className={`game-shell size-8 tutorial-live track-spotlight-${step}`}><header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>{track.title}</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {track.steps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header><div className="tutorial-guide"><small>{track.roles}</small><strong>{track.steps[step]}</strong><span>밝게 표시된 실제 UI를 확인한 뒤 진행하세요.</span><button onClick={onAdvance}>{step === track.steps.length - 1 ? "과정 완료" : "다음 기능"}</button></div><section className="battle-layout"><CommunicationPanel players={players} messages={[]} channel="public" setChannel={() => {}} input="" setInput={() => {}} onSubmit={(event) => event.preventDefault()} logs={[{ time: "지금", icon: "◆", text: `${track.title} 진행 중`, tone: "plain" }]}/><Battlefield players={players} mySeatIndex={0} selectedSkill={null} notice={track.steps[step]} effectTarget={null} alliances={[]} whisper={null} onCancel={() => {}} onTarget={() => {}} isTargetable={() => false}/><PrivateRolePanel me={players[0]} notice={track.steps[step]} logs={[{ time: "지금", text: track.steps[step] }]}/></section><SkillDeck me={players[0]} notice={track.steps[step]} skills={[skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"]]} selectedSkill={null} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={onAdvance}/></main>;
+  const spotlightSelector = [".board-area", ".skill-deck", ".detail-panel"][step] ?? ".board-area";
+  return <main className={`game-shell size-8 tutorial-live track-spotlight-${step}`}><SpotlightOverlay selector={spotlightSelector}/><header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>{track.title}</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {track.steps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header><div className="tutorial-guide"><small>{track.roles}</small><strong>{track.steps[step]}</strong><span>밝게 표시된 실제 UI를 확인한 뒤 진행하세요.</span><button onClick={onAdvance}>{step === track.steps.length - 1 ? "과정 완료" : "다음 기능"}</button></div><section className="battle-layout"><CommunicationPanel players={players} messages={[]} channel="public" setChannel={() => {}} input="" setInput={() => {}} onSubmit={(event) => event.preventDefault()} logs={[{ time: "지금", icon: "◆", text: `${track.title} 진행 중`, tone: "plain" }]}/><Battlefield players={players} mySeatIndex={0} selectedSkill={null} notice={track.steps[step]} effectTarget={null} alliances={[]} whisper={null} onCancel={() => {}} onTarget={() => {}} isTargetable={() => false}/><PrivateRolePanel me={players[0]} notice={track.steps[step]} logs={[{ time: "지금", text: track.steps[step] }]}/></section><SkillDeck me={players[0]} notice={track.steps[step]} skills={[skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"]]} selectedSkill={null} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={onAdvance}/></main>;
+}
+
+function SpotlightOverlay({ selector }: { selector: string }) {
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  useEffect(() => {
+    const measure = () => {
+      const target = document.querySelector<HTMLElement>(`.tutorial-live ${selector}`);
+      setRect(target?.getBoundingClientRect() ?? null);
+    };
+    const frame = requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", measure); window.removeEventListener("scroll", measure, true); };
+  }, [selector]);
+  if (!rect) return null;
+  const gap = 7;
+  const left = Math.max(0, rect.left - gap); const top = Math.max(0, rect.top - gap);
+  const right = Math.min(window.innerWidth, rect.right + gap); const bottom = Math.min(window.innerHeight, rect.bottom + gap);
+  const style = (value: CSSProperties) => value;
+  return <div className="spotlight-layer" aria-hidden="true">
+    <i className="spotlight-shade" style={style({ left: 0, top: 0, right: 0, height: top })}/>
+    <i className="spotlight-shade" style={style({ left: 0, top, width: left, height: bottom - top })}/>
+    <i className="spotlight-shade" style={style({ left: right, right: 0, top, height: bottom - top })}/>
+    <i className="spotlight-shade" style={style({ left: 0, right: 0, top: bottom, bottom: 0 })}/>
+    <b className="spotlight-frame" style={style({ left, top, width: right - left, height: bottom - top })}/>
+  </div>;
 }

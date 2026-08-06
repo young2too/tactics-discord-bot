@@ -78,23 +78,12 @@ button { font:inherit; }
 }
 
 /* The tutorial uses the real game UI. Only the control being taught stays lit. */
-.tutorial-live::after { content:"";position:fixed;z-index:90;inset:0;background:#020609c9;pointer-events:none; }
+.spotlight-layer { position:fixed;z-index:90;inset:0;pointer-events:none; }
+.spotlight-shade { position:fixed;display:block;background:rgba(2,6,9,.52);backdrop-filter:saturate(.72);transition:all .2s ease; }
+.spotlight-frame { position:fixed;display:block;border:2px solid #f1c85e;border-radius:4px;box-shadow:0 0 0 1px #fff2bd55,0 0 26px #e5b94688,inset 0 0 18px #e8c15a1f;transition:all .2s ease; }
 .tutorial-live .topbar { position:relative;z-index:92; }.tutorial-live .tutorial-exit { margin-right:92px;padding:8px 12px;border:1px solid #607985;background:#273c46;color:#dbe5e9;cursor:pointer; }
 .tutorial-live .tutorial-guide { position:fixed;z-index:110;width:min(380px,calc(100vw - 24px));padding:15px 17px;border:1px solid #d2ad50;background:#263b45f5;box-shadow:0 16px 45px #000d,0 0 24px #d4aa4144;display:flex;flex-direction:column;gap:5px;pointer-events:auto; }
 .tutorial-live .tutorial-guide::after { content:"";position:absolute;border:9px solid transparent; }.tutorial-live .tutorial-guide small { color:#e6c66b;font:9px monospace;letter-spacing:.12em; }.tutorial-live .tutorial-guide strong { color:#fff0b8;font-size:16px; }.tutorial-live .tutorial-guide span { color:#c4d1d6;font-size:12px;line-height:1.5; }.tutorial-live .tutorial-guide button { align-self:flex-end;margin-top:6px;padding:8px 12px;border:1px solid #c6a24c;background:#725b22;color:#fff0bd;font-weight:700;cursor:pointer; }
-.tutorial-live.tutorial-step-0 .board-area,
-.tutorial-live.tutorial-step-1 .skill-slot:has(.skill-announce),
-.tutorial-live.tutorial-step-2 .chat-form,
-.tutorial-live.tutorial-step-3 .chat-form,
-.tutorial-live.tutorial-step-4:not(.tutorial-target-phase) .skill-slot:has(.skill-ally-check),
-.tutorial-live.tutorial-step-5:not(.tutorial-target-phase) .skill-slot:has(.skill-lower-attack),
-.tutorial-live.tutorial-step-6:not(.tutorial-target-phase) .skill-slot:has(.skill-lower-attack),
-.tutorial-live.tutorial-step-4.tutorial-target-phase .player-seat:nth-of-type(4),
-.tutorial-live.tutorial-step-5.tutorial-target-phase .player-seat:nth-of-type(3),
-.tutorial-live.tutorial-step-6.tutorial-target-phase .player-seat:nth-of-type(3),
-.tutorial-live.track-spotlight-0 .board-area,
-.tutorial-live.track-spotlight-1 .skill-deck,
-.tutorial-live.track-spotlight-2 .detail-panel { position:relative;z-index:100;box-shadow:0 0 0 3px #f0c85f,0 0 34px #f0c85faa; }
 .tutorial-live.tutorial-step-0 .tutorial-guide { left:50%;top:82px;transform:translateX(-50%); }.tutorial-live.tutorial-step-0 .tutorial-guide::after { left:50%;top:100%;border-top-color:#d2ad50; }
 .tutorial-live.tutorial-step-1 .tutorial-guide,.tutorial-live.tutorial-step-4 .tutorial-guide,.tutorial-live.tutorial-step-5 .tutorial-guide,.tutorial-live.tutorial-step-6 .tutorial-guide { right:20px;bottom:132px; }.tutorial-live.tutorial-step-1 .tutorial-guide::after,.tutorial-live.tutorial-step-4 .tutorial-guide::after,.tutorial-live.tutorial-step-5 .tutorial-guide::after,.tutorial-live.tutorial-step-6 .tutorial-guide::after { right:38px;top:100%;border-top-color:#d2ad50; }
 .tutorial-live.tutorial-step-2 .tutorial-guide,.tutorial-live.tutorial-step-3 .tutorial-guide { left:18px;top:80px; }.tutorial-live.tutorial-step-2 .tutorial-guide::after,.tutorial-live.tutorial-step-3 .tutorial-guide::after { left:35px;top:100%;border-top-color:#d2ad50; }
