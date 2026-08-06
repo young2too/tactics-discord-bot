@@ -135,6 +135,8 @@ export function useSkill(vcId, uid, skillName, args = {},client) {
         return { ok: false, error: "예상 직업은 아군 진영이어야 합니다." };
       if (skillName === "적군 스캔" && guessedFactionSame)
         return { ok: false, error: "예상 직업은 적군 진영이어야 합니다." };
+      if (skillName === "적군 스캔" && isLeaderRole(guessedRole))
+        return { ok: false, error: "적군 스캔으로 상대 진영의 리더를 찾을 수 없습니다." };
 
       const hit = (guessedRole === targetRole);
       result = {
@@ -335,9 +337,9 @@ export function useSkill(vcId, uid, skillName, args = {},client) {
       const { target } = args;
       if (!target) return { ok: false, error: "지원할 대상을 선택하세요." };
 
-      addMana(vcId, target, 50);
+      addMana(vcId, target, 30);
       result = {
-        privateMsg: `💰 <@${target}> 에게 마나 50을 지원했습니다.`,
+        privateMsg: `💰 <@${target}> 에게 마나 30을 지원했습니다.`,
         publicMsg:  `📢 공무원이 <@${target}> 에게 마나를 지원했습니다.`,
       };
       break;

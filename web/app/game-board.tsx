@@ -247,6 +247,7 @@ export function GameBoard() {
     const livingRoles = new Set(players.filter((player) => player.alive).map((player) => player.role));
     const availableFormation = currentFormation.filter((item) => livingRoles.has(item.name));
     if (selectedSkill.id === "ally-scan" || selectedSkill.id === "leadership") return availableFormation.filter((item) => item.faction === me.faction);
+    if (selectedSkill.id === "enemy-scan") return availableFormation.filter((item) => item.faction !== me.faction && item.name !== "마피아대부" && item.name !== "경찰반장");
     return availableFormation.filter((item) => item.faction !== me.faction);
   }, [selectedSkill, players, me.faction]);
 
@@ -449,8 +450,9 @@ export function GameBoard() {
     }
 
     if (skill.id === "support") {
+      setBotMana((current) => ({ ...current, [target.id]: Math.min(MANA_MAX, (current[target.id] ?? 20) + 30) }));
       setLogs((current) => [{ time: "지금", icon: "+", text: `공무원이 ${target.name}에게 마나를 지원했습니다.`, tone: "mana" }, ...current]);
-      setNotice(`${target.name}에게 마나 50을 지원했습니다.`);
+      setNotice(`${target.name}에게 마나 30을 지원했습니다.`);
       return;
     }
 

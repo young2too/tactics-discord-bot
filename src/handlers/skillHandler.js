@@ -4,7 +4,7 @@ import roles from "../data/roles.json" with { type: "json" };
 import { getSessionByChannel ,isAlive  } from "../services/sessionService.js";
 import { useSkill } from "../services/skillService.js";
 import { makeBoardEmbed } from "../util/boardStatus.js";
-import { getSkillsForPlayer } from "../util/skillMeta.js";
+import { getSkillsForPlayer, isLeaderRole } from "../util/skillMeta.js";
 import { checkVictory, stopAndSummarize } from "../services/gameService.js"; // ✅
 
 
@@ -158,6 +158,7 @@ export async function handleSkillSelect(interaction) {
    const filteredRoles = uniqAliveRoles.filter(r => {
      const rFaction = getFactionSafe(r, myRole);
      if (name === "아군 스캔") return rFaction === myFaction; // 아군만
+     if (name === "적군 스캔" && isLeaderRole(r)) return false; // 상대 리더는 스캔 불가
      return rFaction !== myFaction; // 적군 스캔/공격류: 적군만
   });
 
