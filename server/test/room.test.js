@@ -75,7 +75,7 @@ test("lower attack kills its user after two accumulated failures", () => {
   assert.match(room.logs.at(-1).text, /하급공격 2회 실패/);
 });
 
-test("patrol protection is revealed only when the attacker guesses police captain", () => {
+test("a living patrol blocks the police-captain attack choice before inspecting the target", () => {
   const makeRoom = () => {
     const room = new SingleRoom({ random: () => 0.5 });
     const boss = room.join({ nickname: "boss", socket: {} });
@@ -84,11 +84,17 @@ test("patrol protection is revealed only when the attacker guesses police captai
     room.players.find((player) => player.id !== boss.id && player.id !== captain.id).role = "순찰경찰";
     return { room, boss, captain };
   };
-  const wrong = makeRoom();
-  wrong.room.act(wrong.boss.id, { skillId: "lower-attack", targetId: wrong.captain.id, role: "자경단원" });
-  assert.doesNotMatch(wrong.boss.privateLogs.at(-1).text, /보호/);
-  assert.match(wrong.boss.privateLogs.at(-1).text, /자경단원/);
-  const exact = makeRoom();
-  exact.room.act(exact.boss.id, { skillId: "lower-attack", targetId: exact.captain.id, role: "경찰반장" });
-  assert.match(exact.boss.privateLogs.at(-1).text, /보호/);
+  const actualCaptain = makeRoom();
+  const manaBefore = actualCaptain.boss.mana;
+  actualCaptain.room.act(actualCaptain.boss.id, { skillId: "lower-attack", targetId: actualCaptain.captain.id, role: "경찰반장" });
+  assert.match(actualCaptain.boss.privateLogs.at(-1).text, /공격할 수 없습니다/);
+  assert.equal(actualCaptain.boss.mana, manaBefore);
+  assert.equal(actualCaptain.boss.cooldowns["lower-attack"], undefined);
+  assert.equal(actualCaptain.boss.lowAttackFails, 0);
+  assert.equal(actualCaptain.captain.alive, true);
+  const unrelatedTarget = makeRoom();
+  unrelatedTarget.captain.role = "자경단원";
+  unrelatedTarget.room.act(unrelatedTarget.boss.id, { skillId: "lower-attack", targetId: unrelatedTarget.captain.id, role: "경찰반장" });
+  assert.equal(unrelatedTarget.boss.privateLogs.at(-1).text, actualCaptain.boss.privateLogs.at(-1).text);
+  assert.equal(unrelatedTarget.room.snapshotFor(unrelatedTarget.boss).verdict.message, actualCaptain.room.snapshotFor(actualCaptain.boss).verdict.message);
 });

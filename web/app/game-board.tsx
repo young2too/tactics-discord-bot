@@ -248,6 +248,11 @@ export function GameBoard() {
 
   function resolveSkill(skill: Skill, target: Player | null, guessedRole?: string) {
     // Debug solo mode intentionally does not consume mana.
+    if (["upper-attack", "lower-attack"].includes(skill.id) && guessedRole === "경찰반장" && players.some((player) => player.alive && player.role === "순찰경찰")) {
+      setSelectedSkill(null); setSelectedTarget(null);
+      setNotice("공격 불가 · 순찰경찰이 살아 있어 경찰반장으로 공격할 수 없습니다.");
+      return;
+    }
     setCooldowns((current) => ({ ...current, [skill.id]: skill.cooldown }));
     setSelectedSkill(null);
     setSelectedTarget(null);
@@ -282,9 +287,7 @@ export function GameBoard() {
     }
 
     if (skill.id === "upper-attack" || skill.id === "lower-attack") {
-      const patrolAlive = players.some((player) => player.alive && player.role === "순찰경찰");
-      const shielded = guessedRole === "경찰반장" && target.role === "경찰반장" && patrolAlive;
-      const hit = guessedRole === target.role && !shielded;
+      const hit = guessedRole === target.role;
       if (hit) {
         const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
         const result = checkVictory(nextPlayers, successorId);
@@ -312,7 +315,7 @@ export function GameBoard() {
           }
         }
         setLogs((current) => [...current, { time: "지금", icon: "↗", text: `${me.role}이 누군가를 ${guessedRole}(으)로 공격했으나 실패했습니다.`, tone: "danger" }]);
-        setNotice(shielded ? "공격 실패 · 순찰경찰이 경찰반장을 보호하고 있습니다." : `공격 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.${skill.id === "lower-attack" ? ` (누적 ${lowAttackFails + 1}/2)` : ""}`);
+        setNotice(`공격 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.${skill.id === "lower-attack" ? ` (누적 ${lowAttackFails + 1}/2)` : ""}`);
       }
       return;
     }

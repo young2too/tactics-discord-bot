@@ -66,6 +66,10 @@ export class SingleRoom {
     if (skillId === "enemy-scan" && ((factionOf(actor.role) === "mafia" && guessedRole === "경찰반장") || (factionOf(actor.role) === "citizen" && guessedRole === "마피아대부"))) throw new Error("적군 스캔으로 상대 진영 리더를 지정할 수 없습니다.");
     if (skill.text && !String(payload.text ?? "").trim()) throw new Error("내용을 입력하세요.");
     this.validateSpecial(actor, skillId, target);
+    if (["upper-attack", "lower-attack"].includes(skillId) && guessedRole === "경찰반장" && this.players.some((player) => player.alive && player.role === "순찰경찰")) {
+      const message = "순찰경찰이 살아 있어 경찰반장으로 공격할 수 없습니다.";
+      this.private(actor, message); this.verdict(actor, "공격 불가", false, message); return;
+    }
     actor.mana -= skill.cost; actor.cooldowns[skillId] = current + skill.cooldown * 1000; if (skill.once) actor.usedOnce[skillId] = true;
     this.resolve(actor, skillId, target, guessedRole, String(payload.text ?? "").trim().slice(0, 200));
     if (!this.result) this.result = checkVictory(this.players, this.successorId);
@@ -98,11 +102,10 @@ export class SingleRoom {
     if (skillId === "arrest") { if (target.role !== "마피아대부") this.result = { winner: "mafia", reason: "경찰반장의 검거 실패" }; else { this.kill(target, "검거"); const successorAlive = this.successorId && this.player(this.successorId).alive; if (!successorAlive) this.result = { winner: "citizen", reason: "마피아대부 검거 성공" }; } return; }
     if (["snipe", "revenge"].includes(skillId)) { this.kill(target, skillId === "snipe" ? "저격" : "복수"); return; }
     if (["upper-attack", "lower-attack"].includes(skillId)) {
-      const shielded = guessedRole === "경찰반장" && target.role === "경찰반장" && this.players.some((player) => player.alive && player.role === "순찰경찰");
-      if (guessedRole === target.role && !shielded) { this.kill(target, "공격"); const message = `${target.nickname} 공격 명중 · 실제 직업은 ${target.role}입니다.`; this.private(actor, message); this.verdict(actor, "공격 판정", true, message); }
+      if (guessedRole === target.role) { this.kill(target, "공격"); const message = `${target.nickname} 공격 명중 · 실제 직업은 ${target.role}입니다.`; this.private(actor, message); this.verdict(actor, "공격 판정", true, message); }
       else {
         this.addLog("⚔", `누군가가 ${target.nickname}을(를) 공격했지만 실패했습니다.`, "danger");
-        const reason = shielded ? "순찰경찰이 경찰반장을 보호 중" : `${target.nickname}은(는) ${guessedRole}이(가) 아님`;
+        const reason = `${target.nickname}은(는) ${guessedRole}이(가) 아님`;
         if (skillId === "lower-attack") {
           actor.lowAttackFails += 1;
           this.private(actor, `하급공격 실패 ${actor.lowAttackFails}/2 · ${reason}`);
