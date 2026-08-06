@@ -70,7 +70,7 @@ export class SingleRoom {
       const message = "순찰경찰이 살아 있어 경찰반장으로 공격할 수 없습니다.";
       this.private(actor, message); this.verdict(actor, "공격 불가", false, message); return;
     }
-    actor.mana -= skill.cost; actor.cooldowns[skillId] = current + skill.cooldown * 1000; if (skill.once) actor.usedOnce[skillId] = true;
+    actor.mana -= skill.cost; if (!skill.once) actor.cooldowns[skillId] = current + skill.cooldown * 1000; if (skill.once) actor.usedOnce[skillId] = true;
     this.resolve(actor, skillId, target, guessedRole, String(payload.text ?? "").trim().slice(0, 200));
     if (!this.result) this.result = checkVictory(this.players, this.successorId);
     if (this.result) this.addLog("🏁", `게임 종료 · ${this.result.winner === "mafia" ? "마피아" : "시민"} 진영 승리`, "danger");

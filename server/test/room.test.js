@@ -112,10 +112,10 @@ test("leadership does not unlock snipe but a correct one-use snipe command does"
   assert.throws(() => room.act(hitman.id, { skillId: "snipe", targetId: victim.id }), /저격명령/);
   now += 11_000;
   room.act(boss.id, { skillId: "snipe-command", targetId: hitman.id });
-  assert.equal(hitman.snipeAuthorized, true); assert.equal(boss.usedOnce["snipe-command"], true);
+  assert.equal(hitman.snipeAuthorized, true); assert.equal(boss.usedOnce["snipe-command"], true); assert.equal(boss.cooldowns["snipe-command"], undefined);
   const manaBefore = hitman.mana;
   room.act(hitman.id, { skillId: "snipe", targetId: victim.id });
-  assert.equal(hitman.mana, manaBefore); assert.equal(hitman.snipeAuthorized, false); assert.equal(victim.alive, false);
+  assert.equal(hitman.mana, manaBefore); assert.equal(hitman.snipeAuthorized, false); assert.equal(hitman.cooldowns.snipe, undefined); assert.equal(victim.alive, false);
 });
 
 test("snipe command result is public while its target stays private", () => {

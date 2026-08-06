@@ -58,7 +58,7 @@ export function SkillDeck({ me, notice, skills, selectedSkill, cooldowns, usedOn
     <div className="identity"><div className="mini-portrait"><span style={portraitStyle(me.role)} /></div><div><span>현재 공표</span><strong>{me.announced}</strong><small>실제 직업 · {me.role}</small></div><span className="health">● 생존</span></div>
     <div className="hint"><span>{selectedSkill ? selectedSkill.icon : "⌖"}</span><div><small>{selectedSkill ? "명령 대기 중" : "전술 지침"}</small><strong>{notice}</strong></div></div>
     <div className="skill-deck"><div className="deck-label"><span>스킬</span><small>클릭하여 사용</small></div>{skills.map((skill) => {
-      const spent = skill.id === "leadership" && Boolean(usedOnce.leadership);
+      const spent = Boolean(usedOnce[skill.id]);
       const remaining = cooldowns[skill.id] ?? 0;
       return <button className={`skill-button skill-${skill.id} ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${remaining > 0 ? "cooling" : ""} ${spent ? "spent" : ""}`} key={skill.id} onClick={() => onChoose(skill)} disabled={Boolean(gameResult) || remaining > 0 || spent || disabledSkills.includes(skill.id)}>
         {remaining > 0 && <span className="cooldown-fill" style={{ width: `${(1 - remaining / skill.cooldown) * 100}%` }} />}<kbd>{skill.key}</kbd><span className="skill-icon">{skill.icon}</span><strong>{skill.name}</strong><small>{skill.cost === 0 ? "무료" : `◆ ${skill.cost}`}</small>

@@ -265,7 +265,8 @@ export function GameBoard() {
       showVerdict("공격 불가", false, "순찰경찰이 살아 있어 경찰반장으로 공격할 수 없습니다.");
       return;
     }
-    setCooldowns((current) => ({ ...current, [skill.id]: skill.cooldown }));
+    const oneUseSkills = ["leadership", "successor", "snipe-command", "arrest", "snipe", "revenge"];
+    if (!oneUseSkills.includes(skill.id)) setCooldowns((current) => ({ ...current, [skill.id]: skill.cooldown }));
     setSelectedSkill(null);
     setSelectedTarget(null);
 
