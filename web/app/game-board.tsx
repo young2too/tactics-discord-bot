@@ -26,6 +26,7 @@ type Skill = {
 };
 
 type GameResult = { winner: Faction; reason: string } | null;
+type ChatMessage = { id: number; from: number; text: string; channel: "public" | "alliance" };
 
 const initialPlayers: Player[] = [
   { id: 1, name: "윤서", announced: "경찰반장", role: "마피아대부", faction: "mafia", alive: true },
@@ -49,6 +50,8 @@ const skillCatalog: Record<string, Skill> = {
   "boss-check": { id: "boss-check", key: "W", name: "보스 확인", icon: "♛", cost: 10, target: true, needsRole: false, tone: "red", cooldown: 10 },
   "detective-check": { id: "detective-check", key: "W", name: "탐정 확인", icon: "⌕", cost: 10, target: true, needsRole: false, tone: "blue", cooldown: 10 },
   support: { id: "support", key: "W", name: "지원", icon: "+", cost: 20, target: true, needsRole: false, tone: "blue", cooldown: 10 },
+  "ally-add": { id: "ally-add", key: "A", name: "동맹 추가", icon: "◇+", cost: 0, target: true, needsRole: false, tone: "gold", cooldown: 5 },
+  "ally-remove": { id: "ally-remove", key: "S", name: "동맹 파기", icon: "◇×", cost: 0, target: true, needsRole: false, tone: "red", cooldown: 5 },
 };
 
 const roleSkillIds: Record<string, string[]> = {
@@ -132,6 +135,11 @@ export function GameBoard() {
   const [gameResult, setGameResult] = useState<GameResult>(null);
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
   const [botMana, setBotMana] = useState<Record<number, number>>({});
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatChannel, setChatChannel] = useState<"public" | "alliance">("public");
+  const [whisperBubble, setWhisperBubble] = useState<{ from: number; to: number; text: string } | null>(null);
+  const [alliances, setAlliances] = useState<number[]>([]);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
   const [effectTarget, setEffectTarget] = useState<number | null>(null);
@@ -145,7 +153,7 @@ export function GameBoard() {
   const me = players.find((player) => player.isMe)!;
   const mySeatIndex = players.findIndex((player) => player.isMe);
   const manaTickLabel = `${String(Math.floor(manaTickSeconds / 60)).padStart(2, "0")}:${String(manaTickSeconds % 60).padStart(2, "0")}`;
-  const availableSkills = useMemo(() => [skillCatalog.announce, ...(roleSkillIds[me.role] ?? []).map((id) => skillCatalog[id])].map((skill, index) => ({ ...skill, key: ["Q", "W", "E", "R"][index] ?? String(index + 1) })), [me.role]);
+  const availableSkills = useMemo(() => [skillCatalog.announce, ...(roleSkillIds[me.role] ?? []).map((id) => skillCatalog[id]), skillCatalog["ally-add"], skillCatalog["ally-remove"]].map((skill, index) => ({ ...skill, key: ["Q", "W", "E", "R", "T", "Y"][index] ?? String(index + 1) })), [me.role]);
 
   useEffect(() => {
     if (gameResult) return;
@@ -250,6 +258,10 @@ export function GameBoard() {
     setGameResult(null);
     setSelectedSkill(null);
     setSelectedTarget(null);
+    setChatMessages([]);
+    setChatInput("");
+    setWhisperBubble(null);
+    setAlliances([]);
     setLogs([{ time: "지금", icon: "◆", text: `${playerCount}인 디버그 게임이 시작되었습니다.`, tone: "plain" }]);
     setNotice("직업이 배정되었습니다. 먼저 직업을 공표하세요.");
     setStarted(true);
@@ -275,7 +287,38 @@ export function GameBoard() {
     const announcedFaction = factionOf(player.announced);
     if (skill.id === "ally-check") return announcedFaction === me.faction;
     if (skill.id === "enemy-check") return announcedFaction !== me.faction;
+    if (skill.id === "ally-add") return !alliances.includes(player.id);
+    if (skill.id === "ally-remove") return alliances.includes(player.id);
     return true;
+  }
+
+  function sendChat(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const text = chatInput.trim();
+    if (!text) return;
+    const whisper = text.match(/^-(\d+)\s+(.+)$/s);
+    if (whisper) {
+      const targetId = Number(whisper[1]);
+      const target = players.find((player) => player.id === targetId);
+      if (!target || target.id === me.id) {
+        setNotice("귓말 대상 번호를 확인하세요. 예: -3 야");
+        return;
+      }
+      setWhisperBubble({ from: me.id, to: targetId, text: whisper[2] });
+      setNotice(`${targetId}번 플레이어에게 귓말을 보냈습니다.`);
+      window.setTimeout(() => setWhisperBubble(null), 5500);
+    } else {
+      const allianceCommand = text.match(/^\/a\s+(.+)$/s);
+      const channel = allianceCommand || chatChannel === "alliance" ? "alliance" : "public";
+      const messageText = allianceCommand?.[1] ?? text;
+      if (channel === "alliance" && alliances.length === 0) {
+        setNotice("동맹챗을 보낼 동맹이 없습니다. 먼저 동맹 추가를 사용하세요.");
+        return;
+      }
+      setChatMessages((current) => [...current.slice(-30), { id: Date.now(), from: me.id, text: messageText, channel }]);
+      if (allianceCommand) setChatChannel("alliance");
+    }
+    setChatInput("");
   }
 
   function resolveSkill(skill: Skill, target: Player | null, guessedRole?: string) {
@@ -337,6 +380,18 @@ export function GameBoard() {
       return;
     }
 
+    if (skill.id === "ally-add") {
+      setAlliances((current) => [...new Set([...current, target.id])]);
+      setNotice(`${target.id}번 ${target.name}과(와) 동맹을 맺었습니다.`);
+      return;
+    }
+
+    if (skill.id === "ally-remove") {
+      setAlliances((current) => current.filter((id) => id !== target.id));
+      setNotice(`${target.id}번 ${target.name}과(와)의 동맹을 파기했습니다.`);
+      return;
+    }
+
     setLogs((current) => [{ time: "지금", icon: "◉", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
     setNotice(`${target.name}의 공표는 ${target.announced === target.role ? "진명" : "가명"}입니다.`);
   }
@@ -377,7 +432,15 @@ export function GameBoard() {
 
       <section className="battle-layout">
         <aside className="event-panel panel">
-          <div className="panel-heading"><span>전장 기록</span><button>전체</button></div>
+          <div className="panel-heading chat-heading"><span>채팅</span><div className="chat-tabs"><button className={chatChannel === "public" ? "active" : ""} onClick={() => setChatChannel("public")}>공개</button><button className={chatChannel === "alliance" ? "active" : ""} onClick={() => setChatChannel("alliance")}>동맹</button></div></div>
+          <div className="chat-stream">
+            {chatMessages.filter((message) => message.channel === chatChannel).length === 0 ? <p className="chat-empty">{chatChannel === "public" ? <>모두에게 메시지를 보냅니다.<br/><code>-3 야</code> → 3번에게 귓말<br/><code>/a 작전</code> → 동맹챗</> : <>현재 동맹에게만 보이는 채팅입니다.<br/>동맹 추가/파기는 우하단 스킬을 사용하세요.</>}</p> : chatMessages.filter((message) => message.channel === chatChannel).map((message) => {
+              const sender = players.find((player) => player.id === message.from);
+              return <p className={message.channel} key={message.id}><b>{message.channel === "alliance" ? "◇ 동맹 · " : ""}{message.from}번 {sender?.name}</b><span>{message.text}</span></p>;
+            })}
+          </div>
+          <form className="chat-form" onSubmit={sendChat}><input aria-label="채팅 메시지" value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder={chatChannel === "public" ? "전체 채팅 · -번호 귓말 · /a 동맹챗" : "동맹에게 메시지 보내기"} maxLength={160}/><button>전송</button></form>
+          <div className="panel-heading event-subheading"><span>전장 기록</span><button>전체</button></div>
           <div className="event-list">
             {logs.map((log, index) => (
               <div className={`event-row ${log.tone}`} key={`${log.time}-${index}`}>
@@ -415,14 +478,16 @@ export function GameBoard() {
                   onClick={() => chooseTarget(player)}
                   disabled={Boolean(selectedSkill?.target) && !selectable}
                 >
-                  <span className="seat-pointer" />
+                  <span className="seat-pointer" /><span className="seat-number">{player.id}</span>
                   <span className="portrait">{player.announced === "미공표" && player.alive ? <span className="unknown-portrait">?</span> : <span className="portrait-art" style={portraitStyle(player.alive ? player.announced : player.role)} />}{!player.alive && <b>☠</b>}</span>
                   <span className="player-copy"><strong>{player.name}{player.isMe && <em>YOU</em>}</strong><small>공표 · <b className={`${factionOf(player.announced)}-text`}>{player.announced}</b></small>{!player.alive && <small className={`revealed-role ${factionOf(player.role)}-text`}>실제 · {player.role}</small>}</span>
                   <span className={`life-state ${player.alive ? "" : "down"}`}>{player.alive ? "생존" : "사망 · 직업 공개"}</span>
+                  {alliances.includes(player.id) && <span className="alliance-mark">동맹</span>}
                 </button>
               );
             })}
           </div>
+          {whisperBubble && <div className="whisper-cloud"><small>TO {whisperBubble.to} · PRIVATE</small><strong>{whisperBubble.from}번 플레이어</strong><p>{whisperBubble.text}</p></div>}
         </section>
 
         <aside className="detail-panel panel">
