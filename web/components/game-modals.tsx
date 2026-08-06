@@ -5,7 +5,7 @@ export function RoleChoiceModal({ skill, target, roles, onResolve, onCancel }: {
   return <div className="modal-backdrop" role="presentation" onMouseDown={onCancel}><section className="role-modal" role="dialog" aria-modal="true" aria-label="직업 선택" onMouseDown={(event) => event.stopPropagation()}>
     <header><span>{skill.icon}</span><div><small>{skill.name}</small><h2>{target ? `${target.name}의 직업을 지정하세요` : "공표할 직업을 선택하세요"}</h2></div><button onClick={onCancel}>×</button></header>
     {target && <div className="target-summary"><span>선택 대상</span><strong>{target.name}</strong><small>공표 · {target.announced}</small></div>}
-    <div className="role-grid">{roles.map((role) => <button className={`role-choice ${role.faction}`} key={role.name} onClick={() => onResolve(role.name)}>{role.name}<small>{role.faction === "mafia" ? "마피아 진영" : "시민 진영"}</small></button>)}</div>
+    <div className="role-grid">{roles.map((role) => <button className={`role-choice ${role.faction}`} data-role={role.name} key={role.name} onClick={() => onResolve(role.name)}>{role.name}<small>{role.faction === "mafia" ? "마피아 진영" : "시민 진영"}</small></button>)}</div>
     <footer><span>격발 전까지 마나가 소모되지 않습니다.</span><button onClick={onCancel}>취소</button></footer>
   </section></div>;
 }
