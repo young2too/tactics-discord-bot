@@ -354,7 +354,7 @@ export function GameBoard() {
       if (target.role === "히트맨") {
         setSnipeAuthorized(true);
         setNotice(`저격명령 성공 · ${target.id}번 ${target.name}의 저격이 활성화되었습니다.`);
-        setLogs((current) => [...current, { time: "지금", icon: "⚑", text: "마피아대부가 저격명령을 내렸습니다.", tone: "danger" }]);
+        setLogs((current) => [...current, { time: "지금", icon: "⚑", text: "마피아대부의 저격명령이 성공했습니다.", tone: "danger" }]);
       } else {
         setNotice(`저격명령 실패 · ${target.name}은(는) 히트맨이 아닙니다.`);
         setLogs((current) => [...current, { time: "지금", icon: "⚑", text: "마피아대부의 저격명령이 실패했습니다.", tone: "danger" }]);

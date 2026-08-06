@@ -117,3 +117,14 @@ test("leadership does not unlock snipe but a correct one-use snipe command does"
   room.act(hitman.id, { skillId: "snipe", targetId: victim.id });
   assert.equal(hitman.mana, manaBefore); assert.equal(hitman.snipeAuthorized, false); assert.equal(victim.alive, false);
 });
+
+test("snipe command result is public while its target stays private", () => {
+  const room = new SingleRoom({ random: () => 0.5 });
+  const boss = room.join({ nickname: "boss", socket: {} });
+  const wrongTarget = room.join({ nickname: "wrong", socket: {} });
+  room.start(boss.id); boss.role = "마피아대부"; wrongTarget.role = "자경단원";
+  room.act(boss.id, { skillId: "snipe-command", targetId: wrongTarget.id });
+  assert.equal(room.logs.at(-1).text, "마피아대부의 저격명령이 실패했습니다.");
+  assert.doesNotMatch(room.logs.at(-1).text, /wrong|히트맨|자경단원/);
+  assert.match(boss.privateLogs.at(-1).text, /실패/);
+});

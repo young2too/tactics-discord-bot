@@ -104,7 +104,7 @@ export class SingleRoom {
       if (hit) { target.snipeAuthorized = true; this.private(actor, `${target.nickname}에게 저격명령을 내렸습니다.`); this.private(target, "마피아대부의 저격명령을 받았습니다. 저격 1회가 활성화됩니다."); }
       else this.private(actor, `${target.nickname}은(는) 히트맨이 아닙니다. 저격명령이 실패했습니다.`);
       this.verdict(actor, "저격명령", hit, hit ? `${target.nickname}의 저격을 활성화했습니다.` : `${target.nickname}은(는) 히트맨이 아닙니다.`);
-      this.addLog("⚑", `마피아대부가 저격명령을 ${hit ? "내렸습니다" : "시도했지만 실패했습니다"}.`, "danger"); return;
+      this.addLog("⚑", `마피아대부의 저격명령이 ${hit ? "성공했습니다" : "실패했습니다"}.`, "danger"); return;
     }
     if (skillId === "arrest") { if (target.role !== "마피아대부") this.result = { winner: "mafia", reason: "경찰반장의 검거 실패" }; else { this.kill(target, "검거"); const successorAlive = this.successorId && this.player(this.successorId).alive; if (!successorAlive) this.result = { winner: "citizen", reason: "마피아대부 검거 성공" }; } return; }
     if (["snipe", "revenge"].includes(skillId)) { if (skillId === "snipe") actor.snipeAuthorized = false; this.kill(target, skillId === "snipe" ? "저격" : "복수"); return; }
