@@ -19,6 +19,7 @@ export type RoomState = {
   chats?: { id: number; from: number; text: string; channel: "public" | "alliance" }[];
   effect?: { id: number; type: "inspect" | "attack" } | null;
   whisper?: { from: number; to: number; text: string } | null;
+  verdict?: { id: number; title: string; success: boolean; message: string } | null;
   result?: { winner: "mafia" | "citizen"; reason: string } | null;
   players: {
     id: number;

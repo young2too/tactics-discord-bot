@@ -30,6 +30,8 @@ test("server alone spends mana, applies cooldowns, and keeps scan result private
   assert.equal(host.mana, 80);
   assert.ok(host.cooldowns["enemy-scan"] > now);
   assert.match(room.snapshotFor(host).privateLogs.at(-1).text, /스캔 성공/);
+  assert.equal(room.snapshotFor(host).verdict.success, true);
+  assert.equal(room.snapshotFor(guest).verdict, null);
   assert.equal(room.snapshotFor(guest).privateLogs.some((log) => /스캔 성공/.test(log.text)), false);
   assert.throws(() => room.act(host.id, { skillId: "enemy-scan", targetId: guest.id, role: "자경단원" }), /쿨타임/);
 });

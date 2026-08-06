@@ -22,7 +22,7 @@ export class SingleRoom {
     this.players.push(player); if (this.hostId === null) this.hostId = player.id; this.totalPlayers = Math.max(this.totalPlayers, this.players.length); return player;
   }
   createPlayer(id, nickname, isBot, socket = null, ownerToken = null) {
-    return { id, nickname, ownerToken, socket, connected: true, isBot, aiControlled: isBot, alive: true, role: null, announced: "미공표", mana: 20, cooldowns: {}, usedOnce: {}, alliances: new Set(), privateLogs: [], lowAttackFails: 0, whisper: null };
+    return { id, nickname, ownerToken, socket, connected: true, isBot, aiControlled: isBot, alive: true, role: null, announced: "미공표", mana: 20, cooldowns: {}, usedOnce: {}, alliances: new Set(), privateLogs: [], lowAttackFails: 0, whisper: null, verdict: null };
   }
   disconnect(socket) {
     const player = this.players.find((entry) => entry.socket === socket); if (!player) return;
@@ -90,24 +90,25 @@ export class SingleRoom {
     if (skillId === "proclamation") { if (!text) throw new Error("공문 내용을 입력하세요."); this.chats.push({ id: this.now(), from: actor.id, text: `[공문] ${text}`, channel: "public" }); this.addLog("📢", `공무원 공문 · ${text}`, "plain"); return; }
     if (skillId === "ally-add" || skillId === "ally-remove") { const adding = skillId === "ally-add"; if (adding) { actor.alliances.add(target.id); target.alliances.add(actor.id); } else { actor.alliances.delete(target.id); target.alliances.delete(actor.id); } this.private(actor, `${target.id}번 ${target.nickname}과(와) 동맹을 ${adding ? "맺었습니다" : "파기했습니다"}.`); this.private(target, `${actor.id}번 ${actor.nickname}이(가) 동맹을 ${adding ? "맺었습니다" : "파기했습니다"}.`); return; }
     this.effect = { id: target.id, type: ["upper-attack", "lower-attack", "snipe", "revenge", "arrest"].includes(skillId) ? "attack" : "inspect", until: this.now() + 1500 };
-    if (["ally-scan", "enemy-scan"].includes(skillId)) { const hit = guessedRole === target.role; this.addLog("🔎", `누군가가 ${target.nickname}을(를) 살피고 있습니다.`, "scan"); this.private(actor, hit ? `스캔 성공 · ${target.nickname}은(는) ${target.role}` : `스캔 실패 · ${target.nickname}은(는) ${guessedRole}이(가) 아님`); return; }
-    if (["ally-check", "enemy-check"].includes(skillId)) { const fooled = skillId === "ally-check" && target.role === "스파이" && factionOf(target.announced) === "citizen" && factionOf(actor.role) === "citizen"; this.addLog("🔎", `누군가가 ${target.nickname}을(를) 살피고 있습니다.`, "scan"); this.private(actor, `${target.nickname}의 공표는 ${fooled || target.announced === target.role ? "진명" : "가명"}입니다.`); return; }
-    if (skillId === "boss-check" || skillId === "detective-check") { const role = skillId === "boss-check" ? "마피아대부" : "사립탐정"; this.private(actor, `${target.nickname}은(는) ${role}${target.role === role ? "이 맞습니다" : "이 아닙니다"}.`); return; }
+    if (["ally-scan", "enemy-scan"].includes(skillId)) { const hit = guessedRole === target.role; const message = hit ? `${target.nickname}은(는) ${target.role}입니다.` : `${target.nickname}은(는) ${guessedRole}이(가) 아닙니다.`; this.addLog("🔎", `누군가가 ${target.nickname}을(를) 살피고 있습니다.`, "scan"); this.private(actor, `스캔 ${hit ? "성공" : "실패"} · ${message}`); this.verdict(actor, "스캔 판정", hit, message); return; }
+    if (["ally-check", "enemy-check"].includes(skillId)) { const fooled = skillId === "ally-check" && target.role === "스파이" && factionOf(target.announced) === "citizen" && factionOf(actor.role) === "citizen"; const hit = fooled || target.announced === target.role; const message = `${target.nickname}의 ${target.announced} 공표는 ${hit ? "진명" : "가명"}입니다.`; this.addLog("🔎", `누군가가 ${target.nickname}을(를) 살피고 있습니다.`, "scan"); this.private(actor, message); this.verdict(actor, "공표 확인", hit, message); return; }
+    if (skillId === "boss-check" || skillId === "detective-check") { const role = skillId === "boss-check" ? "마피아대부" : "사립탐정"; const hit = target.role === role; const message = `${target.nickname}은(는) ${role}${hit ? "이 맞습니다" : "이 아닙니다"}.`; this.private(actor, message); this.verdict(actor, "직업 확인", hit, message); return; }
     if (skillId === "support") { target.mana = Math.min(MANA_MAX, target.mana + 30); this.addLog("+", `공무원이 ${target.nickname}에게 마나를 지원합니다.`, "mana"); this.private(actor, `${target.nickname}에게 마나 30을 지원했습니다.`); this.private(target, "공무원에게서 마나 30을 지원받았습니다."); return; }
     if (skillId === "successor") { if (target.role === "마피아후계자") { this.successorId = target.id; this.private(actor, `${target.nickname}을(를) 후계자로 지정했습니다.`); } else this.private(actor, `${target.nickname}은(는) 마피아후계자가 아닙니다.`); this.addLog("♛", "마피아대부가 후계자를 지정했습니다.", "plain"); return; }
     if (skillId === "arrest") { if (target.role !== "마피아대부") this.result = { winner: "mafia", reason: "경찰반장의 검거 실패" }; else { this.kill(target, "검거"); const successorAlive = this.successorId && this.player(this.successorId).alive; if (!successorAlive) this.result = { winner: "citizen", reason: "마피아대부 검거 성공" }; } return; }
     if (["snipe", "revenge"].includes(skillId)) { this.kill(target, skillId === "snipe" ? "저격" : "복수"); return; }
     if (["upper-attack", "lower-attack"].includes(skillId)) {
       const shielded = target.role === "경찰반장" && this.players.some((player) => player.alive && player.role === "순찰경찰");
-      if (guessedRole === target.role && !shielded) { this.kill(target, "공격"); this.private(actor, `공격 명중 · ${target.nickname}의 직업은 ${target.role}`); }
+      if (guessedRole === target.role && !shielded) { this.kill(target, "공격"); const message = `${target.nickname} 공격 명중 · 실제 직업은 ${target.role}입니다.`; this.private(actor, message); this.verdict(actor, "공격 판정", true, message); }
       else {
         this.addLog("⚔", `누군가가 ${target.nickname}을(를) 공격했지만 실패했습니다.`, "danger");
         const reason = shielded ? "순찰경찰이 경찰반장을 보호 중" : `${target.nickname}은(는) ${guessedRole}이(가) 아님`;
         if (skillId === "lower-attack") {
           actor.lowAttackFails += 1;
           this.private(actor, `하급공격 실패 ${actor.lowAttackFails}/2 · ${reason}`);
+          this.verdict(actor, "공격 판정", false, `하급공격 실패 ${actor.lowAttackFails}/2 · ${reason}`);
           if (actor.lowAttackFails >= 2) this.kill(actor, "하급공격 2회 실패");
-        } else this.private(actor, `공격 실패 · ${reason}`);
+        } else { this.private(actor, `공격 실패 · ${reason}`); this.verdict(actor, "공격 판정", false, reason); }
       }
     }
   }
@@ -146,6 +147,7 @@ export class SingleRoom {
       cooldowns: Object.fromEntries(Object.entries(viewer.cooldowns).map(([id, until]) => [id, Math.max(0, Math.ceil((until - current) / 1000))])),
       usedOnce: viewer.usedOnce, alliances: [...viewer.alliances], logs: this.logs.slice(-60), privateLogs: viewer.privateLogs.slice(-40), lowAttackFails: viewer.lowAttackFails, result: this.result,
       effect: this.effect && this.effect.until > current ? { id: this.effect.id, type: this.effect.type } : null,
+      verdict: viewer.verdict && viewer.verdict.until > current ? { id: viewer.verdict.id, title: viewer.verdict.title, success: viewer.verdict.success, message: viewer.verdict.message } : null,
       whisper: viewer.whisper && viewer.whisper.until > current ? { from: viewer.whisper.from, to: viewer.whisper.to, text: viewer.whisper.text } : null,
       chats: this.chats.filter((chat) => chat.channel === "public" || chat.recipients?.includes(viewer.id)).map(({ recipients, ...chat }) => chat),
       players: this.players.map((player) => ({ id: player.id, nickname: player.nickname, connected: player.connected, isBot: player.isBot, aiControlled: player.aiControlled, alive: player.alive, announced: player.announced, faction: player.id === viewer.id || !player.alive || this.result ? factionOf(player.role) : null, role: player.id === viewer.id || !player.alive || this.result ? player.role : null })),
@@ -153,6 +155,7 @@ export class SingleRoom {
   }
   addLog(icon, text, tone) { this.logs.push({ time: nowLabel(), icon, text, tone }); this.logs = this.logs.slice(-60); }
   private(player, text) { player.privateLogs.push({ time: nowLabel(), text }); player.privateLogs = player.privateLogs.slice(-40); }
+  verdict(player, title, success, message) { player.verdict = { id: this.now() + this.random(), title, success, message, until: this.now() + 4500 }; }
   player(id) { const player = this.players.find((entry) => entry.id === id); if (!player) throw new Error("플레이어를 찾을 수 없습니다."); return player; }
   assertGame() { if (this.phase !== "game" || this.result) throw new Error("진행 중인 게임이 없습니다."); }
   nextSeat() { for (let id = 1; id <= 13; id += 1) if (!this.players.some((player) => player.id === id)) return id; throw new Error("빈 좌석이 없습니다."); }
