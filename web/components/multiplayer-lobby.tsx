@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMultiplayerRoom } from "../hooks/use-multiplayer-room";
+import { MultiplayerGame } from "./multiplayer-game";
 
 export function ModeLobby({ onDebug, onMultiplayer }: { onDebug: () => void; onMultiplayer: () => void }) {
   return <main className="debug-lobby"><section className="lobby-card mode-card">
@@ -30,6 +31,7 @@ export function MultiplayerLobby() {
   </section></main>;
 
   const isHost = room.state.yourSeatId === room.state.hostId;
+  if (room.state.phase === "game") return <MultiplayerGame room={room} />;
   return <main className="debug-lobby"><section className="lobby-card multiplayer-card">
     <span className="result-kicker">{room.status === "connected" ? "● LIVE" : "● RECONNECTING"}</span>
     <h1>{room.state.phase === "lobby" ? "플레이어 대기실" : "게임이 시작되었습니다"}</h1>

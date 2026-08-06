@@ -38,6 +38,9 @@ wss.on("connection", (socket) => {
       if (!socket.playerId) throw new Error("먼저 입장하세요.");
       if (message.type === "set_total") room.setTotal(socket.playerId, message.total);
       else if (message.type === "start") room.start(socket.playerId);
+      else if (message.type === "action") room.act(socket.playerId, message);
+      else if (message.type === "chat") room.chat(socket.playerId, message);
+      else if (message.type === "restart") room.restart(socket.playerId);
       else if (message.type === "ping") { send(socket, { type: "pong" }); return; }
       else throw new Error("지원하지 않는 요청입니다.");
       broadcastState();
@@ -55,7 +58,8 @@ const heartbeat = setInterval(() => {
     socket.ping();
   }
 }, 25000);
-server.on("close", () => clearInterval(heartbeat));
+const gameClock = setInterval(() => { if (room.tick()) broadcastState(); }, 1000);
+server.on("close", () => { clearInterval(heartbeat); clearInterval(gameClock); });
 process.on("SIGTERM", () => {
   for (const socket of wss.clients) send(socket, { type: "server_restart" });
   server.close(() => process.exit(0));

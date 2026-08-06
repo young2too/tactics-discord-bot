@@ -8,6 +8,17 @@ export type RoomState = {
   hostId: number | null;
   yourSeatId: number;
   yourRole: string | null;
+  mana?: number;
+  nextManaIn?: number;
+  cooldowns?: Record<string, number>;
+  usedOnce?: Record<string, boolean>;
+  alliances?: number[];
+  logs?: { time: string; icon: string; text: string; tone: string }[];
+  privateLogs?: { time: string; text: string }[];
+  chats?: { id: number; from: number; text: string; channel: "public" | "alliance" }[];
+  effect?: { id: number; type: "inspect" | "attack" } | null;
+  whisper?: { from: number; to: number; text: string } | null;
+  result?: { winner: "mafia" | "citizen"; reason: string } | null;
   players: {
     id: number;
     nickname: string;
@@ -16,6 +27,8 @@ export type RoomState = {
     aiControlled: boolean;
     alive: boolean;
     role: string | null;
+    announced?: string;
+    faction?: "mafia" | "citizen" | null;
   }[];
 };
 
@@ -86,5 +99,8 @@ export function useMultiplayerRoom() {
     connect: (nickname: string) => open(nickname),
     setTotal: (total: number) => send({ type: "set_total", total }),
     start: () => send({ type: "start" }),
+    act: (payload: { skillId: string; targetId?: number; role?: string; text?: string }) => send({ type: "action", ...payload }),
+    chat: (text: string, channel: "public" | "alliance") => send({ type: "chat", text, channel }),
+    restart: () => send({ type: "restart" }),
   };
 }
