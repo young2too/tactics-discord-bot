@@ -1,8 +1,8 @@
 # TACTICS realtime server
 
-Render에서 저장소의 `render.yaml` Blueprint를 생성하면 단일 방 WebSocket 서버가 배포됩니다.
+Render에서 저장소의 `render.yaml` Blueprint를 생성하면 웹 화면과 단일 방 WebSocket 서버가 하나의 Web Service로 배포됩니다.
 
-배포 후 웹 프로젝트 환경변수 `NEXT_PUBLIC_GAME_SERVER_URL`에 `wss://<render-host>/ws`를 지정하세요.
+운영 웹은 접속한 Render 도메인의 `/ws`를 자동 사용하므로 별도 서버 주소 환경변수가 필요 없습니다.
 
 지원 흐름:
 

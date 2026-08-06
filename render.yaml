@@ -1,12 +1,15 @@
 services:
   - type: web
-    name: tactics-realtime-server
+    name: tactics-discord-bot
     runtime: node
-    rootDir: server
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: cd server && npm install && cd ../web && npm install && npm run build
+    startCommand: node server/index.js
     healthCheckPath: /health
     autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION
         value: 22.22.0
+      - key: SERVE_WEB
+        value: "true"
+      - key: WEB_INTERNAL_PORT
+        value: "10001"

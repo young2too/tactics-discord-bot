@@ -42,12 +42,8 @@ export function useMultiplayerRoom() {
   const [error, setError] = useState("");
 
   const open = useCallback((nickname: string, reconnect = false) => {
-    const serverUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL
-      || (window.location.hostname === "localhost" ? "ws://localhost:10000/ws" : "");
-    if (!serverUrl) {
-      setError("게임 서버 주소가 설정되지 않았습니다.");
-      return;
-    }
+    const sameOriginUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
+    const serverUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL || (window.location.hostname === "localhost" ? "ws://localhost:10000/ws" : sameOriginUrl);
     if (!reconnect) setStatus("connecting");
     const savedToken = localStorage.getItem("tactics-reconnect-token");
     credentialsRef.current = { nickname, token: savedToken };
