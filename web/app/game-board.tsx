@@ -23,6 +23,7 @@ type Skill = {
   needsRole: boolean;
   tone: string;
   cooldown: number;
+  needsText?: boolean;
 };
 
 type GameResult = { winner: Faction; reason: string } | null;
@@ -50,15 +51,22 @@ const skillCatalog: Record<string, Skill> = {
   "boss-check": { id: "boss-check", key: "W", name: "보스 확인", icon: "♛", cost: 10, target: true, needsRole: false, tone: "red", cooldown: 10 },
   "detective-check": { id: "detective-check", key: "W", name: "탐정 확인", icon: "⌕", cost: 10, target: true, needsRole: false, tone: "blue", cooldown: 10 },
   support: { id: "support", key: "W", name: "지원", icon: "+", cost: 20, target: true, needsRole: false, tone: "blue", cooldown: 10 },
+  leadership: { id: "leadership", key: "W", name: "리더쉽", icon: "♜", cost: 50, target: false, needsRole: true, tone: "gold", cooldown: 10 },
+  successor: { id: "successor", key: "E", name: "후계자 지정", icon: "♚", cost: 0, target: true, needsRole: false, tone: "gold", cooldown: 10 },
+  arrest: { id: "arrest", key: "R", name: "검거", icon: "⚖", cost: 0, target: true, needsRole: false, tone: "blue", cooldown: 10 },
+  snipe: { id: "snipe", key: "R", name: "저격", icon: "⊕", cost: 150, target: true, needsRole: false, tone: "red", cooldown: 10 },
+  revenge: { id: "revenge", key: "R", name: "복수귀", icon: "☠", cost: 150, target: true, needsRole: false, tone: "red", cooldown: 10 },
+  deception: { id: "deception", key: "W", name: "기만", icon: "◈", cost: 0, target: false, needsRole: false, tone: "gold", cooldown: 0 },
+  proclamation: { id: "proclamation", key: "E", name: "공문", icon: "✉", cost: 20, target: false, needsRole: false, needsText: true, tone: "blue", cooldown: 10 },
   "ally-add": { id: "ally-add", key: "A", name: "동맹 추가", icon: "◇+", cost: 0, target: true, needsRole: false, tone: "gold", cooldown: 5 },
   "ally-remove": { id: "ally-remove", key: "S", name: "동맹 파기", icon: "◇×", cost: 0, target: true, needsRole: false, tone: "red", cooldown: 5 },
 };
 
 const roleSkillIds: Record<string, string[]> = {
-  마피아대부: ["lower-attack"], 히트맨: ["enemy-scan"], 마피아일원: ["upper-attack", "ally-check"],
-  마피아후계자: ["ally-scan", "boss-check"], 스파이: [], 경찰반장: ["ally-check"],
+  마피아대부: ["leadership", "lower-attack", "successor"], 히트맨: ["enemy-scan", "snipe"], 마피아일원: ["upper-attack"],
+  마피아후계자: ["ally-scan", "boss-check"], 스파이: ["deception"], 경찰반장: ["ally-check", "leadership", "arrest"],
   자경단원: ["upper-attack"], 사립탐정: ["enemy-scan"], 순찰경찰: ["ally-check", "lower-attack"],
-  탐정조수: ["detective-check", "enemy-check"], 남자연인: ["ally-check"], 여자연인: ["enemy-check"], 공무원: ["support"],
+  탐정조수: ["detective-check", "enemy-check"], 남자연인: ["ally-check", "revenge"], 여자연인: ["enemy-check", "revenge"], 공무원: ["support", "proclamation"],
 };
 
 const allRoles = [
@@ -110,12 +118,13 @@ const MANA_TICK = 20;
 const MANA_INTERVAL_SECONDS = 3 * 60;
 const ATTACKER_ROLES = new Set(["마피아대부", "히트맨", "마피아일원", "자경단원", "순찰경찰"]);
 
-function checkVictory(players: Player[]): GameResult {
+function checkVictory(players: Player[], successorId: number | null = null): GameResult {
   const citizenLeader = players.find((player) => player.role === "경찰반장");
   if (citizenLeader && !citizenLeader.alive) return { winner: "mafia", reason: "경찰반장 사망" };
 
   const mafiaBoss = players.find((player) => player.role === "마피아대부");
-  if (mafiaBoss && !mafiaBoss.alive) return { winner: "citizen", reason: "마피아 대부 사망(후계자 없음/사망)" };
+  const successorAlive = successorId !== null && players.some((player) => player.id === successorId && player.alive);
+  if (mafiaBoss && !mafiaBoss.alive && !successorAlive) return { winner: "citizen", reason: "마피아 대부 사망(후계자 없음/사망)" };
 
   const mafiaAttackers = players.filter((player) => player.alive && player.faction === "mafia" && ATTACKER_ROLES.has(player.role));
   if (mafiaAttackers.length === 0) return { winner: "citizen", reason: "마피아 공격권자 전멸" };
@@ -140,6 +149,10 @@ export function GameBoard() {
   const [chatChannel, setChatChannel] = useState<"public" | "alliance">("public");
   const [whisperBubble, setWhisperBubble] = useState<{ from: number; to: number; text: string } | null>(null);
   const [alliances, setAlliances] = useState<number[]>([]);
+  const [usedOnce, setUsedOnce] = useState<Record<string, boolean>>({});
+  const [lowAttackFails, setLowAttackFails] = useState(0);
+  const [successorId, setSuccessorId] = useState<number | null>(null);
+  const [skillText, setSkillText] = useState("");
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
   const [effectTarget, setEffectTarget] = useState<number | null>(null);
@@ -205,7 +218,7 @@ export function GameBoard() {
         setBotMana((current) => ({ ...current, [actor.id]: (current[actor.id] ?? 20) - attackCost }));
         if (hit) {
           const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
-          const result = checkVictory(nextPlayers);
+          const result = checkVictory(nextPlayers, successorId);
           setPlayers(nextPlayers);
           setLogs((current) => [{ time: "지금", icon: "✦", text: `${actor.role}이(가) ${target.role}을(를) 처치했습니다.`, tone: "danger" }, ...current]);
           if (result) { setGameResult(result); setNotice(`게임 종료 · ${result.reason}`); }
@@ -230,7 +243,7 @@ export function GameBoard() {
     if (selectedSkill.id === "announce") return currentFormation;
     const livingRoles = new Set(players.filter((player) => player.alive).map((player) => player.role));
     const availableFormation = currentFormation.filter((item) => livingRoles.has(item.name));
-    if (selectedSkill.id === "ally-scan") return availableFormation.filter((item) => item.faction === me.faction);
+    if (selectedSkill.id === "ally-scan" || selectedSkill.id === "leadership") return availableFormation.filter((item) => item.faction === me.faction);
     return availableFormation.filter((item) => item.faction !== me.faction);
   }, [selectedSkill, players, me.faction]);
 
@@ -264,6 +277,10 @@ export function GameBoard() {
     setChatInput("");
     setWhisperBubble(null);
     setAlliances([]);
+    setUsedOnce({});
+    setLowAttackFails(0);
+    setSuccessorId(null);
+    setSkillText("");
     setLogs([{ time: "지금", icon: "◆", text: `${playerCount}인 디버그 게임이 시작되었습니다.`, tone: "plain" }]);
     setNotice("직업이 배정되었습니다. 먼저 직업을 공표하세요.");
     setStarted(true);
@@ -271,10 +288,24 @@ export function GameBoard() {
 
   function chooseSkill(skill: Skill) {
     if (gameResult || (cooldowns[skill.id] ?? 0) > 0) return;
+    if (["leadership", "successor", "arrest", "snipe", "revenge"].includes(skill.id) && usedOnce[skill.id]) {
+      setNotice(`${skill.name}은(는) 게임 중 1회만 사용할 수 있습니다.`);
+      return;
+    }
+    if (skill.id === "leadership" && me.announced !== me.role) {
+      setNotice("리더쉽은 실제 직업을 진명 공표한 뒤 사용할 수 있습니다.");
+      return;
+    }
+    if (skill.id === "revenge") {
+      const partnerRole = me.role === "남자연인" ? "여자연인" : "남자연인";
+      const partner = players.find((player) => player.role === partnerRole);
+      if (!partner || partner.alive) { setNotice("상대 연인이 사망한 뒤에만 복수귀가 활성화됩니다."); return; }
+    }
+    if (skill.id === "deception") { setNotice("기만은 패시브입니다. 시민 직업을 공표하면 시민의 아군 확인을 속입니다."); return; }
     setSelectedTarget(null);
     setSelectedSkill(skill);
-    setNotice(skill.target ? `${skill.name}: 게임판에서 대상을 선택하세요.` : `${skill.name}: 공표할 직업을 선택하세요.`);
-    if (!skill.target && !skill.needsRole) resolveSkill(skill, null);
+    setNotice(skill.target ? `${skill.name}: 게임판에서 대상을 선택하세요.` : skill.needsText ? `${skill.name}: 내용을 입력하세요.` : `${skill.name}: 직업을 선택하세요.`);
+    if (!skill.target && !skill.needsRole && !skill.needsText) resolveSkill(skill, null);
   }
 
   function chooseTarget(player: Player) {
@@ -352,6 +383,14 @@ export function GameBoard() {
       return;
     }
 
+    if (skill.id === "leadership" && guessedRole) {
+      const match = players.find((player) => player.alive && player.role === guessedRole);
+      if (!match) { setNotice(`생존 중인 ${guessedRole}이(가) 없습니다.`); return; }
+      setUsedOnce((current) => ({ ...current, leadership: true }));
+      setNotice(`리더쉽 결과 · ${guessedRole}은(는) ${match.id}번 ${match.name}입니다.`);
+      return;
+    }
+
     if (!target) return;
     setEffectTarget(target.id);
     window.setTimeout(() => setEffectTarget(null), 900);
@@ -364,10 +403,12 @@ export function GameBoard() {
     }
 
     if (skill.id === "upper-attack" || skill.id === "lower-attack") {
-      const hit = guessedRole === target.role;
+      const patrolAlive = players.some((player) => player.alive && player.role === "순찰경찰");
+      const shielded = target.role === "경찰반장" && patrolAlive;
+      const hit = guessedRole === target.role && !shielded;
       if (hit) {
         const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
-        const result = checkVictory(nextPlayers);
+        const result = checkVictory(nextPlayers, successorId);
         setPlayers(nextPlayers);
         if (result) {
           setGameResult(result);
@@ -378,8 +419,21 @@ export function GameBoard() {
         setLogs((current) => [{ time: "지금", icon: "✦", text: `${me.role}이 ${target.role}을 처치했습니다.`, tone: "danger" }, ...current]);
         setNotice(`공격 명중 · ${target.name}의 실제 직업은 ${target.role}이었습니다.`);
       } else {
+        if (skill.id === "lower-attack") {
+          const failures = lowAttackFails + 1;
+          setLowAttackFails(failures);
+          if (failures >= 2) {
+            const nextPlayers = players.map((player) => player.isMe ? { ...player, alive: false } : player);
+            const result = checkVictory(nextPlayers, successorId);
+            setPlayers(nextPlayers);
+            setLogs((current) => [{ time: "지금", icon: "☠", text: `${me.role}이 하급 공격을 2회 실패하여 사망했습니다.`, tone: "danger" }, ...current]);
+            setNotice("하급 공격 2회 누적 실패 · 자멸했습니다.");
+            if (result) setGameResult(result);
+            return;
+          }
+        }
         setLogs((current) => [{ time: "지금", icon: "↗", text: `${me.role}이 누군가를 ${guessedRole}(으)로 공격했으나 실패했습니다.`, tone: "danger" }, ...current]);
-        setNotice(`공격 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.`);
+        setNotice(shielded ? "공격 실패 · 순찰경찰이 경찰반장을 보호하고 있습니다." : `공격 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.${skill.id === "lower-attack" ? ` (누적 ${lowAttackFails + 1}/2)` : ""}`);
       }
       return;
     }
@@ -396,6 +450,49 @@ export function GameBoard() {
       return;
     }
 
+    if (skill.id === "successor") {
+      setUsedOnce((current) => ({ ...current, successor: true }));
+      if (target.role === "마피아후계자") {
+        setSuccessorId(target.id);
+        setNotice(`후계자 지정 성공 · ${target.id}번 ${target.name}이 후계자로 등록되었습니다.`);
+        setLogs((current) => [{ time: "지금", icon: "♚", text: "마피아대부가 후계자를 지정했습니다.", tone: "plain" }, ...current]);
+      } else {
+        setNotice(`후계자 지정 실패 · ${target.name}은(는) 마피아후계자가 아닙니다.`);
+        setLogs((current) => [{ time: "지금", icon: "!", text: "마피아대부의 후계자 지정이 실패했습니다.", tone: "danger" }, ...current]);
+      }
+      return;
+    }
+
+    if (skill.id === "arrest") {
+      setUsedOnce((current) => ({ ...current, arrest: true }));
+      if (target.role !== "마피아대부") {
+        setGameResult({ winner: "mafia", reason: "경찰반장의 검거 실패" });
+        setNotice("검거 실패 · 시민 진영 패배");
+        return;
+      }
+      const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
+      setPlayers(nextPlayers);
+      const successorAlive = successorId !== null && nextPlayers.some((player) => player.id === successorId && player.alive);
+      if (successorAlive) {
+        setNotice("검거 성공 · 살아있는 후계자가 있어 게임이 계속됩니다.");
+      } else {
+        setGameResult({ winner: "citizen", reason: "마피아대부 검거 성공" });
+        setNotice("검거 성공 · 시민 진영 승리");
+      }
+      return;
+    }
+
+    if (skill.id === "snipe" || skill.id === "revenge") {
+      setUsedOnce((current) => ({ ...current, [skill.id]: true }));
+      const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
+      setPlayers(nextPlayers);
+      setLogs((current) => [{ time: "지금", icon: "☠", text: `${skill.name} 발동 · ${target.name}(${target.role}) 사망`, tone: "danger" }, ...current]);
+      const result = checkVictory(nextPlayers, successorId);
+      if (result) setGameResult(result);
+      setNotice(`${skill.name} 성공 · ${target.name}을(를) 즉사시켰습니다.`);
+      return;
+    }
+
     if (skill.id === "ally-add") {
       setAlliances((current) => [...new Set([...current, target.id])]);
       setNotice(`${target.id}번 ${target.name}과(와) 동맹을 맺었습니다.`);
@@ -409,7 +506,19 @@ export function GameBoard() {
     }
 
     setLogs((current) => [{ time: "지금", icon: "◉", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
-    setNotice(`${target.name}의 공표는 ${target.announced === target.role ? "진명" : "가명"}입니다.`);
+    const spyFooled = skill.id === "ally-check" && target.role === "스파이" && target.faction === "mafia" && factionOf(target.announced) === "citizen" && me.faction === "citizen";
+    setNotice(`${target.name}의 공표는 ${spyFooled || target.announced === target.role ? "진명" : "가명"}입니다.`);
+  }
+
+  function sendProclamation(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const text = skillText.trim().slice(0, 200);
+    if (!text || selectedSkill?.id !== "proclamation") return;
+    setCooldowns((current) => ({ ...current, proclamation: skillCatalog.proclamation.cooldown }));
+    setChatMessages((current) => [...current.slice(-30), { id: Date.now(), from: me.id, text: `📜 [공문] ${text}`, channel: "public" }]);
+    setLogs((current) => [{ time: "지금", icon: "✉", text: `공무원 공문 · ${text}`, tone: "plain" }, ...current]);
+    setNotice("공문을 전체 플레이어에게 발송했습니다.");
+    setSkillText(""); setSelectedSkill(null); setChatChannel("public");
   }
 
   function cancelTargeting() {
@@ -538,6 +647,15 @@ export function GameBoard() {
               {modalRoles.map((role) => <button className={`role-choice ${role.faction}`} key={role.name} onClick={() => resolveSkill(selectedSkill, selectedTarget, role.name)}>{role.name}<small>{role.faction === "mafia" ? "마피아 진영" : "시민 진영"}</small></button>)}
             </div>
             <footer><span>격발 전까지 마나가 소모되지 않습니다.</span><button onClick={cancelTargeting}>취소</button></footer>
+          </section>
+        </div>
+      )}
+
+      {selectedSkill?.needsText && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={cancelTargeting}>
+          <section className="role-modal proclamation-modal" role="dialog" aria-modal="true" aria-label="공문 작성" onMouseDown={(event) => event.stopPropagation()}>
+            <header><span>✉</span><div><small>공무원 전용 스킬</small><h2>전체 플레이어에게 보낼 공문을 작성하세요</h2></div><button onClick={cancelTargeting}>×</button></header>
+            <form onSubmit={sendProclamation}><textarea autoFocus value={skillText} onChange={(event) => setSkillText(event.target.value)} maxLength={200} placeholder="공문 내용 (최대 200자)"/><div><small>{skillText.length} / 200</small><button type="submit" disabled={!skillText.trim()}>공문 발송</button></div></form>
           </section>
         </div>
       )}

@@ -51,6 +51,7 @@ button { font:inherit; }
   .hint strong { font-size:13px; }
   .hint small { font-size:10px; }
 }
+.proclamation-modal form { padding:18px; }.proclamation-modal textarea { width:100%;min-height:130px;resize:vertical;padding:14px;border:1px solid #58717d;background:#17262e;color:#edf4f7;font:14px/1.6 inherit;outline:none; }.proclamation-modal textarea:focus { border-color:#65bfe3; }.proclamation-modal form>div { display:flex;justify-content:space-between;align-items:center;margin-top:10px; }.proclamation-modal form small { color:#9dafba; }.proclamation-modal form button { padding:9px 18px;border:1px solid #4e9cbc;background:#244b5b;color:#dff5ff;cursor:pointer; }.proclamation-modal form button:disabled { opacity:.4;cursor:not-allowed; }
 
 @media (max-width:760px) {
   .topbar { height:62px;padding:0 14px; }
