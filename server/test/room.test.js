@@ -156,6 +156,25 @@ test("a living captain with an unused arrest prevents mafia victory after citize
     { role: "마피아대부", alive: true }, { role: "마피아일원", alive: true },
     { role: "경찰반장", alive: true }, { role: "자경단원", alive: false }, { role: "순찰경찰", alive: false },
   ];
-  assert.equal(checkVictory(players, null, true), null);
-  assert.deepEqual(checkVictory(players, null, false), { winner: "mafia", reason: "시민 공격권자 및 검거권 소진" });
+  assert.equal(checkVictory(players, null), null);
+  players.find((player) => player.role === "경찰반장").usedOnce = { arrest: true };
+  assert.deepEqual(checkVictory(players, null), { winner: "mafia", reason: "시민의 남은 처치 수단 소진" });
+});
+
+test("unused revenge and a viable snipe command chain count as comeback threats", () => {
+  const base = [
+    { role: "마피아대부", alive: true, usedOnce: {} }, { role: "히트맨", alive: true, usedOnce: {}, snipeAuthorized: false },
+    { role: "경찰반장", alive: true, usedOnce: { arrest: true } }, { role: "남자연인", alive: true, usedOnce: {} },
+    { role: "자경단원", alive: false }, { role: "순찰경찰", alive: false },
+    { id: 6, role: "마피아후계자", alive: true },
+  ];
+  assert.equal(checkVictory(base, null), null);
+  base.find((player) => player.role === "남자연인").usedOnce.revenge = true;
+  assert.deepEqual(checkVictory(base, null), { winner: "mafia", reason: "시민의 남은 처치 수단 소진" });
+  const mafiaOnlySnipe = base.map((player) => ({ ...player, usedOnce: { ...(player.usedOnce ?? {}) } }));
+  mafiaOnlySnipe.find((player) => player.role === "마피아대부").alive = false;
+  mafiaOnlySnipe.find((player) => player.role === "히트맨").snipeAuthorized = true;
+  assert.deepEqual(checkVictory(mafiaOnlySnipe, 6), { winner: "mafia", reason: "시민의 남은 처치 수단 소진" });
+  mafiaOnlySnipe.find((player) => player.role === "히트맨").usedOnce.snipe = true;
+  assert.deepEqual(checkVictory(mafiaOnlySnipe, 6), { winner: "citizen", reason: "마피아의 남은 처치 수단 소진" });
 });
