@@ -73,6 +73,8 @@ button { font:inherit; }
   .battle-layout>.board-area { grid-column:2;grid-row:1; }
   .battle-layout>.event-panel { grid-column:3;grid-row:1; }
 }
+.mode-actions { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px; }.secondary-mode { margin-top:22px;padding:15px;border:1px solid #607783;background:#263944;color:#d4e0e6;font-weight:700;cursor:pointer; }.multiplayer-card form { display:grid;grid-template-columns:1fr 180px;gap:10px;margin-top:24px; }.multiplayer-card form input { min-width:0;padding:14px;border:1px solid #607783;background:#17262e;color:#edf4f7;font-size:15px; }.multiplayer-card form .start-debug { margin:0; }.lobby-error { margin-top:12px!important;color:#ff8177!important; }.live-roster { display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:20px 0; }.live-roster>div { display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:8px;padding:11px;border:1px solid #4e626e;background:#22343e; }.live-roster>div.me { border-color:#d1ad54; }.live-roster>div.away { opacity:.55; }.live-roster b { color:#a9bdc7; }.live-roster span { color:#edf4f7;font-weight:700; }.live-roster small { color:#7fc9e7;font-size:10px; }.bot-fill { margin:12px 0!important;color:#aebdc5!important; }.assigned-role { margin:18px 0;padding:18px;border:1px solid #b39249;background:#3b321e;display:flex;flex-direction:column;gap:6px;text-align:center; }.assigned-role span,.assigned-role small { color:#c8b77e;font-size:11px; }.assigned-role strong { color:#ffe19a;font-size:24px; }
+@media (max-width:600px) { .mode-actions,.live-roster { grid-template-columns:1fr; }.multiplayer-card form { grid-template-columns:1fr; } }
 
 @media (max-width:760px) {
   .topbar { height:62px;padding:0 14px; }

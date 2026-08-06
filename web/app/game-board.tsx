@@ -7,8 +7,10 @@ import type { ChatMessage, GameResult, Player, PrivateLog, PublicEffect, Skill }
 import { CommunicationPanel, DebugLobby, PrivateRolePanel, SkillDeck } from "../components/game-panels";
 import { Battlefield } from "../components/battlefield";
 import { GameOverModal, ProclamationModal, RoleChoiceModal } from "../components/game-modals";
+import { ModeLobby, MultiplayerLobby } from "../components/multiplayer-lobby";
 
 export function GameBoard() {
+  const [entryMode, setEntryMode] = useState<"choose" | "debug" | "multiplayer">("choose");
   const [started, setStarted] = useState(false);
   const [playerCount, setPlayerCount] = useState(8);
   const [debugRole, setDebugRole] = useState("마피아일원");
@@ -406,6 +408,8 @@ export function GameBoard() {
   }
 
   if (!started) {
+    if (entryMode === "choose") return <ModeLobby onDebug={() => setEntryMode("debug")} onMultiplayer={() => setEntryMode("multiplayer")} />;
+    if (entryMode === "multiplayer") return <MultiplayerLobby />;
     return <DebugLobby playerCount={playerCount} debugRole={debugRole} setPlayerCount={setPlayerCount} setDebugRole={setDebugRole} onStart={startDebugGame} />;
   }
 
