@@ -108,3 +108,28 @@ button { font:inherit; }
 .event-panel .chat-stream { flex:0 1 190px;min-height:100px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable; }
 .event-panel .event-list { flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable; }
 .event-panel .intel-note { flex:0 0 auto;margin-top:0; }
+
+/* Brighter tactical theme: retain the night-operation palette without crushing contrast. */
+:root { --ink:#f1f6fa;--muted:#a8b7c2;--line:#425664;--panel:#1c2932; }
+html,body { background:#142029; }
+.game-shell { background:radial-gradient(circle at 50% 38%,#314b59 0,#20323d 43%,#15232c 82%); }
+.topbar { border-color:#526875;background:linear-gradient(180deg,#2a3c48,#1d2c35);box-shadow:0 8px 24px #08101580; }
+.brand small,.room-status,.supply { color:#a7b8c3; }
+.panel { border-color:#4b606d;background:linear-gradient(145deg,#263843f5,#1b2932f5);box-shadow:0 14px 38px #07101666; }
+.panel-heading { border-color:#465b68;color:#d4dfe5; }
+.board-area { border-color:#536a77;background:radial-gradient(ellipse at center,#304b57 0,#1d303a 70%); }
+.board-area::before { background-image:linear-gradient(#ffffff0b 1px,transparent 1px),linear-gradient(90deg,#ffffff0b 1px,transparent 1px); }
+.table-core { border-color:#58717d;background:radial-gradient(ellipse,#2b4652,#1d3039 72%);box-shadow:inset 0 0 65px #07101466,0 0 55px #15323e99; }
+.table-core::before { border-color:#48616d; }.table-core .round-label,.table-core small { color:#9eb1bc; }.table-core strong { color:#c2d4dc; }
+.player-seat { border-color:#5a6f7b;background:linear-gradient(135deg,#2d404bf5,#202f38f5);color:#f2f6f8;box-shadow:0 9px 22px #07101566; }
+.player-copy small { color:#a9b8c1; }.portrait { border-color:#718994;background:#263640; }.life-state { background:#173e2d;color:#8ee4b3; }
+.player-seat.me { border-color:#d2ae59;background:linear-gradient(135deg,#3d4240,#26363d);box-shadow:0 0 0 1px #8d753e,0 12px 28px #07101570; }
+.player-seat.dead { background:#292426ee; }
+.event-list,.chat-stream { background:#18262f; }.event-row { border-color:#344852; }.event-row p,.chat-stream p span { color:#d6e0e5; }.event-row time,.chat-stream .chat-empty { color:#91a3ae; }
+.chat-form { border-color:#455a67;background:#22323c; }.chat-form input { border-color:#536a77;background:#17252d;color:#f0f5f8; }.chat-tabs button { border-color:#526873;background:#22333d;color:#aebdc5; }
+.intel-note { background:#2a302a;color:#c0c8c2; }.private-result { background:#203640; }.private-result p,.role-card p { color:#b5c1c8; }
+.detail-panel .role-card { background:radial-gradient(circle at top,#493532,#28282b 72%); }
+.command-deck { border-color:#506572;background:linear-gradient(180deg,#283a45,#1b2932);box-shadow:0 -10px 28px #07101580; }
+.identity span,.identity small,.hint small,.deck-label small { color:#9dafba; }.hint strong { color:#dce5ea; }
+.skill-button { border-color:#586d79;background:linear-gradient(145deg,#30434e,#21313a);color:#d2dde3; }.skill-button small { color:#a3b7c1; }.skill-button kbd { color:#afc0c8; }
+.role-modal { background:linear-gradient(145deg,#2b3e49,#1b2a33); }.target-summary { background:#21333d; }.role-grid button { background:#263943;color:#d4dfe4; }
