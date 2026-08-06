@@ -296,6 +296,20 @@ export function GameBoard() {
     event.preventDefault();
     const text = chatInput.trim();
     if (!text) return;
+    const incomingWhisper = text.match(/^\+(\d+)\s+(.+)$/s);
+    if (incomingWhisper) {
+      const senderId = Number(incomingWhisper[1]);
+      const sender = players.find((player) => player.id === senderId);
+      if (!sender || sender.id === me.id) {
+        setNotice("귓말을 보낼 봇의 번호를 확인하세요. 예: +3 야");
+        return;
+      }
+      setWhisperBubble({ from: senderId, to: me.id, text: incomingWhisper[2] });
+      setNotice(`${senderId}번 ${sender.name}에게서 귓말이 도착했습니다.`);
+      setChatInput("");
+      window.setTimeout(() => setWhisperBubble(null), 5500);
+      return;
+    }
     const whisper = text.match(/^-(\d+)\s+(.+)$/s);
     if (whisper) {
       const targetId = Number(whisper[1]);
@@ -434,12 +448,12 @@ export function GameBoard() {
         <aside className="event-panel panel">
           <div className="panel-heading chat-heading"><span>채팅</span><div className="chat-tabs"><button className={chatChannel === "public" ? "active" : ""} onClick={() => setChatChannel("public")}>공개</button><button className={chatChannel === "alliance" ? "active" : ""} onClick={() => setChatChannel("alliance")}>동맹</button></div></div>
           <div className="chat-stream">
-            {chatMessages.filter((message) => message.channel === chatChannel).length === 0 ? <p className="chat-empty">{chatChannel === "public" ? <>모두에게 메시지를 보냅니다.<br/><code>-3 야</code> → 3번에게 귓말<br/><code>/a 작전</code> → 동맹챗</> : <>현재 동맹에게만 보이는 채팅입니다.<br/>동맹 추가/파기는 우하단 스킬을 사용하세요.</>}</p> : chatMessages.filter((message) => message.channel === chatChannel).map((message) => {
+            {chatMessages.filter((message) => message.channel === chatChannel).length === 0 ? <p className="chat-empty">{chatChannel === "public" ? <>모두에게 메시지를 보냅니다.<br/><code>-3 야</code> → 3번에게 귓말<br/><code>+3 야</code> → 3번에게서 수신 테스트<br/><code>/a 작전</code> → 동맹챗</> : <>현재 동맹에게만 보이는 채팅입니다.<br/>동맹 추가/파기는 우하단 스킬을 사용하세요.</>}</p> : chatMessages.filter((message) => message.channel === chatChannel).map((message) => {
               const sender = players.find((player) => player.id === message.from);
               return <p className={message.channel} key={message.id}><b>{message.channel === "alliance" ? "◇ 동맹 · " : ""}{message.from}번 {sender?.name}</b><span>{message.text}</span></p>;
             })}
           </div>
-          <form className="chat-form" onSubmit={sendChat}><input aria-label="채팅 메시지" value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder={chatChannel === "public" ? "전체 채팅 · -번호 귓말 · /a 동맹챗" : "동맹에게 메시지 보내기"} maxLength={160}/><button>전송</button></form>
+          <form className="chat-form" onSubmit={sendChat}><input aria-label="채팅 메시지" value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder={chatChannel === "public" ? "전체 · -3 발신 · +3 수신 테스트 · /a 동맹" : "동맹에게 메시지 보내기"} maxLength={160}/><button>전송</button></form>
           <div className="panel-heading event-subheading"><span>전장 기록</span><button>전체</button></div>
           <div className="event-list">
             {logs.map((log, index) => (
