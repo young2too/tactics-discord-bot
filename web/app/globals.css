@@ -63,6 +63,9 @@ button { font:inherit; }
 .verdict-popup.success strong { color:#78e2b5; }
 .verdict-popup.failure { border-color:#d8635a;box-shadow:0 0 35px #d84a3e44,0 18px 70px #000b; }
 .verdict-popup.failure strong { color:#ff8177; }
+.skill-upper-attack .skill-icon { font-size:17px;letter-spacing:-3px;transform:translateX(-2px); }
+.skill-lower-attack .skill-icon { font-size:21px;letter-spacing:-2px; }
+.skill-snipe-command .skill-icon { font-size:13px;letter-spacing:-3px;transform:translateX(-3px); }
 @keyframes verdict-in { from { opacity:0;transform:translate(-50%,-42%) scale(.94); } to { opacity:1;transform:translate(-50%,-50%) scale(1); } }
 .proclamation-modal form { padding:18px; }.proclamation-modal textarea { width:100%;min-height:130px;resize:vertical;padding:14px;border:1px solid #58717d;background:#17262e;color:#edf4f7;font:14px/1.6 inherit;outline:none; }.proclamation-modal textarea:focus { border-color:#65bfe3; }.proclamation-modal form>div { display:flex;justify-content:space-between;align-items:center;margin-top:10px; }.proclamation-modal form small { color:#9dafba; }.proclamation-modal form button { padding:9px 18px;border:1px solid #4e9cbc;background:#244b5b;color:#dff5ff;cursor:pointer; }.proclamation-modal form button:disabled { opacity:.4;cursor:not-allowed; }
 .skill-ally-add .skill-icon,.skill-ally-remove .skill-icon { position:relative;font-family:"Segoe UI Emoji",sans-serif;font-size:25px;filter:saturate(.8); }
