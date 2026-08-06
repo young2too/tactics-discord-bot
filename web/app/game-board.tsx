@@ -38,25 +38,55 @@ const initialPlayers: Player[] = [
   { id: 8, name: "예린", announced: "탐정조수", role: "탐정조수", faction: "citizen", alive: false },
 ];
 
-const skills: Skill[] = [
-  { id: "announce", key: "Q", name: "공표", icon: "⚑", cost: 0, target: false, needsRole: true, tone: "gold", cooldown: 90 },
-  { id: "ally-check", key: "W", name: "아군 확인", icon: "◉", cost: 5, target: true, needsRole: false, tone: "blue", cooldown: 10 },
-  { id: "attack", key: "E", name: "상급 공격", icon: "✦", cost: 40, target: true, needsRole: true, tone: "red", cooldown: 10 },
-];
+const skillCatalog: Record<string, Skill> = {
+  announce: { id: "announce", key: "Q", name: "공표", icon: "⚑", cost: 0, target: false, needsRole: true, tone: "gold", cooldown: 90 },
+  "ally-check": { id: "ally-check", key: "W", name: "아군 확인", icon: "◉", cost: 5, target: true, needsRole: false, tone: "blue", cooldown: 10 },
+  "enemy-check": { id: "enemy-check", key: "W", name: "적군 확인", icon: "◉", cost: 5, target: true, needsRole: false, tone: "blue", cooldown: 10 },
+  "ally-scan": { id: "ally-scan", key: "E", name: "아군 스캔", icon: "⌁", cost: 15, target: true, needsRole: true, tone: "blue", cooldown: 10 },
+  "enemy-scan": { id: "enemy-scan", key: "E", name: "적군 스캔", icon: "⌁", cost: 20, target: true, needsRole: true, tone: "blue", cooldown: 10 },
+  "upper-attack": { id: "upper-attack", key: "R", name: "상급 공격", icon: "✦", cost: 40, target: true, needsRole: true, tone: "red", cooldown: 10 },
+  "lower-attack": { id: "lower-attack", key: "R", name: "하급 공격", icon: "✦", cost: 30, target: true, needsRole: true, tone: "red", cooldown: 10 },
+  "boss-check": { id: "boss-check", key: "W", name: "보스 확인", icon: "♛", cost: 10, target: true, needsRole: false, tone: "red", cooldown: 10 },
+  "detective-check": { id: "detective-check", key: "W", name: "탐정 확인", icon: "⌕", cost: 10, target: true, needsRole: false, tone: "blue", cooldown: 10 },
+  support: { id: "support", key: "W", name: "지원", icon: "+", cost: 20, target: true, needsRole: false, tone: "blue", cooldown: 10 },
+};
 
-const formation = [
+const roleSkillIds: Record<string, string[]> = {
+  마피아대부: ["lower-attack"], 히트맨: ["enemy-scan"], 마피아일원: ["upper-attack", "ally-check"],
+  마피아후계자: ["ally-scan", "boss-check"], 스파이: [], 경찰반장: ["ally-check"],
+  자경단원: ["upper-attack"], 사립탐정: ["enemy-scan"], 순찰경찰: ["ally-check", "lower-attack"],
+  탐정조수: ["detective-check", "enemy-check"], 남자연인: ["ally-check"], 여자연인: ["enemy-check"], 공무원: ["support"],
+};
+
+const allRoles = [
   { name: "마피아대부", faction: "mafia" as const },
   { name: "히트맨", faction: "mafia" as const },
   { name: "마피아일원", faction: "mafia" as const },
+  { name: "마피아후계자", faction: "mafia" as const },
+  { name: "스파이", faction: "mafia" as const },
   { name: "경찰반장", faction: "citizen" as const },
   { name: "자경단원", faction: "citizen" as const },
   { name: "사립탐정", faction: "citizen" as const },
   { name: "순찰경찰", faction: "citizen" as const },
   { name: "탐정조수", faction: "citizen" as const },
+  { name: "남자연인", faction: "citizen" as const },
+  { name: "여자연인", faction: "citizen" as const },
+  { name: "공무원", faction: "citizen" as const },
 ];
 
+const formations: Record<number, string[]> = {
+  8: ["마피아대부", "히트맨", "마피아일원", "경찰반장", "자경단원", "사립탐정", "순찰경찰", "탐정조수"],
+  9: ["마피아대부", "히트맨", "마피아일원", "경찰반장", "자경단원", "사립탐정", "순찰경찰", "탐정조수", "공무원"],
+  10: ["마피아대부", "히트맨", "마피아일원", "마피아후계자", "경찰반장", "자경단원", "사립탐정", "순찰경찰", "탐정조수", "공무원"],
+  11: ["마피아대부", "히트맨", "마피아일원", "마피아후계자", "경찰반장", "자경단원", "사립탐정", "순찰경찰", "탐정조수", "남자연인", "여자연인"],
+  12: ["마피아대부", "히트맨", "마피아일원", "마피아후계자", "스파이", "경찰반장", "자경단원", "사립탐정", "순찰경찰", "탐정조수", "남자연인", "여자연인"],
+  13: ["마피아대부", "히트맨", "마피아일원", "마피아후계자", "스파이", "경찰반장", "자경단원", "사립탐정", "순찰경찰", "탐정조수", "남자연인", "여자연인", "공무원"],
+};
+
+const botNames = ["윤서", "민준", "하린", "도윤", "서아", "지호", "예린", "현우", "수빈", "건우", "채원", "시우"];
+
 function factionOf(role: string): Faction {
-  return formation.find((item) => item.name === role)?.faction ?? "citizen";
+  return allRoles.find((item) => item.name === role)?.faction ?? "citizen";
 }
 
 const portraitRoles = [
@@ -71,10 +101,6 @@ function portraitStyle(role: string) {
   const row = Math.floor(index / 4);
   return { backgroundPosition: `${column * 33.333}% ${row * 33.333}%` };
 }
-
-const seatPositions = [
-  [50, 2], [75, 12], [92, 38], [78, 72], [50, 84], [22, 72], [8, 38], [25, 12],
-];
 
 const MANA_MAX = 200;
 const MANA_TICK = 20;
@@ -97,11 +123,15 @@ function checkVictory(players: Player[]): GameResult {
 }
 
 export function GameBoard() {
+  const [started, setStarted] = useState(false);
+  const [playerCount, setPlayerCount] = useState(8);
+  const [debugRole, setDebugRole] = useState("마피아일원");
   const [players, setPlayers] = useState(initialPlayers);
   const [mana, setMana] = useState(20);
   const [manaTickSeconds, setManaTickSeconds] = useState(2 * 60 + 14);
   const [gameResult, setGameResult] = useState<GameResult>(null);
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
+  const [botMana, setBotMana] = useState<Record<number, number>>({});
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
   const [effectTarget, setEffectTarget] = useState<number | null>(null);
@@ -115,6 +145,7 @@ export function GameBoard() {
   const me = players.find((player) => player.isMe)!;
   const mySeatIndex = players.findIndex((player) => player.isMe);
   const manaTickLabel = `${String(Math.floor(manaTickSeconds / 60)).padStart(2, "0")}:${String(manaTickSeconds % 60).padStart(2, "0")}`;
+  const availableSkills = useMemo(() => [skillCatalog.announce, ...(roleSkillIds[me.role] ?? []).map((id) => skillCatalog[id])].map((skill, index) => ({ ...skill, key: ["Q", "W", "E", "R"][index] ?? String(index + 1) })), [me.role]);
 
   useEffect(() => {
     if (gameResult) return;
@@ -131,21 +162,105 @@ export function GameBoard() {
   useEffect(() => {
     if (manaTickSeconds !== 0) return;
     setMana((current) => Math.min(MANA_MAX, current + MANA_TICK));
+    setBotMana((current) => Object.fromEntries(Object.entries(current).map(([id, value]) => [id, Math.min(MANA_MAX, value + MANA_TICK)])));
     setLogs((current) => [{ time: "지금", icon: "+", text: `마나 보급 · 모든 플레이어 +${MANA_TICK}`, tone: "mana" }, ...current]);
     setNotice(`마나 보급 완료 · 마나가 ${MANA_TICK} 회복되었습니다.`);
     setManaTickSeconds(MANA_INTERVAL_SECONDS);
   }, [manaTickSeconds]);
+
+  useEffect(() => {
+    if (!started || gameResult) return;
+    const timer = window.setTimeout(() => {
+      const aliveBots = players.filter((player) => player.alive && !player.isMe);
+      if (aliveBots.length === 0) return;
+      const unannounced = aliveBots.filter((player) => player.announced === "미공표");
+      if (unannounced.length > 0) {
+        const actor = unannounced[Math.floor(Math.random() * unannounced.length)];
+        const claims = formations[players.length];
+        const claim = Math.random() < 0.55 ? actor.role : claims[Math.floor(Math.random() * claims.length)];
+        const gain = claim === actor.role ? 10 : 5;
+        setPlayers((current) => current.map((player) => player.id === actor.id ? { ...player, announced: claim } : player));
+        setBotMana((current) => ({ ...current, [actor.id]: Math.min(MANA_MAX, (current[actor.id] ?? 20) + gain) }));
+        setLogs((current) => [{ time: "지금", icon: "⚑", text: `${actor.name}이(가) ${claim}을(를) 공표했습니다.`, tone: "plain" }, ...current]);
+        return;
+      }
+
+      const actor = aliveBots[Math.floor(Math.random() * aliveBots.length)];
+      const currentMana = botMana[actor.id] ?? 20;
+      const attackCost = actor.role === "마피아대부" || actor.role === "순찰경찰" ? 30 : actor.role === "마피아일원" || actor.role === "자경단원" ? 40 : null;
+      const enemyTargets = players.filter((player) => player.alive && player.id !== actor.id && player.faction !== actor.faction && player.announced !== "미공표");
+
+      if (attackCost && currentMana >= attackCost && enemyTargets.length > 0 && Math.random() < 0.45) {
+        const target = enemyTargets[Math.floor(Math.random() * enemyTargets.length)];
+        const guessedRole = target.announced;
+        const hit = guessedRole === target.role;
+        setBotMana((current) => ({ ...current, [actor.id]: (current[actor.id] ?? 20) - attackCost }));
+        if (hit) {
+          const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
+          const result = checkVictory(nextPlayers);
+          setPlayers(nextPlayers);
+          setLogs((current) => [{ time: "지금", icon: "✦", text: `${actor.role}이(가) ${target.role}을(를) 처치했습니다.`, tone: "danger" }, ...current]);
+          if (result) { setGameResult(result); setNotice(`게임 종료 · ${result.reason}`); }
+        } else {
+          setLogs((current) => [{ time: "지금", icon: "↗", text: `${actor.role}이(가) 누군가를 ${guessedRole}(으)로 공격했으나 실패했습니다.`, tone: "danger" }, ...current]);
+        }
+        return;
+      }
+
+      const inspectTargets = players.filter((player) => player.alive && player.id !== actor.id && player.announced !== "미공표");
+      if (currentMana >= 5 && inspectTargets.length > 0) {
+        const target = inspectTargets[Math.floor(Math.random() * inspectTargets.length)];
+        setBotMana((current) => ({ ...current, [actor.id]: (current[actor.id] ?? 20) - 5 }));
+        setLogs((current) => [{ time: "지금", icon: "◉", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
+      }
+    }, 2800);
+    return () => window.clearTimeout(timer);
+  }, [started, gameResult, players, botMana]);
   const modalRoles = useMemo(() => {
     if (!selectedSkill) return [];
-    if (selectedSkill.id === "announce") return formation;
-    return formation.filter((item) => item.faction === "citizen");
-  }, [selectedSkill]);
+    const currentFormation = formations[players.length].map((role) => ({ name: role, faction: factionOf(role) }));
+    if (selectedSkill.id === "announce") return currentFormation;
+    if (selectedSkill.id === "ally-scan") return currentFormation.filter((item) => item.faction === me.faction);
+    return currentFormation.filter((item) => item.faction !== me.faction);
+  }, [selectedSkill, players.length, me.faction]);
+
+  function shuffle<T>(values: T[]) {
+    const result = [...values];
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(Math.random() * (index + 1));
+      [result[index], result[target]] = [result[target], result[index]];
+    }
+    return result;
+  }
+
+  function startDebugGame() {
+    const rolePool = [...formations[playerCount]];
+    const ownRole = rolePool.includes(debugRole) ? debugRole : rolePool[0];
+    rolePool.splice(rolePool.indexOf(ownRole), 1);
+    const assignedBots = shuffle(rolePool);
+    const nextPlayers: Player[] = [
+      { id: 1, name: "나", announced: "미공표", role: ownRole, faction: factionOf(ownRole), alive: true, isMe: true },
+      ...assignedBots.map((role, index) => ({ id: index + 2, name: botNames[index], announced: "미공표", role, faction: factionOf(role), alive: true })),
+    ];
+    setPlayers(nextPlayers);
+    setMana(20);
+    setManaTickSeconds(2 * 60 + 14);
+    setCooldowns({});
+    setBotMana(Object.fromEntries(nextPlayers.filter((player) => !player.isMe).map((player) => [player.id, 20])));
+    setGameResult(null);
+    setSelectedSkill(null);
+    setSelectedTarget(null);
+    setLogs([{ time: "지금", icon: "◆", text: `${playerCount}인 디버그 게임이 시작되었습니다.`, tone: "plain" }]);
+    setNotice("직업이 배정되었습니다. 먼저 직업을 공표하세요.");
+    setStarted(true);
+  }
 
   function chooseSkill(skill: Skill) {
     if (gameResult || mana < skill.cost || (cooldowns[skill.id] ?? 0) > 0) return;
     setSelectedTarget(null);
     setSelectedSkill(skill);
     setNotice(skill.target ? `${skill.name}: 게임판에서 대상을 선택하세요.` : `${skill.name}: 공표할 직업을 선택하세요.`);
+    if (!skill.target && !skill.needsRole) resolveSkill(skill, null);
   }
 
   function chooseTarget(player: Player) {
@@ -156,6 +271,7 @@ export function GameBoard() {
 
   function isTargetable(player: Player, skill: Skill) {
     if (!player.alive || player.isMe) return false;
+    if ((skill.id === "ally-check" || skill.id === "enemy-check") && player.announced === "미공표") return false;
     const announcedFaction = factionOf(player.announced);
     if (skill.id === "ally-check") return announcedFaction === me.faction;
     if (skill.id === "enemy-check") return announcedFaction !== me.faction;
@@ -181,7 +297,14 @@ export function GameBoard() {
     setEffectTarget(target.id);
     window.setTimeout(() => setEffectTarget(null), 900);
 
-    if (skill.id === "attack") {
+    if (skill.id === "ally-scan" || skill.id === "enemy-scan") {
+      const hit = guessedRole === target.role;
+      setLogs((current) => [{ time: "지금", icon: "⌁", text: `누군가 ${target.name}을 스캔하고 있습니다.`, tone: "scan" }, ...current]);
+      setNotice(hit ? `스캔 성공 · ${target.name}은(는) ${target.role}입니다.` : `스캔 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.`);
+      return;
+    }
+
+    if (skill.id === "upper-attack" || skill.id === "lower-attack") {
       const hit = guessedRole === target.role;
       if (hit) {
         const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
@@ -202,6 +325,18 @@ export function GameBoard() {
       return;
     }
 
+    if (skill.id === "boss-check" || skill.id === "detective-check") {
+      const expectedRole = skill.id === "boss-check" ? "마피아대부" : "사립탐정";
+      setNotice(`${target.name}은(는) ${expectedRole}${target.role === expectedRole ? "이 맞습니다" : "이 아닙니다"}.`);
+      return;
+    }
+
+    if (skill.id === "support") {
+      setLogs((current) => [{ time: "지금", icon: "+", text: `공무원이 ${target.name}에게 마나를 지원했습니다.`, tone: "mana" }, ...current]);
+      setNotice(`${target.name}에게 마나 50을 지원했습니다.`);
+      return;
+    }
+
     setLogs((current) => [{ time: "지금", icon: "◉", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
     setNotice(`${target.name}의 공표는 ${target.announced === target.role ? "진명" : "가명"}입니다.`);
   }
@@ -212,11 +347,30 @@ export function GameBoard() {
     setNotice("행동을 취소했습니다.");
   }
 
+  if (!started) {
+    const availableRoles = formations[playerCount];
+    return (
+      <main className="debug-lobby">
+        <section className="lobby-card">
+          <span className="result-kicker">DEBUG SOLO MODE</span>
+          <h1>봇 게임 만들기</h1>
+          <p>나머지 자리는 규칙 기반 봇으로 채웁니다. 테스트할 인원과 내 직업을 선택하세요.</p>
+          <label>총 인원 <strong>{playerCount}명</strong></label>
+          <div className="count-picker">{[8, 9, 10, 11, 12, 13].map((count) => <button className={playerCount === count ? "active" : ""} key={count} onClick={() => { setPlayerCount(count); if (!formations[count].includes(debugRole)) setDebugRole(formations[count][0]); }}>{count}</button>)}</div>
+          <label>내 직업 <small>디버그용 강제 지정</small></label>
+          <div className="debug-role-grid">{availableRoles.map((role) => <button className={`${factionOf(role)} ${debugRole === role ? "active" : ""}`} key={role} onClick={() => setDebugRole(role)}>{role}</button>)}</div>
+          <div className="formation-summary"><span>포메이션</span><p>{availableRoles.join(" · ")}</p></div>
+          <button className="start-debug" onClick={startDebugGame}>나머지를 봇으로 채워 시작</button>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className="game-shell">
+    <main className={`game-shell size-${players.length}`}>
       <header className="topbar">
         <div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>실시간 마피아 전술전</small></div></div>
-        <div className="room-status"><span className="live-dot" /> ROOM 7K2F <b>8 / 8</b></div>
+        <div className="room-status"><span className="live-dot" /> DEBUG ROOM <b>{players.length} / {players.length}</b></div>
         <div className="supply"><span>다음 마나 보급</span><strong>{manaTickLabel}</strong><div className="supply-track"><i style={{ width: `${((MANA_INTERVAL_SECONDS - manaTickSeconds) / MANA_INTERVAL_SECONDS) * 100}%` }} /></div></div>
         <button className="sound-button" aria-label="소리 설정">♪</button>
       </header>
@@ -244,11 +398,13 @@ export function GameBoard() {
             <div className="table-core">
               <div className="core-rings"><i /><i /><i /></div>
               <span className="round-label">실시간 진행 중</span>
-              <strong>8</strong><small>플레이어</small>
+              <strong>{players.length}</strong><small>플레이어</small>
             </div>
             {players.map((player, index) => {
-              const rotatedSeatIndex = (index - mySeatIndex + 4 + players.length) % players.length;
-              const [left, top] = seatPositions[rotatedSeatIndex];
+              const rotatedSeatIndex = (index - mySeatIndex + players.length) % players.length;
+              const angle = Math.PI / 2 + (rotatedSeatIndex * Math.PI * 2) / players.length;
+              const left = 50 + Math.cos(angle) * 43;
+              const top = 47 + Math.sin(angle) * 42;
               const selectable = Boolean(selectedSkill?.target && isTargetable(player, selectedSkill));
               const untargetable = Boolean(selectedSkill?.target && !selectable);
               return (
@@ -260,7 +416,7 @@ export function GameBoard() {
                   disabled={Boolean(selectedSkill?.target) && !selectable}
                 >
                   <span className="seat-pointer" />
-                  <span className="portrait"><span className="portrait-art" style={portraitStyle(player.alive ? player.announced : player.role)} />{!player.alive && <b>☠</b>}</span>
+                  <span className="portrait">{player.announced === "미공표" && player.alive ? <span className="unknown-portrait">?</span> : <span className="portrait-art" style={portraitStyle(player.alive ? player.announced : player.role)} />}{!player.alive && <b>☠</b>}</span>
                   <span className="player-copy"><strong>{player.name}{player.isMe && <em>YOU</em>}</strong><small>공표 · <b className={`${factionOf(player.announced)}-text`}>{player.announced}</b></small>{!player.alive && <small className={`revealed-role ${factionOf(player.role)}-text`}>실제 · {player.role}</small>}</span>
                   <span className={`life-state ${player.alive ? "" : "down"}`}>{player.alive ? "생존" : "사망 · 직업 공개"}</span>
                 </button>
@@ -282,7 +438,7 @@ export function GameBoard() {
         <div className="hint"><span>{selectedSkill ? selectedSkill.icon : "⌖"}</span><div><small>{selectedSkill ? "명령 대기 중" : "전술 지침"}</small><strong>{notice}</strong></div></div>
         <div className="skill-deck">
           <div className="deck-label"><span>스킬</span><small>클릭하여 사용</small></div>
-          {skills.map((skill) => (
+          {availableSkills.map((skill) => (
             <button className={`skill-button ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${(cooldowns[skill.id] ?? 0) > 0 ? "cooling" : ""}`} key={skill.id} onClick={() => chooseSkill(skill)} disabled={Boolean(gameResult) || mana < skill.cost || (cooldowns[skill.id] ?? 0) > 0}>
               {(cooldowns[skill.id] ?? 0) > 0 && <span className="cooldown-fill" style={{ width: `${(1 - (cooldowns[skill.id] ?? 0) / skill.cooldown) * 100}%` }} />}
               <kbd>{skill.key}</kbd><span className="skill-icon">{skill.icon}</span><strong>{skill.name}</strong><small>{skill.cost === 0 ? "무료" : `◆ ${skill.cost}`}</small>
