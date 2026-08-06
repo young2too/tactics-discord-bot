@@ -1,10 +1,20 @@
 import { factionOf, portraitStyle } from "../game/rules";
+import type { CSSProperties } from "react";
 import type { Player, PublicEffect, Skill } from "../game/types";
 
 export function Battlefield({ players, mySeatIndex, selectedSkill, notice, effectTarget, alliances, whisper, onCancel, onTarget, isTargetable }: {
   players: Player[]; mySeatIndex: number; selectedSkill: Skill | null; notice: string; effectTarget: PublicEffect; alliances: number[];
   whisper: { from: number; to: number; text: string } | null; onCancel: () => void; onTarget: (player: Player) => void; isTargetable: (player: Player, skill: Skill) => boolean;
 }) {
+  const whisperSender = whisper ? players.find((player) => player.id === whisper.from) : null;
+  const whisperSenderIndex = whisperSender ? players.findIndex((player) => player.id === whisperSender.id) : -1;
+  const whisperRotatedIndex = whisperSenderIndex >= 0 ? (whisperSenderIndex - mySeatIndex + players.length) % players.length : 0;
+  const whisperAngle = Math.PI / 2 + (whisperRotatedIndex * Math.PI * 2) / players.length;
+  const whisperStyle = whisper ? ({
+    "--tail-left": `${50 + Math.cos(whisperAngle) * 52}%`,
+    "--tail-top": `${50 + Math.sin(whisperAngle) * 58}%`,
+    "--tail-angle": `${whisperAngle * 180 / Math.PI}deg`,
+  } as CSSProperties) : undefined;
   return <section className={`board-area ${selectedSkill?.target ? "targeting" : ""}`}>
     <div className="mode-banner"><span>{selectedSkill ? (selectedSkill.target ? "TARGETING MODE" : "SELECT ROLE") : "BATTLE IN PROGRESS"}</span><strong>{selectedSkill ? notice : "공표를 읽고, 적의 정체를 추적하세요."}</strong>{selectedSkill && <button onClick={onCancel}>ESC 취소</button>}</div>
     <div className="arena"><div className="table-core"><div className="core-rings"><i /><i /><i /></div><span className="round-label">실시간 진행 중</span><strong>{players.length}</strong><small>플레이어</small></div>
@@ -22,6 +32,6 @@ export function Battlefield({ players, mySeatIndex, selectedSkill, notice, effec
         </button>;
       })}
     </div>
-    {whisper && <div className="whisper-cloud"><small>TO {whisper.to} · PRIVATE</small><strong>{whisper.from}번 플레이어</strong><p>{whisper.text}</p></div>}
+    {whisper && <div className="whisper-cloud" style={whisperStyle}><small>{whisperSender?.isMe ? `TO ${whisper.to}` : `FROM ${whisper.from}`} · PRIVATE</small><strong>{whisper.from}번 {whisperSender?.name ?? "플레이어"}</strong><p>{whisper.text}</p></div>}
   </section>;
 }
