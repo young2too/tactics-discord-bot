@@ -12,6 +12,7 @@ export type RoomState = {
   nextManaIn?: number;
   cooldowns?: Record<string, number>;
   usedOnce?: Record<string, boolean>;
+  lowAttackFails?: number;
   alliances?: number[];
   logs?: { time: string; icon: string; text: string; tone: string }[];
   privateLogs?: { time: string; text: string }[];

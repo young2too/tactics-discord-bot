@@ -51,6 +51,10 @@ button { font:inherit; }
   .hint strong { font-size:13px; }
   .hint small { font-size:10px; }
 }
+
+.penalty-warning { margin:10px 14px;padding:12px;border:1px solid #c75b51;background:#422521;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;color:#ffd3ce; }
+.penalty-warning strong { color:#ff8177;font-size:18px; }
+.penalty-warning small { grid-column:1/-1;color:#cfa39e;font-size:10px; }
 .proclamation-modal form { padding:18px; }.proclamation-modal textarea { width:100%;min-height:130px;resize:vertical;padding:14px;border:1px solid #58717d;background:#17262e;color:#edf4f7;font:14px/1.6 inherit;outline:none; }.proclamation-modal textarea:focus { border-color:#65bfe3; }.proclamation-modal form>div { display:flex;justify-content:space-between;align-items:center;margin-top:10px; }.proclamation-modal form small { color:#9dafba; }.proclamation-modal form button { padding:9px 18px;border:1px solid #4e9cbc;background:#244b5b;color:#dff5ff;cursor:pointer; }.proclamation-modal form button:disabled { opacity:.4;cursor:not-allowed; }
 .skill-ally-add .skill-icon,.skill-ally-remove .skill-icon { position:relative;font-family:"Segoe UI Emoji",sans-serif;font-size:25px;filter:saturate(.8); }
 .skill-ally-remove .skill-icon::after { content:"×";position:absolute;right:-7px;top:-7px;display:grid;place-items:center;width:17px;height:17px;border:2px solid #ff6b61;border-radius:50%;background:#63201d;color:#fff;font:900 17px/13px Arial;text-shadow:0 1px 2px #000;box-shadow:0 0 8px #ff4038; }

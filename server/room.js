@@ -100,7 +100,15 @@ export class SingleRoom {
     if (["upper-attack", "lower-attack"].includes(skillId)) {
       const shielded = target.role === "경찰반장" && this.players.some((player) => player.alive && player.role === "순찰경찰");
       if (guessedRole === target.role && !shielded) { this.kill(target, "공격"); this.private(actor, `공격 명중 · ${target.nickname}의 직업은 ${target.role}`); }
-      else { this.addLog("⚔", `누군가가 ${target.nickname}을(를) 공격했지만 실패했습니다.`, "danger"); this.private(actor, shielded ? "공격 실패 · 순찰경찰이 경찰반장을 보호 중" : `공격 실패 · ${target.nickname}은(는) ${guessedRole}이(가) 아님`); if (skillId === "lower-attack" && ++actor.lowAttackFails >= 2) this.kill(actor, "하급공격 2회 실패"); }
+      else {
+        this.addLog("⚔", `누군가가 ${target.nickname}을(를) 공격했지만 실패했습니다.`, "danger");
+        const reason = shielded ? "순찰경찰이 경찰반장을 보호 중" : `${target.nickname}은(는) ${guessedRole}이(가) 아님`;
+        if (skillId === "lower-attack") {
+          actor.lowAttackFails += 1;
+          this.private(actor, `하급공격 실패 ${actor.lowAttackFails}/2 · ${reason}`);
+          if (actor.lowAttackFails >= 2) this.kill(actor, "하급공격 2회 실패");
+        } else this.private(actor, `공격 실패 · ${reason}`);
+      }
     }
   }
   kill(target, cause) { if (!target.alive) return; target.alive = false; this.addLog("☠", `${target.nickname}이(가) ${cause}(으)로 사망했습니다. 직업은 ${target.role}입니다.`, "danger"); }
@@ -136,7 +144,7 @@ export class SingleRoom {
       phase: this.phase, totalPlayers: this.totalPlayers, hostId: this.hostId, yourSeatId: viewer.id, yourRole: viewer.role,
       mana: viewer.mana, nextManaIn: this.nextManaAt ? Math.max(0, Math.ceil((this.nextManaAt - current) / 1000)) : 0,
       cooldowns: Object.fromEntries(Object.entries(viewer.cooldowns).map(([id, until]) => [id, Math.max(0, Math.ceil((until - current) / 1000))])),
-      usedOnce: viewer.usedOnce, alliances: [...viewer.alliances], logs: this.logs.slice(-60), privateLogs: viewer.privateLogs.slice(-40), result: this.result,
+      usedOnce: viewer.usedOnce, alliances: [...viewer.alliances], logs: this.logs.slice(-60), privateLogs: viewer.privateLogs.slice(-40), lowAttackFails: viewer.lowAttackFails, result: this.result,
       effect: this.effect && this.effect.until > current ? { id: this.effect.id, type: this.effect.type } : null,
       whisper: viewer.whisper && viewer.whisper.until > current ? { from: viewer.whisper.from, to: viewer.whisper.to, text: viewer.whisper.text } : null,
       chats: this.chats.filter((chat) => chat.channel === "public" || chat.recipients?.includes(viewer.id)).map(({ recipients, ...chat }) => chat),

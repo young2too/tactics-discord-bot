@@ -57,3 +57,18 @@ test("host can reopen the lobby after a finished game without retaining bot secr
   assert.equal(room.phase, "lobby"); assert.equal(room.players.length, 1);
   assert.equal(room.players[0].role, null); assert.equal(room.players[0].mana, 20);
 });
+
+test("lower attack kills its user after two accumulated failures", () => {
+  let now = 1_000;
+  const room = new SingleRoom({ now: () => now, random: () => 0.5 });
+  const host = room.join({ nickname: "patrol", socket: {} });
+  const target = room.join({ nickname: "target", socket: {} });
+  room.start(host.id); host.role = "순찰경찰"; target.role = "마피아일원"; host.mana = 200;
+  room.act(host.id, { skillId: "lower-attack", targetId: target.id, role: "히트맨" });
+  assert.equal(host.lowAttackFails, 1); assert.equal(host.alive, true);
+  assert.match(host.privateLogs.at(-1).text, /1\/2/);
+  now += 11_000;
+  room.act(host.id, { skillId: "lower-attack", targetId: target.id, role: "마피아대부" });
+  assert.equal(host.lowAttackFails, 2); assert.equal(host.alive, false);
+  assert.match(room.logs.at(-1).text, /하급공격 2회 실패/);
+});
