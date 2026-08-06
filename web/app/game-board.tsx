@@ -33,6 +33,7 @@ export function GameBoard() {
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
   const [effectTarget, setEffectTarget] = useState<PublicEffect>(null);
+  const [localVerdict, setLocalVerdict] = useState<{ id: number; title: string; success: boolean; message: string } | null>(null);
   const [notice, setNoticeState] = useState("상급 공격을 준비하려면 우하단 스킬을 선택하세요.");
   const [privateLogs, setPrivateLogs] = useState<PrivateLog[]>([]);
   const [logs, setLogs] = useState([
@@ -49,6 +50,12 @@ export function GameBoard() {
   function setNotice(message: string) {
     setNoticeState(message);
     if (started) setPrivateLogs((current) => [...current.slice(-29), { time: "지금", text: message }]);
+  }
+
+  function showVerdict(title: string, success: boolean, message: string) {
+    const verdict = { id: Date.now(), title, success, message };
+    setLocalVerdict(verdict);
+    window.setTimeout(() => setLocalVerdict((current) => current?.id === verdict.id ? null : current), 4500);
   }
 
   useEffect(() => {
@@ -151,6 +158,7 @@ export function GameBoard() {
     setGameResult(null);
     setSelectedSkill(null);
     setSelectedTarget(null);
+    setLocalVerdict(null);
     setChatMessages([]);
     setChatInput("");
     setWhisperBubble(null);
@@ -254,6 +262,7 @@ export function GameBoard() {
     if (["upper-attack", "lower-attack"].includes(skill.id) && guessedRole === "경찰반장" && players.some((player) => player.alive && player.role === "순찰경찰")) {
       setSelectedSkill(null); setSelectedTarget(null);
       setNotice("공격 불가 · 순찰경찰이 살아 있어 경찰반장으로 공격할 수 없습니다.");
+      showVerdict("공격 불가", false, "순찰경찰이 살아 있어 경찰반장으로 공격할 수 없습니다.");
       return;
     }
     setCooldowns((current) => ({ ...current, [skill.id]: skill.cooldown }));
@@ -286,6 +295,7 @@ export function GameBoard() {
       const hit = guessedRole === target.role;
       setLogs((current) => [...current, { time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }]);
       setNotice(hit ? `스캔 성공 · ${target.name}은(는) ${target.role}입니다.` : `스캔 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.`);
+      showVerdict("스캔 판정", hit, hit ? `${target.name}은(는) ${target.role}입니다.` : `${target.name}은(는) ${guessedRole}이(가) 아닙니다.`);
       return;
     }
 
@@ -295,6 +305,7 @@ export function GameBoard() {
         const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
         const result = checkVictory(nextPlayers, successorId);
         setPlayers(nextPlayers);
+        showVerdict("공격 판정", true, `${target.name} 공격 명중 · 실제 직업은 ${target.role}입니다.`);
         if (result) {
           setGameResult(result);
           setLogs((current) => [...current, { time: "지금", icon: "✦", text: `${me.role}이 ${target.role}을 처치했습니다.`, tone: "danger" }, { time: "지금", icon: "🏁", text: `게임 종료 · ${result.winner === "mafia" ? "마피아" : "시민"} 진영 승리`, tone: "danger" }]);
@@ -313,19 +324,24 @@ export function GameBoard() {
             setPlayers(nextPlayers);
             setLogs((current) => [...current, { time: "지금", icon: "☠", text: `${me.role}이 하급 공격을 2회 실패하여 사망했습니다.`, tone: "danger" }]);
             setNotice("하급 공격 2회 누적 실패 · 자멸했습니다.");
+            showVerdict("공격 판정", false, "하급공격 실패 2/2 · 누적 실패로 자멸했습니다.");
             if (result) setGameResult(result);
             return;
           }
         }
         setLogs((current) => [...current, { time: "지금", icon: "↗", text: `${me.role}이 누군가를 ${guessedRole}(으)로 공격했으나 실패했습니다.`, tone: "danger" }]);
-        setNotice(`공격 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.${skill.id === "lower-attack" ? ` (누적 ${lowAttackFails + 1}/2)` : ""}`);
+        const failureMessage = `공격 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.${skill.id === "lower-attack" ? ` (누적 ${lowAttackFails + 1}/2)` : ""}`;
+        setNotice(failureMessage);
+        showVerdict("공격 판정", false, failureMessage);
       }
       return;
     }
 
     if (skill.id === "boss-check" || skill.id === "detective-check") {
       const expectedRole = skill.id === "boss-check" ? "마피아대부" : "사립탐정";
-      setNotice(`${target.name}은(는) ${expectedRole}${target.role === expectedRole ? "이 맞습니다" : "이 아닙니다"}.`);
+      const hit = target.role === expectedRole;
+      const message = `${target.name}은(는) ${expectedRole}${hit ? "이 맞습니다" : "이 아닙니다"}.`;
+      setNotice(message); showVerdict("직업 확인", hit, message);
       return;
     }
 
@@ -407,7 +423,9 @@ export function GameBoard() {
 
     setLogs((current) => [...current, { time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }]);
     const spyFooled = skill.id === "ally-check" && target.role === "스파이" && target.faction === "mafia" && factionOf(target.announced) === "citizen" && me.faction === "citizen";
-    setNotice(`${target.name}의 공표는 ${spyFooled || target.announced === target.role ? "진명" : "가명"}입니다.`);
+    const hit = spyFooled || target.announced === target.role;
+    const message = `${target.name}의 공표는 ${hit ? "진명" : "가명"}입니다.`;
+    setNotice(message); showVerdict("공표 확인", hit, message);
   }
 
   function sendProclamation(event: React.FormEvent<HTMLFormElement>) {
@@ -455,6 +473,8 @@ export function GameBoard() {
       {selectedSkill?.needsRole && (selectedTarget || !selectedSkill.target) && <RoleChoiceModal skill={selectedSkill} target={selectedTarget} roles={modalRoles} onResolve={(role) => resolveSkill(selectedSkill, selectedTarget, role)} onCancel={cancelTargeting} />}
 
       {selectedSkill?.needsText && <ProclamationModal text={skillText} setText={setSkillText} onSubmit={sendProclamation} onCancel={cancelTargeting} />}
+
+      {localVerdict && <div className={`verdict-popup ${localVerdict.success ? "success" : "failure"}`} key={localVerdict.id} role="status"><span>{localVerdict.title}</span><strong>{localVerdict.success ? "맞습니다" : "아닙니다"}</strong><p>{localVerdict.message}</p></div>}
 
       {gameResult && <GameOverModal result={gameResult} players={players} />}
     </main>
