@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { formations, skillCatalog } from "../game/catalog";
 import { trainingTracks } from "../game/guide-data";
 import { factionOf } from "../game/rules";
@@ -70,6 +70,8 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
   const me = players[0];
   const skills = [skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"], skillCatalog["ally-add"]].map((skill, index) => ({ ...skill, key: ["Q", "W", "E", "R"][index] }));
   const expectedSkill = [null, "announce", null, null, "ally-add", null, "ally-check", "lower-attack", "lower-attack"][step];
+  const calloutSelector = step === 0 ? ".board-area" : step === 1 ? ".skill-announce" : step === 2 || step === 3 ? ".chat-form" : step === 5 ? ".event-panel" : step === 4 ? (selectedSkill ? ".player-seat:nth-of-type(2)" : ".skill-ally-add") : step === 6 ? (selectedSkill ? ".player-seat:nth-of-type(4)" : ".skill-ally-check") : (selectedSkill ? ".player-seat:nth-of-type(3)" : ".skill-lower-attack");
+  const callout = useTutorialCallout(calloutSelector);
   const notice = `${step + 1}/${basicSteps.length} · ${basicSteps[step][0]} — ${basicSteps[step][1]}`;
   const modalRoles = useMemo(() => formations[8].map((name) => ({ name, faction: factionOf(name) })), []);
 
@@ -99,7 +101,7 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
 
   return <main className={`game-shell tutorial-live tutorial-step-${step} ${selectedSkill ? "tutorial-target-phase" : ""}`}>
     <header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>기본 전술 훈련</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {basicSteps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header>
-    <div className="tutorial-guide" role="status"><small>STEP {step + 1}</small><strong>{basicSteps[step][0]}</strong><span>{basicSteps[step][1]}</span>{step === 0 && <button onClick={() => { record("좌석과 공개 정보를 확인했습니다."); next(); }}>확인했어요</button>}</div>
+    <div className={`tutorial-guide arrow-${callout.side}`} style={callout.style} role="status"><small>STEP {step + 1}</small><strong>{basicSteps[step][0]}</strong><span>{basicSteps[step][1]}</span>{step === 0 && <button onClick={() => { record("좌석과 공개 정보를 확인했습니다."); next(); }}>확인했어요</button>}</div>
     <section className="battle-layout"><CommunicationPanel players={players} messages={messages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs}/><Battlefield players={players} mySeatIndex={0} selectedSkill={selectedSkill} notice={notice} effectTarget={effect} alliances={alliances} whisper={whisper} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }} onTarget={chooseTarget} isTargetable={(player) => !player.isMe && player.alive}/><PrivateRolePanel me={me} notice={notice} logs={privateLogs}/></section>
     <SkillDeck me={me} notice={notice} skills={skills} selectedSkill={selectedSkill} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={chooseSkill}/>
     {selectedSkill?.needsRole && (selectedTarget || !selectedSkill.target) && (
@@ -110,5 +112,30 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
 
 function TrackTraining({ track, step, onAdvance, onExit }: { track: (typeof trainingTracks)[number]; step: number; onAdvance: () => void; onExit: () => void }) {
   const players = initialTrainingPlayers;
-  return <main className={`game-shell tutorial-live track-spotlight-${step}`}><header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>{track.title}</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {track.steps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header><div className="tutorial-guide"><small>{track.roles}</small><strong>{track.steps[step]}</strong><span>실제 게임판의 UI를 확인한 뒤 진행하세요.</span><button onClick={onAdvance}>{step === track.steps.length - 1 ? "과정 완료" : "다음 기능"}</button></div><section className="battle-layout"><CommunicationPanel players={players} messages={[]} channel="public" setChannel={() => {}} input="" setInput={() => {}} onSubmit={(event) => event.preventDefault()} logs={[{ time: "지금", icon: "◆", text: `${track.title} 진행 중`, tone: "plain" }]}/><Battlefield players={players} mySeatIndex={0} selectedSkill={null} notice={track.steps[step]} effectTarget={null} alliances={[]} whisper={null} onCancel={() => {}} onTarget={() => {}} isTargetable={() => false}/><PrivateRolePanel me={players[0]} notice={track.steps[step]} logs={[{ time: "지금", text: track.steps[step] }]}/></section><SkillDeck me={players[0]} notice={track.steps[step]} skills={[skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"]]} selectedSkill={null} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={onAdvance}/></main>;
+  const callout = useTutorialCallout([".board-area", ".skill-deck", ".detail-panel"][step] ?? ".board-area");
+  return <main className={`game-shell tutorial-live track-spotlight-${step}`}><header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>{track.title}</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {track.steps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header><div className={`tutorial-guide arrow-${callout.side}`} style={callout.style}><small>{track.roles}</small><strong>{track.steps[step]}</strong><span>실제 게임판의 UI를 확인한 뒤 진행하세요.</span><button onClick={onAdvance}>{step === track.steps.length - 1 ? "과정 완료" : "다음 기능"}</button></div><section className="battle-layout"><CommunicationPanel players={players} messages={[]} channel="public" setChannel={() => {}} input="" setInput={() => {}} onSubmit={(event) => event.preventDefault()} logs={[{ time: "지금", icon: "◆", text: `${track.title} 진행 중`, tone: "plain" }]}/><Battlefield players={players} mySeatIndex={0} selectedSkill={null} notice={track.steps[step]} effectTarget={null} alliances={[]} whisper={null} onCancel={() => {}} onTarget={() => {}} isTargetable={() => false}/><PrivateRolePanel me={players[0]} notice={track.steps[step]} logs={[{ time: "지금", text: track.steps[step] }]}/></section><SkillDeck me={players[0]} notice={track.steps[step]} skills={[skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"]]} selectedSkill={null} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={onAdvance}/></main>;
+}
+
+function useTutorialCallout(selector: string): { side: "up" | "down" | "left" | "right"; style: CSSProperties } {
+  const [position, setPosition] = useState<{ side: "up" | "down" | "left" | "right"; style: CSSProperties }>({ side: "down", style: { left: "50%", top: 82, transform: "translateX(-50%)" } });
+  useEffect(() => {
+    let target: HTMLElement | null = null;
+    const measure = () => {
+      target?.classList.remove("tutorial-callout-target");
+      target = document.querySelector<HTMLElement>(`.tutorial-live ${selector}`);
+      if (!target) return;
+      target.classList.add("tutorial-callout-target");
+      const rect = target.getBoundingClientRect(); const width = Math.min(380, window.innerWidth - 24); const height = 170; const gap = 16;
+      const clampX = (value: number) => Math.max(12, Math.min(window.innerWidth - width - 12, value));
+      const clampY = (value: number) => Math.max(74, Math.min(window.innerHeight - height - 12, value));
+      if (selector === ".board-area") setPosition({ side: "down", style: { left: clampX(rect.left + rect.width / 2 - width / 2), top: rect.top + 16, transform: "none" } });
+      else if (rect.top >= height + gap + 60) setPosition({ side: "down", style: { left: clampX(rect.left + rect.width / 2 - width / 2), top: rect.top - height - gap, transform: "none" } });
+      else if (window.innerWidth - rect.right >= width + gap) setPosition({ side: "left", style: { left: rect.right + gap, top: clampY(rect.top + rect.height / 2 - height / 2), transform: "none" } });
+      else if (rect.left >= width + gap) setPosition({ side: "right", style: { left: rect.left - width - gap, top: clampY(rect.top + rect.height / 2 - height / 2), transform: "none" } });
+      else setPosition({ side: "up", style: { left: clampX(rect.left + rect.width / 2 - width / 2), top: clampY(rect.bottom + gap), transform: "none" } });
+    };
+    const frame = requestAnimationFrame(measure); window.addEventListener("resize", measure); window.addEventListener("scroll", measure, true);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", measure); window.removeEventListener("scroll", measure, true); target?.classList.remove("tutorial-callout-target"); };
+  }, [selector]);
+  return position;
 }
