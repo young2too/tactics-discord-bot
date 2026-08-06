@@ -268,7 +268,7 @@ export function GameBoard() {
   }
 
   function chooseSkill(skill: Skill) {
-    if (gameResult || mana < skill.cost || (cooldowns[skill.id] ?? 0) > 0) return;
+    if (gameResult || (cooldowns[skill.id] ?? 0) > 0) return;
     setSelectedTarget(null);
     setSelectedSkill(skill);
     setNotice(skill.target ? `${skill.name}: 게임판에서 대상을 선택하세요.` : `${skill.name}: 공표할 직업을 선택하세요.`);
@@ -322,7 +322,7 @@ export function GameBoard() {
   }
 
   function resolveSkill(skill: Skill, target: Player | null, guessedRole?: string) {
-    setMana((value) => Math.max(0, value - skill.cost));
+    // Debug solo mode intentionally does not consume mana.
     setCooldowns((current) => ({ ...current, [skill.id]: skill.cooldown }));
     setSelectedSkill(null);
     setSelectedTarget(null);
@@ -426,7 +426,7 @@ export function GameBoard() {
       <header className="topbar">
         <div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>실시간 마피아 전술전</small></div></div>
         <div className="room-status"><span className="live-dot" /> DEBUG ROOM <b>{players.length} / {players.length}</b></div>
-        <div className="supply"><span>다음 마나 보급</span><strong>{manaTickLabel}</strong><div className="supply-track"><i style={{ width: `${((MANA_INTERVAL_SECONDS - manaTickSeconds) / MANA_INTERVAL_SECONDS) * 100}%` }} /></div></div>
+        <div className="supply"><span>디버그 마나</span><strong>∞</strong><div className="supply-track"><i style={{ width: "100%" }} /></div></div>
         <button className="sound-button" aria-label="소리 설정">♪</button>
       </header>
 
@@ -479,8 +479,8 @@ export function GameBoard() {
                   disabled={Boolean(selectedSkill?.target) && !selectable}
                 >
                   <span className="seat-pointer" /><span className="seat-number">{player.id}</span>
-                  <span className="portrait">{player.announced === "미공표" && player.alive ? <span className="unknown-portrait">?</span> : <span className="portrait-art" style={portraitStyle(player.alive ? player.announced : player.role)} />}{!player.alive && <b>☠</b>}</span>
-                  <span className="player-copy"><strong>{player.name}{player.isMe && <em>YOU</em>}</strong><small>공표 · <b className={`${factionOf(player.announced)}-text`}>{player.announced}</b></small>{!player.alive && <small className={`revealed-role ${factionOf(player.role)}-text`}>실제 · {player.role}</small>}</span>
+                  <span className="portrait"><span className="portrait-art" style={portraitStyle(player.role)} />{!player.alive && <b>☠</b>}</span>
+                  <span className="player-copy"><strong>{player.name}{player.isMe && <em>YOU</em>}</strong><small>공표 · <b className={`${factionOf(player.announced)}-text`}>{player.announced}</b></small><small className={`revealed-role ${factionOf(player.role)}-text`}>실제 · {player.role}</small></span>
                   <span className={`life-state ${player.alive ? "" : "down"}`}>{player.alive ? "생존" : "사망 · 직업 공개"}</span>
                   {alliances.includes(player.id) && <span className="alliance-mark">동맹</span>}
                 </button>
@@ -494,7 +494,7 @@ export function GameBoard() {
           <div className="panel-heading"><span>전술 정보</span><b>PRIVATE</b></div>
           <div className="role-card"><span className="role-kicker">나의 실제 직업</span><div className="role-portrait-large"><span style={portraitStyle(me.role)} /></div><h2>{me.role}</h2><p>시민 진영을 제거하고 팀의 승리 조건을 완성하십시오.</p><span className="faction-tag">마피아 진영</span></div>
           <div className="private-result"><span>개인 판정</span><p>{notice}</p></div>
-          <div className="mana-block"><div><span>현재 마나</span><strong>{mana}<small>/ {MANA_MAX}</small></strong></div><div className="mana-track"><i style={{ width: `${(mana / MANA_MAX) * 100}%` }} /></div></div>
+          <div className="mana-block"><div><span>디버그 마나</span><strong>∞<small> 무제한</small></strong></div><div className="mana-track"><i style={{ width: "100%" }} /></div></div>
         </aside>
       </section>
 
@@ -504,7 +504,7 @@ export function GameBoard() {
         <div className="skill-deck">
           <div className="deck-label"><span>스킬</span><small>클릭하여 사용</small></div>
           {availableSkills.map((skill) => (
-            <button className={`skill-button ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${(cooldowns[skill.id] ?? 0) > 0 ? "cooling" : ""}`} key={skill.id} onClick={() => chooseSkill(skill)} disabled={Boolean(gameResult) || mana < skill.cost || (cooldowns[skill.id] ?? 0) > 0}>
+            <button className={`skill-button ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${(cooldowns[skill.id] ?? 0) > 0 ? "cooling" : ""}`} key={skill.id} onClick={() => chooseSkill(skill)} disabled={Boolean(gameResult) || (cooldowns[skill.id] ?? 0) > 0}>
               {(cooldowns[skill.id] ?? 0) > 0 && <span className="cooldown-fill" style={{ width: `${(1 - (cooldowns[skill.id] ?? 0) / skill.cooldown) * 100}%` }} />}
               <kbd>{skill.key}</kbd><span className="skill-icon">{skill.icon}</span><strong>{skill.name}</strong><small>{skill.cost === 0 ? "무료" : `◆ ${skill.cost}`}</small>
               {(cooldowns[skill.id] ?? 0) > 0 && <span className="cooldown-time">{cooldowns[skill.id]}초</span>}
