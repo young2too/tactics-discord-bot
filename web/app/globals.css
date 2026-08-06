@@ -181,6 +181,27 @@ html,body { background:#142029; }
 .command-deck { border-color:#506572;background:linear-gradient(180deg,#283a45,#1b2932);box-shadow:0 -10px 28px #07101580; }
 .identity span,.identity small,.hint small,.deck-label small { color:#9dafba; }.hint strong { color:#dce5ea; }
 .skill-button { border-color:#586d79;background:linear-gradient(145deg,#30434e,#21313a);color:#d2dde3; }.skill-button small { color:#a3b7c1; }.skill-button kbd { color:#afc0c8; }
+
+/* Skill help: desktop hover and a separate mobile info control keep the skill tap immediate. */
+.skill-slot { position:relative; }
+.skill-info { position:absolute;z-index:6;right:4px;top:4px;display:grid;place-items:center;width:18px;height:18px;padding:0;border:1px solid #8295a0;border-radius:50%;background:#17242b;color:#cbd8de;font:700 11px/1 Georgia;cursor:help;opacity:.62; }
+.skill-info:hover,.skill-info[aria-expanded="true"] { opacity:1;border-color:#e2bc60;color:#ffe092;box-shadow:0 0 9px #d5a84266; }
+.skill-tooltip { position:absolute;z-index:80;right:0;bottom:calc(100% + 14px);width:300px;padding:14px;border:1px solid #596c77;background:linear-gradient(145deg,#21313a,#11191e 72%);color:#dce6eb;text-align:left;box-shadow:0 14px 38px #000d,0 0 0 1px #ffffff0a;opacity:0;visibility:hidden;transform:translateY(8px);pointer-events:none;transition:opacity .14s ease,transform .14s ease,visibility .14s; }
+.skill-tooltip::after { content:"";position:absolute;right:32px;top:100%;border:8px solid transparent;border-top-color:#596c77; }
+@media (hover:hover) and (pointer:fine) { .skill-slot:hover .skill-tooltip { opacity:1;visibility:visible;transform:translateY(0); } }
+.skill-slot.tooltip-open .skill-tooltip { opacity:1;visibility:visible;transform:translateY(0); }
+.skill-tooltip header { display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid #ffffff18; }
+.skill-tooltip header>span { display:grid;place-items:center;width:36px;height:36px;border:1px solid #ffffff20;background:#ffffff0a;font-size:22px; }
+.skill-tooltip header div { display:flex;flex-direction:column;gap:3px; }.skill-tooltip header strong { color:#f1f5f7;font-size:14px; }.skill-tooltip header small { color:#9fb0b9;font:10px monospace; }
+.skill-tooltip>p { margin:11px 0 0;color:#c4d0d6;font-size:12px;line-height:1.55; }.skill-tooltip>p b { display:block;margin-bottom:2px;color:#8fd3ef;font-size:10px;letter-spacing:.08em; }
+.skill-tooltip>p.tooltip-warning b { color:#f0c768; }.skill-tooltip footer { margin-top:11px;padding-top:9px;border-top:1px solid #ffffff12;color:#a9bbc4;font:10px monospace; }
+.skill-tooltip.red { border-color:#8d4f4a; }.skill-tooltip.blue { border-color:#457d96; }.skill-tooltip.gold { border-color:#8c7541; }
+@media (max-width:760px) {
+  .skill-info { width:22px;height:22px;right:3px;top:3px;font-size:13px;opacity:.88;touch-action:manipulation; }
+  .skill-tooltip { position:fixed;z-index:120;left:12px;right:12px;bottom:122px;width:auto;max-height:48vh;overflow:auto;transform:translateY(8px); }
+  .skill-tooltip::after { display:none; }
+  .skill-slot.tooltip-open .skill-tooltip { transform:translateY(0); }
+}
 .role-modal { background:linear-gradient(145deg,#2b3e49,#1b2a33); }.target-summary { background:#21333d; }.role-grid button { background:#263943;color:#d4dfe4; }
 
 @media (min-width:761px) {

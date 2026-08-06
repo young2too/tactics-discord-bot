@@ -23,6 +23,12 @@ export type Skill = {
   needsText?: boolean;
 };
 
+export type SkillTooltip = {
+  description: string;
+  condition?: string;
+  warning?: string;
+};
+
 export type GameResult = { winner: Faction; reason: string } | null;
 export type ChatMessage = { id: number; from: number; text: string; channel: "public" | "alliance" };
 export type PublicEffect = { id: number; type: "inspect" | "scan" | "attack" } | null;

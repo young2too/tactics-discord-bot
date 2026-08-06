@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, type Dispatch, type FormEvent, type SetStateAction } from "react";
-import { formations } from "../game/catalog";
+import { useEffect, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
+import { formations, skillTooltips } from "../game/catalog";
 import { factionOf, portraitStyle } from "../game/rules";
 import type { BattleLog, ChatMessage, GameResult, Player, PrivateLog, Skill } from "../game/types";
 
@@ -54,16 +54,37 @@ export function PrivateRolePanel({ me, notice, logs }: { me: Player; notice: str
 export function SkillDeck({ me, notice, skills, selectedSkill, cooldowns, usedOnce, gameResult, onChoose, disabledSkills = [] }: {
   me: Player; notice: string; skills: Skill[]; selectedSkill: Skill | null; cooldowns: Record<string, number>; usedOnce: Record<string, boolean>; gameResult: GameResult; onChoose: (skill: Skill) => void; disabledSkills?: string[];
 }) {
+  const [openTooltip, setOpenTooltip] = useState<string | null>(null);
+  useEffect(() => {
+    const closeTooltip = (event: PointerEvent) => {
+      if (!(event.target as HTMLElement).closest(".skill-slot")) setOpenTooltip(null);
+    };
+    document.addEventListener("pointerdown", closeTooltip);
+    return () => document.removeEventListener("pointerdown", closeTooltip);
+  }, []);
   return <footer className="command-deck">
     <div className="identity"><div className="mini-portrait"><span style={portraitStyle(me.role)} /></div><div><span>현재 공표</span><strong>{me.announced}</strong><small>실제 직업 · {me.role}</small></div><span className="health">● 생존</span></div>
     <div className="hint"><span>{selectedSkill ? selectedSkill.icon : "⌖"}</span><div><small>{selectedSkill ? "명령 대기 중" : "전술 지침"}</small><strong>{notice}</strong></div></div>
     <div className="skill-deck"><div className="deck-label"><span>스킬</span><small>클릭하여 사용</small></div>{skills.map((skill) => {
       const spent = Boolean(usedOnce[skill.id]);
       const remaining = cooldowns[skill.id] ?? 0;
-      return <button className={`skill-button skill-${skill.id} ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${remaining > 0 ? "cooling" : ""} ${spent ? "spent" : ""}`} key={skill.id} onClick={() => onChoose(skill)} disabled={Boolean(gameResult) || remaining > 0 || spent || disabledSkills.includes(skill.id)}>
-        {remaining > 0 && <span className="cooldown-fill" style={{ width: `${(1 - remaining / skill.cooldown) * 100}%` }} />}<kbd>{skill.key}</kbd><span className="skill-icon">{skill.icon}</span><strong>{skill.name}</strong><small>{skill.cost === 0 ? "무료" : `◆ ${skill.cost}`}</small>
-        {remaining > 0 && !spent && <span className="cooldown-time">{remaining}초</span>}{spent && <span className="spent-label">사용 완료</span>}
-      </button>;
+      const tooltip = skillTooltips[skill.id];
+      const usage = skill.target ? "대상 지정" : skill.needsRole ? "직업 선택" : skill.needsText ? "문구 입력" : "즉시 발동";
+      const oneUse = ["leadership", "successor", "snipe-command", "arrest", "snipe", "revenge"].includes(skill.id);
+      return <div className={`skill-slot ${openTooltip === skill.id ? "tooltip-open" : ""}`} key={skill.id}>
+        <button className={`skill-button skill-${skill.id} ${skill.tone} ${selectedSkill?.id === skill.id ? "active" : ""} ${remaining > 0 ? "cooling" : ""} ${spent ? "spent" : ""}`} onClick={() => { setOpenTooltip(null); onChoose(skill); }} disabled={Boolean(gameResult) || remaining > 0 || spent || disabledSkills.includes(skill.id)} aria-describedby={`skill-tip-${skill.id}`}>
+          {remaining > 0 && <span className="cooldown-fill" style={{ width: `${(1 - remaining / skill.cooldown) * 100}%` }} />}<kbd>{skill.key}</kbd><span className="skill-icon">{skill.icon}</span><strong>{skill.name}</strong><small>{skill.cost === 0 ? "무료" : `◆ ${skill.cost}`}</small>
+          {remaining > 0 && !spent && <span className="cooldown-time">{remaining}초</span>}{spent && <span className="spent-label">사용 완료</span>}
+        </button>
+        <button className="skill-info" type="button" aria-label={`${skill.name} 설명 ${openTooltip === skill.id ? "닫기" : "열기"}`} aria-expanded={openTooltip === skill.id} onClick={() => setOpenTooltip((current) => current === skill.id ? null : skill.id)}>i</button>
+        <aside className={`skill-tooltip ${skill.tone}`} id={`skill-tip-${skill.id}`} role="tooltip">
+          <header><span>{skill.icon}</span><div><strong>{skill.name}</strong><small>{usage} · {skill.cost === 0 ? "마나 무료" : `마나 ${skill.cost}`}</small></div></header>
+          <p>{tooltip?.description ?? "스킬을 사용합니다."}</p>
+          {tooltip?.condition && <p className="tooltip-condition"><b>사용 조건</b>{tooltip.condition}</p>}
+          {tooltip?.warning && <p className="tooltip-warning"><b>주의</b>{tooltip.warning}</p>}
+          <footer>{skill.cooldown === 0 ? "지속 효과" : oneUse ? "게임당 1회" : `쿨타임 ${skill.cooldown}초`}</footer>
+        </aside>
+      </div>;
     })}</div>
   </footer>;
 }
