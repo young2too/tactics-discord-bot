@@ -228,9 +228,11 @@ export function GameBoard() {
     if (!selectedSkill) return [];
     const currentFormation = formations[players.length].map((role) => ({ name: role, faction: factionOf(role) }));
     if (selectedSkill.id === "announce") return currentFormation;
-    if (selectedSkill.id === "ally-scan") return currentFormation.filter((item) => item.faction === me.faction);
-    return currentFormation.filter((item) => item.faction !== me.faction);
-  }, [selectedSkill, players.length, me.faction]);
+    const livingRoles = new Set(players.filter((player) => player.alive).map((player) => player.role));
+    const availableFormation = currentFormation.filter((item) => livingRoles.has(item.name));
+    if (selectedSkill.id === "ally-scan") return availableFormation.filter((item) => item.faction === me.faction);
+    return availableFormation.filter((item) => item.faction !== me.faction);
+  }, [selectedSkill, players, me.faction]);
 
   function shuffle<T>(values: T[]) {
     const result = [...values];
