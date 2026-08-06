@@ -283,7 +283,7 @@ export function GameBoard() {
 
     if (skill.id === "upper-attack" || skill.id === "lower-attack") {
       const patrolAlive = players.some((player) => player.alive && player.role === "순찰경찰");
-      const shielded = target.role === "경찰반장" && patrolAlive;
+      const shielded = guessedRole === "경찰반장" && target.role === "경찰반장" && patrolAlive;
       const hit = guessedRole === target.role && !shielded;
       if (hit) {
         const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);

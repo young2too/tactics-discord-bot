@@ -98,7 +98,7 @@ export class SingleRoom {
     if (skillId === "arrest") { if (target.role !== "마피아대부") this.result = { winner: "mafia", reason: "경찰반장의 검거 실패" }; else { this.kill(target, "검거"); const successorAlive = this.successorId && this.player(this.successorId).alive; if (!successorAlive) this.result = { winner: "citizen", reason: "마피아대부 검거 성공" }; } return; }
     if (["snipe", "revenge"].includes(skillId)) { this.kill(target, skillId === "snipe" ? "저격" : "복수"); return; }
     if (["upper-attack", "lower-attack"].includes(skillId)) {
-      const shielded = target.role === "경찰반장" && this.players.some((player) => player.alive && player.role === "순찰경찰");
+      const shielded = guessedRole === "경찰반장" && target.role === "경찰반장" && this.players.some((player) => player.alive && player.role === "순찰경찰");
       if (guessedRole === target.role && !shielded) { this.kill(target, "공격"); const message = `${target.nickname} 공격 명중 · 실제 직업은 ${target.role}입니다.`; this.private(actor, message); this.verdict(actor, "공격 판정", true, message); }
       else {
         this.addLog("⚔", `누군가가 ${target.nickname}을(를) 공격했지만 실패했습니다.`, "danger");
