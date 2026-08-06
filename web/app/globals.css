@@ -102,3 +102,9 @@ button { font:inherit; }
 .seat-number { position:absolute;z-index:4;left:-9px;top:-10px;width:25px;height:25px;display:grid;place-items:center;border:1px solid #758791;background:#10171c;color:#eef4f7;font:700 11px monospace;box-shadow:0 3px 10px #000; }.alliance-mark { position:absolute;z-index:4;left:50%;bottom:-9px;transform:translateX(-50%);padding:3px 8px;border:1px solid #ad8f48;background:#2d2615;color:#e0bf67;font:700 9px monospace; }
 .whisper-cloud { position:absolute;z-index:9;left:50%;top:48%;transform:translate(-50%,-50%);width:min(340px,80%);padding:18px 22px;border:1px solid #718c9b;border-radius:22px;background:#e7f1f6;color:#172229;box-shadow:0 18px 55px #000b;animation:whisperIn .24s ease-out; }.whisper-cloud::after { content:"";position:absolute;left:50%;bottom:-13px;width:24px;height:24px;background:#e7f1f6;border-right:1px solid #718c9b;border-bottom:1px solid #718c9b;transform:translateX(-50%) rotate(45deg); }.whisper-cloud small { color:#557385;font:9px monospace;letter-spacing:.12em; }.whisper-cloud strong { display:block;margin-top:5px;font-size:12px; }.whisper-cloud p { margin:7px 0 0;font-size:15px;font-weight:700;word-break:break-word; }.whisper-cloud>* { position:relative;z-index:1; } @keyframes whisperIn { from { opacity:0;transform:translate(-50%,-45%) scale(.9); } }
 @media (max-width:760px) { .whisper-cloud { position:fixed;top:42%; }.chat-stream { max-height:150px; }.event-panel { display:none; } }
+
+/* Keep the left HUD bounded; chat and combat history scroll independently. */
+.event-panel { height:100%;min-height:0;overflow:hidden; }
+.event-panel .chat-stream { flex:0 1 190px;min-height:100px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable; }
+.event-panel .event-list { flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable; }
+.event-panel .intel-note { flex:0 0 auto;margin-top:0; }
