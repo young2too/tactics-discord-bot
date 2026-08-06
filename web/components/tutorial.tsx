@@ -1,69 +1,109 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
+import { formations, skillCatalog } from "../game/catalog";
 import { trainingTracks } from "../game/guide-data";
+import { factionOf } from "../game/rules";
+import type { BattleLog, ChatMessage, Player, PrivateLog, PublicEffect, Skill } from "../game/types";
+import { Battlefield } from "./battlefield";
+import { RoleChoiceModal } from "./game-modals";
+import { CommunicationPanel, PrivateRolePanel, SkillDeck } from "./game-panels";
 
 const basicSteps = [
-  { title: "전장을 읽으세요", body: "당신은 항상 6시 방향에 배치됩니다. 번호, 공표명과 생존 여부는 공개되지만 실제 직업은 본인과 사망자만 보입니다.", action: "좌석 정보 확인", focus: "board" },
-  { title: "직업을 공표하세요", body: "공표는 주장이지 신분 공개가 아닙니다. 진명과 가명 모두 가능하며 마나를 얻습니다.", action: "순찰경찰 공표", focus: "announce" },
-  { title: "공개 채팅으로 대화하세요", body: "일반 메시지는 생존자 모두에게 보입니다. 정보와 거짓말을 섞어 상대의 판단을 흔드세요.", action: "전체 채팅 보내기", focus: "chat" },
-  { title: "귓말을 보내세요", body: "‘-3 야’처럼 입력하면 3번에게만 전달되고 중앙 말풍선과 개인 기록에 표시됩니다.", action: "-3 같이 조사하자", focus: "chat" },
-  { title: "공표를 확인하세요", body: "아군 확인은 아군 진영 이름을 공표한 생존자만 대상으로 삼습니다. 행동과 대상은 공개되지만 판정은 본인만 압니다.", action: "4번 아군 확인", focus: "inspect" },
-  { title: "공격의 위험을 익히세요", body: "하급공격은 대상의 실제 직업을 맞혀야 합니다. 첫 실패가 누적되며 두 번째 실패에는 자신이 사망합니다.", action: "3번을 히트맨으로 공격", focus: "attack" },
-  { title: "사망 정보를 활용하세요", body: "이번에는 정확히 맞힙니다. 사망자는 실제 직업이 모두에게 공개되고 이후 대상 목록에서 사라집니다.", action: "3번을 마피아일원으로 공격", focus: "attack" },
+  ["전장을 읽으세요", "당신은 항상 6시 방향입니다. 번호·공표·생존 여부는 공개되며 실제 직업은 본인과 사망자만 보입니다."],
+  ["직업을 공표하세요", "하단 공표 스킬을 누르고 순찰경찰을 선택하세요. 진명 공표로 마나 10을 얻습니다."],
+  ["공개 채팅을 보내세요", "오른쪽 채팅창에 아무 메시지나 입력해 전체 플레이어에게 보내세요."],
+  ["귓말을 보내세요", "채팅창에 ‘-3 같이 조사하자’를 입력하세요. 공개 채팅에는 남지 않습니다."],
+  ["공표를 확인하세요", "아군 확인을 누른 뒤 게임판의 4번 서아를 선택하세요."],
+  ["공격 실패를 경험하세요", "하급공격 → 3번 현우 → 히트맨 순서로 선택하세요."],
+  ["사망 정보를 확보하세요", "다시 하급공격 → 3번 현우 → 마피아일원을 선택하세요."],
 ] as const;
 
-const seats = [
-  { id: 1, name: "나", claim: "순찰경찰", role: "순찰경찰" }, { id: 2, name: "민준", claim: "사립탐정", role: "사립탐정" },
-  { id: 3, name: "현우", claim: "마피아일원", role: "마피아일원" }, { id: 4, name: "서아", claim: "자경단원", role: "자경단원" },
-  { id: 5, name: "지민", claim: "경찰반장", role: "경찰반장" }, { id: 6, name: "윤서", claim: "탐정조수", role: "히트맨" },
-  { id: 7, name: "도윤", claim: "마피아대부", role: "마피아대부" }, { id: 8, name: "예린", claim: "미공표", role: "탐정조수" },
+const initialTrainingPlayers: Player[] = [
+  { id: 1, name: "나", announced: "미공표", role: "순찰경찰", faction: "citizen", alive: true, isMe: true },
+  { id: 2, name: "민준", announced: "사립탐정", role: "비공개", faction: "citizen", alive: true },
+  { id: 3, name: "현우", announced: "마피아일원", role: "비공개", faction: "mafia", alive: true },
+  { id: 4, name: "서아", announced: "자경단원", role: "비공개", faction: "citizen", alive: true },
+  { id: 5, name: "지민", announced: "경찰반장", role: "비공개", faction: "citizen", alive: true },
+  { id: 6, name: "윤서", announced: "탐정조수", role: "비공개", faction: "mafia", alive: true },
+  { id: 7, name: "도윤", announced: "마피아대부", role: "비공개", faction: "mafia", alive: true },
+  { id: 8, name: "예린", announced: "미공표", role: "비공개", faction: "citizen", alive: true },
 ];
 
 export function FirstVisitPrompt({ onTutorial, onSkip }: { onTutorial: () => void; onSkip: () => void }) {
-  return <main className="welcome-gate"><section><small>WELCOME TO TACTICS</small><h1>처음 전장에 오셨나요?</h1><p>5분 기본 훈련에서 공표, 채팅, 조사와 공격을 직접 익힐 수 있습니다. 언제든 건너뛰고 룰북에서 다시 확인할 수 있습니다.</p><div><button onClick={onTutorial}>튜토리얼 시작</button><button onClick={onSkip}>바로 입장</button></div></section></main>;
+  return <main className="welcome-gate"><section><small>WELCOME TO TACTICS</small><h1>처음 전장에 오셨나요?</h1><p>5분 기본 훈련에서 공표, 채팅, 조사와 공격을 실제 게임 화면으로 익힐 수 있습니다. 언제든 건너뛰고 룰북에서 다시 확인할 수 있습니다.</p><div><button onClick={onTutorial}>튜토리얼 시작</button><button onClick={onSkip}>바로 입장</button></div></section></main>;
 }
 
 export function TrainingCenter({ onExit }: { onExit: () => void }) {
   const [mode, setMode] = useState<"menu" | "basic" | "tracks">("menu");
-  const [step, setStep] = useState(0);
   const [completedTracks, setCompletedTracks] = useState<string[]>([]);
   const [activeTrack, setActiveTrack] = useState<(typeof trainingTracks)[number] | null>(null);
   const [trackStep, setTrackStep] = useState(0);
-  const [logs, setLogs] = useState<string[]>(["훈련 통제관: 실제 게임에 영향을 주지 않는 안전한 훈련장입니다."]);
-  const [dead, setDead] = useState<number[]>([]);
 
-  function advanceBasic() {
-    const messages = ["좌석과 공개 정보를 확인했습니다.", "순찰경찰을 진명 공표했습니다. · 마나 +10", "나: 경찰 쪽 공표를 확인하겠습니다.", "1번 나 → 3번 현우 귓말 · 같이 조사하자", "4번 서아의 자경단원 공표는 진명입니다.", "하급공격 실패 1/2 · 현우는 히트맨이 아닙니다.", "현우가 공격으로 사망했습니다. 실제 직업은 마피아일원입니다."];
-    setLogs((current) => [...current, messages[step]]);
-    if (step === 6) setDead([3]);
-    if (step < basicSteps.length - 1) setStep((current) => current + 1);
-    else {
-      localStorage.setItem("tactics-tutorial-complete", "true");
-      setMode("tracks");
-    }
-  }
+  if (mode === "menu") return <main className="training-menu"><section><small>TACTICS ACADEMY</small><h1>전술 훈련소</h1><p>기본 훈련과 직업군 훈련 모두 실제 게임판과 동일한 UI를 사용합니다.</p><div className="training-menu-actions"><button onClick={() => setMode("basic")}>기본 전술 훈련 <span>약 5분 · 7단계</span></button><button onClick={() => setMode("tracks")}>직업군별 훈련 <span>4개 선택 과정</span></button></div><button className="training-exit" onClick={() => { localStorage.removeItem("tactics-tutorial-complete"); localStorage.removeItem("tactics-onboarding-dismissed"); setCompletedTracks([]); }}>진행 기록 초기화</button><button className="training-exit" onClick={onExit}>모드 선택으로 돌아가기</button></section></main>;
 
-  function runTrackStep() {
-    if (!activeTrack) return;
-    setLogs((current) => [...current, `${activeTrack.title}: ${activeTrack.steps[trackStep]} 완료`]);
+  if (mode === "tracks" && !activeTrack) return <main className="training-menu"><section className="track-menu"><small>SPECIALIZED TRAINING</small><h1>직업군별 선택 훈련</h1><p>실제 게임판에서 해당 직업군의 핵심 상호작용을 순서대로 확인합니다.</p><div className="track-grid">{trainingTracks.map((track) => <button className={completedTracks.includes(track.id) ? "complete" : ""} key={track.id} onClick={() => { setActiveTrack(track); setTrackStep(0); }}><b>{completedTracks.includes(track.id) ? "✓ " : ""}{track.title}</b><span>{track.roles}</span><small>{track.steps.length}단계</small></button>)}</div><button className="training-exit" onClick={() => setMode("menu")}>훈련소 처음으로</button><button className="training-finish" onClick={onExit}>훈련을 마치고 입장</button></section></main>;
+
+  if (activeTrack) return <TrackTraining track={activeTrack} step={trackStep} onAdvance={() => {
     if (trackStep < activeTrack.steps.length - 1) setTrackStep((current) => current + 1);
     else { setCompletedTracks((current) => [...new Set([...current, activeTrack.id])]); setActiveTrack(null); setTrackStep(0); }
+  }} onExit={() => { setActiveTrack(null); setMode("tracks"); }} />;
+
+  return <BasicTraining onComplete={() => { localStorage.setItem("tactics-tutorial-complete", "true"); setMode("tracks"); }} onExit={() => setMode("menu")} />;
+}
+
+function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit: () => void }) {
+  const [step, setStep] = useState(0);
+  const [players, setPlayers] = useState(initialTrainingPlayers);
+  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
+  const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
+  const [chatInput, setChatInput] = useState("");
+  const [chatChannel, setChatChannel] = useState<"public" | "alliance">("public");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [logs, setLogs] = useState<BattleLog[]>([{ time: "지금", icon: "◆", text: "실제 게임 UI를 사용하는 기본 훈련이 시작되었습니다.", tone: "plain" }]);
+  const [privateLogs, setPrivateLogs] = useState<PrivateLog[]>([{ time: "지금", text: "훈련 안내에 따라 직접 조작하세요." }]);
+  const [effect, setEffect] = useState<PublicEffect>(null);
+  const [whisper, setWhisper] = useState<{ from: number; to: number; text: string } | null>(null);
+  const me = players[0];
+  const skills = [skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"]].map((skill, index) => ({ ...skill, key: ["Q", "W", "E"][index] }));
+  const expectedSkill = [null, "announce", null, null, "ally-check", "lower-attack", "lower-attack"][step];
+  const notice = `${step + 1}/${basicSteps.length} · ${basicSteps[step][0]} — ${basicSteps[step][1]}`;
+  const modalRoles = useMemo(() => formations[8].map((name) => ({ name, faction: factionOf(name) })), []);
+
+  function record(text: string, icon = "◆", tone = "plain") { setLogs((current) => [...current, { time: "지금", icon, text, tone }]); setPrivateLogs((current) => [...current, { time: "지금", text }]); }
+  function next() { setSelectedSkill(null); setSelectedTarget(null); if (step === basicSteps.length - 1) onComplete(); else setStep((current) => current + 1); }
+  function chooseSkill(skill: Skill) { if (expectedSkill !== skill.id) { record(`지금은 ${basicSteps[step][0]} 단계입니다. 안내된 행동을 먼저 수행하세요.`, "!", "danger"); return; } setSelectedSkill(skill); setSelectedTarget(null); }
+  function chooseTarget(player: Player) {
+    if (!selectedSkill || player.isMe || !player.alive) return;
+    if (step === 4 && player.id === 4) { setEffect({ id: 4, type: "inspect" }); record("4번 서아의 자경단원 공표는 진명입니다.", "🔎", "scan"); window.setTimeout(() => setEffect(null), 1400); next(); return; }
+    if ((step === 5 || step === 6) && player.id === 3) setSelectedTarget(player);
+    else record("훈련 안내에 지정된 번호의 플레이어를 선택하세요.", "!", "danger");
+  }
+  function resolveRole(role: string) {
+    if (step === 1 && role === "순찰경찰") { setPlayers((current) => current.map((player) => player.id === 1 ? { ...player, announced: role } : player)); record("순찰경찰 진명 공표 · 마나 +10", "⚑"); next(); return; }
+    if (step === 5 && role === "히트맨") { record("하급공격 실패 1/2 · 현우는 히트맨이 아닙니다.", "↗", "danger"); next(); return; }
+    if (step === 6 && role === "마피아일원") { setPlayers((current) => current.map((player) => player.id === 3 ? { ...player, alive: false, role: "마피아일원" } : player)); record("현우가 공격으로 사망했습니다. 실제 직업은 마피아일원입니다.", "☠", "danger"); window.setTimeout(onComplete, 900); return; }
+    record("안내된 직업을 선택해 판정 과정을 확인하세요.", "!", "danger");
+  }
+  function sendChat(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); const text = chatInput.trim(); if (!text) return;
+    if (step === 2 && !text.startsWith("-")) { setMessages((current) => [...current, { id: Date.now(), from: 1, text, channel: "public" }]); record(`공개 채팅 · 나: ${text}`); setChatInput(""); next(); return; }
+    if (step === 3 && /^-3\s+.+/.test(text)) { const body = text.replace(/^-3\s+/, ""); setWhisper({ from: 1, to: 3, text: body }); record(`3번 현우에게 귓말 · ${body}`); setChatInput(""); next(); return; }
+    record(step === 3 ? "‘-3 내용’ 형식으로 3번에게 귓말을 보내세요." : "현재 단계에서는 공개 메시지를 보내세요.", "!", "danger");
   }
 
-  if (mode === "menu") return <main className="training-menu"><section><small>TACTICS ACADEMY</small><h1>전술 훈련소</h1><p>기본 훈련으로 공통 조작을 익히거나 원하는 직업군의 핵심 상호작용을 연습하세요.</p><div className="training-menu-actions"><button onClick={() => { setMode("basic"); setStep(0); setDead([]); }}>기본 전술 훈련 <span>약 5분 · 7단계</span></button><button onClick={() => setMode("tracks")}>직업군별 훈련 <span>4개 선택 과정</span></button></div><button className="training-exit" onClick={() => { localStorage.removeItem("tactics-tutorial-complete"); localStorage.removeItem("tactics-onboarding-dismissed"); setCompletedTracks([]); setStep(0); setDead([]); }}>진행 기록 초기화</button><button className="training-exit" onClick={onExit}>모드 선택으로 돌아가기</button></section></main>;
-
-  if (mode === "tracks" && !activeTrack) return <main className="training-menu"><section className="track-menu"><small>SPECIALIZED TRAINING</small><h1>직업군별 선택 훈련</h1><p>모든 과정을 끝낼 필요는 없습니다. 실제 배정받은 직업과 가까운 과정을 골라 연습하세요.</p><div className="track-grid">{trainingTracks.map((track) => <button className={completedTracks.includes(track.id) ? "complete" : ""} key={track.id} onClick={() => { setActiveTrack(track); setTrackStep(0); }}><b>{completedTracks.includes(track.id) ? "✓ " : ""}{track.title}</b><span>{track.roles}</span><small>{track.steps.length}단계</small></button>)}</div><button className="training-exit" onClick={() => setMode("menu")}>훈련소 처음으로</button><button className="training-finish" onClick={onExit}>훈련을 마치고 입장</button></section></main>;
-
-  const current = mode === "basic" ? basicSteps[step] : null;
-  const trackInstruction = activeTrack?.steps[trackStep];
-  return <main className="tutorial-shell">
-    <header><div><small>TACTICS ACADEMY</small><strong>{activeTrack?.title ?? "기본 전술 훈련"}</strong></div><span>{activeTrack ? `${trackStep + 1} / ${activeTrack.steps.length}` : `${step + 1} / ${basicSteps.length}`}</span><button onClick={() => { setActiveTrack(null); setMode("menu"); }}>훈련 종료</button></header>
-    <section className="tutorial-stage">
-      <aside className="tutorial-log"><h2>훈련 기록</h2>{logs.slice(-8).map((log, index) => <p key={index}>{log}</p>)}</aside>
-      <div className={`tutorial-board focus-${current?.focus ?? "track"}`}><div className="tutorial-objective"><small>현재 목표</small><h1>{current?.title ?? activeTrack?.title}</h1><p>{current?.body ?? trackInstruction}</p></div>{seats.map((seat, index) => <article className={`tutorial-seat seat-${index + 1} ${seat.id === 1 ? "me" : ""} ${dead.includes(seat.id) ? "dead" : ""}`} key={seat.id}><b>{seat.id}</b><strong>{seat.name}</strong><small>공표 · {seat.id === 1 && step === 0 ? "미공표" : seat.claim}</small>{dead.includes(seat.id) && <em>사망 · {seat.role}</em>}</article>)}</div>
-      <aside className="tutorial-private"><h2>나의 전술 정보</h2><strong>순찰경찰</strong><p>시민 진영</p><div>{logs.slice(-3).map((log, index) => <small key={index}>{log}</small>)}</div></aside>
-    </section>
-    <footer className="tutorial-command"><div><small>{current ? "안내된 행동을 수행하세요" : "직업군 모의 행동"}</small><strong>{current?.body ?? trackInstruction}</strong></div><button className={`tutorial-action action-${current?.focus ?? "track"}`} onClick={current ? advanceBasic : runTrackStep}>{current?.action ?? "모의 행동 수행"}</button></footer>
+  return <main className={`game-shell size-8 tutorial-live tutorial-step-${step} ${selectedSkill ? "tutorial-target-phase" : ""}`}>
+    <header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>기본 전술 훈련</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {basicSteps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header>
+    <div className="tutorial-guide" role="status"><small>STEP {step + 1}</small><strong>{basicSteps[step][0]}</strong><span>{basicSteps[step][1]}</span>{step === 0 && <button onClick={() => { record("좌석과 공개 정보를 확인했습니다."); next(); }}>확인했어요</button>}</div>
+    <section className="battle-layout"><CommunicationPanel players={players} messages={messages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs}/><Battlefield players={players} mySeatIndex={0} selectedSkill={selectedSkill} notice={notice} effectTarget={effect} alliances={[]} whisper={whisper} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }} onTarget={chooseTarget} isTargetable={(player) => !player.isMe && player.alive}/><PrivateRolePanel me={me} notice={notice} logs={privateLogs}/></section>
+    <SkillDeck me={me} notice={notice} skills={skills} selectedSkill={selectedSkill} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={chooseSkill}/>
+    {selectedSkill?.needsRole && (selectedTarget || !selectedSkill.target) && (
+      <RoleChoiceModal skill={selectedSkill} target={selectedTarget} roles={modalRoles} onResolve={resolveRole} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }}/>
+    )}
   </main>;
+}
+
+function TrackTraining({ track, step, onAdvance, onExit }: { track: (typeof trainingTracks)[number]; step: number; onAdvance: () => void; onExit: () => void }) {
+  const players = initialTrainingPlayers;
+  return <main className={`game-shell size-8 tutorial-live track-spotlight-${step}`}><header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>{track.title}</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {track.steps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header><div className="tutorial-guide"><small>{track.roles}</small><strong>{track.steps[step]}</strong><span>밝게 표시된 실제 UI를 확인한 뒤 진행하세요.</span><button onClick={onAdvance}>{step === track.steps.length - 1 ? "과정 완료" : "다음 기능"}</button></div><section className="battle-layout"><CommunicationPanel players={players} messages={[]} channel="public" setChannel={() => {}} input="" setInput={() => {}} onSubmit={(event) => event.preventDefault()} logs={[{ time: "지금", icon: "◆", text: `${track.title} 진행 중`, tone: "plain" }]}/><Battlefield players={players} mySeatIndex={0} selectedSkill={null} notice={track.steps[step]} effectTarget={null} alliances={[]} whisper={null} onCancel={() => {}} onTarget={() => {}} isTargetable={() => false}/><PrivateRolePanel me={players[0]} notice={track.steps[step]} logs={[{ time: "지금", text: track.steps[step] }]}/></section><SkillDeck me={players[0]} notice={track.steps[step]} skills={[skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"]]} selectedSkill={null} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={onAdvance}/></main>;
 }

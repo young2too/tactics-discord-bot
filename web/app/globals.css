@@ -53,7 +53,7 @@ button { font:inherit; }
 }
 
 /* Rulebook and onboarding */
-.rulebook-launcher { position:fixed;z-index:140;right:70px;top:16px;padding:9px 12px;border:1px solid #9a8248;background:#26343b;color:#f1dfaa;font-weight:700;box-shadow:0 8px 24px #0008;cursor:pointer; }.rulebook-launcher span { display:inline-grid;place-items:center;width:18px;height:18px;margin-left:6px;border:1px solid #c5a858;border-radius:50%; }
+.rulebook-launcher { position:fixed;z-index:140;right:16px;top:14px;padding:9px 12px;border:1px solid #9a8248;background:#26343b;color:#f1dfaa;font-weight:700;box-shadow:0 8px 24px #0008;cursor:pointer; }.rulebook-launcher span { margin-left:5px;color:#ffe18b; }
 .rulebook-backdrop { position:fixed;z-index:200;inset:0;padding:24px;display:grid;place-items:center;background:#061016dc;backdrop-filter:blur(7px); }
 .rulebook-panel { width:min(1080px,100%);height:min(820px,92vh);display:grid;grid-template-rows:auto auto 1fr;border:1px solid #687d88;background:linear-gradient(145deg,#263a45,#121d23);box-shadow:0 24px 80px #000;overflow:hidden; }
 .rulebook-panel>header { display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid #4d626d;background:#1b2b33; }.rulebook-panel>header small { color:#c5a858;font:10px monospace;letter-spacing:.16em; }.rulebook-panel>header h1 { margin:4px 0 0;font:28px Georgia;color:#f2f5f6; }.rulebook-panel>header button { width:38px;height:38px;border:1px solid #677b85;background:#253943;color:#dbe5e9;font-size:25px;cursor:pointer; }
@@ -72,9 +72,38 @@ button { font:inherit; }
 .tutorial-command { display:flex;align-items:center;gap:24px;padding:16px 24px;border-top:1px solid #546b76;background:#17262d; }.tutorial-command>div { margin-right:auto;max-width:680px;display:flex;flex-direction:column;gap:5px; }.tutorial-command small { color:#c7a951;font:9px monospace; }.tutorial-command strong { color:#b9c8ce;font-size:12px;line-height:1.5; }.tutorial-action { min-width:210px;padding:17px;border:1px solid #d0a94a;background:#765d23;color:#fff1c6;font-weight:800;cursor:pointer;box-shadow:0 0 22px #d4a73d44; }
 
 @media (max-width:760px) {
-  .rulebook-launcher { top:66px;right:10px;bottom:auto; }.rulebook-backdrop { padding:0; }.rulebook-panel { width:100%;height:100vh; }.rulebook-tools { display:block; }.rulebook-tools nav { overflow-x:auto; }.rulebook-tools input { width:100%;margin-top:9px; }.rule-section>div,.guide-card-grid { grid-template-columns:1fr; }.guide-card-grid { gap:8px; }.rulebook-content { padding:14px; }
+  .rulebook-launcher { top:62px;right:8px;bottom:auto; }.rulebook-backdrop { padding:0; }.rulebook-panel { width:100%;height:100vh; }.rulebook-tools { display:block; }.rulebook-tools nav { overflow-x:auto; }.rulebook-tools input { width:100%;margin-top:9px; }.rule-section>div,.guide-card-grid { grid-template-columns:1fr; }.guide-card-grid { gap:8px; }.rulebook-content { padding:14px; }
   .welcome-gate>section,.training-menu>section { padding:24px 16px; }.welcome-gate h1,.training-menu h1 { font-size:27px; }.welcome-gate>section>div,.training-menu-actions,.track-grid { grid-template-columns:1fr; }
   .tutorial-shell { grid-template-rows:56px 1fr auto; }.tutorial-stage { display:block;min-height:650px;padding:5px; }.tutorial-log,.tutorial-private { display:none; }.tutorial-board { min-height:650px; }.tutorial-objective { top:48%;width:72%;padding:12px; }.tutorial-objective h1 { font-size:18px; }.tutorial-seat { width:112px;padding:7px; }.seat-2 { left:1%; }.seat-3 { left:1%; }.seat-4 { left:23%; }.seat-6 { right:1%; }.seat-7 { right:1%; }.seat-8 { right:22%; }.tutorial-command { padding:10px;display:block; }.tutorial-command>div { display:none; }.tutorial-action { width:100%;min-width:0;padding:15px; }.tutorial-shell>header { padding:0 9px;gap:10px; }.tutorial-shell>header button { padding:7px; }
+}
+
+/* The tutorial uses the real game UI. Only the control being taught stays lit. */
+.tutorial-live::after { content:"";position:fixed;z-index:90;inset:0;background:#020609c9;pointer-events:none; }
+.tutorial-live .topbar { position:relative;z-index:92; }.tutorial-live .tutorial-exit { margin-right:92px;padding:8px 12px;border:1px solid #607985;background:#273c46;color:#dbe5e9;cursor:pointer; }
+.tutorial-live .tutorial-guide { position:fixed;z-index:110;width:min(380px,calc(100vw - 24px));padding:15px 17px;border:1px solid #d2ad50;background:#263b45f5;box-shadow:0 16px 45px #000d,0 0 24px #d4aa4144;display:flex;flex-direction:column;gap:5px;pointer-events:auto; }
+.tutorial-live .tutorial-guide::after { content:"";position:absolute;border:9px solid transparent; }.tutorial-live .tutorial-guide small { color:#e6c66b;font:9px monospace;letter-spacing:.12em; }.tutorial-live .tutorial-guide strong { color:#fff0b8;font-size:16px; }.tutorial-live .tutorial-guide span { color:#c4d1d6;font-size:12px;line-height:1.5; }.tutorial-live .tutorial-guide button { align-self:flex-end;margin-top:6px;padding:8px 12px;border:1px solid #c6a24c;background:#725b22;color:#fff0bd;font-weight:700;cursor:pointer; }
+.tutorial-live.tutorial-step-0 .board-area,
+.tutorial-live.tutorial-step-1 .skill-slot:has(.skill-announce),
+.tutorial-live.tutorial-step-2 .chat-form,
+.tutorial-live.tutorial-step-3 .chat-form,
+.tutorial-live.tutorial-step-4:not(.tutorial-target-phase) .skill-slot:has(.skill-ally-check),
+.tutorial-live.tutorial-step-5:not(.tutorial-target-phase) .skill-slot:has(.skill-lower-attack),
+.tutorial-live.tutorial-step-6:not(.tutorial-target-phase) .skill-slot:has(.skill-lower-attack),
+.tutorial-live.tutorial-step-4.tutorial-target-phase .player-seat:nth-of-type(4),
+.tutorial-live.tutorial-step-5.tutorial-target-phase .player-seat:nth-of-type(3),
+.tutorial-live.tutorial-step-6.tutorial-target-phase .player-seat:nth-of-type(3),
+.tutorial-live.track-spotlight-0 .board-area,
+.tutorial-live.track-spotlight-1 .skill-deck,
+.tutorial-live.track-spotlight-2 .detail-panel { position:relative;z-index:100;box-shadow:0 0 0 3px #f0c85f,0 0 34px #f0c85faa; }
+.tutorial-live.tutorial-step-0 .tutorial-guide { left:50%;top:82px;transform:translateX(-50%); }.tutorial-live.tutorial-step-0 .tutorial-guide::after { left:50%;top:100%;border-top-color:#d2ad50; }
+.tutorial-live.tutorial-step-1 .tutorial-guide,.tutorial-live.tutorial-step-4 .tutorial-guide,.tutorial-live.tutorial-step-5 .tutorial-guide,.tutorial-live.tutorial-step-6 .tutorial-guide { right:20px;bottom:132px; }.tutorial-live.tutorial-step-1 .tutorial-guide::after,.tutorial-live.tutorial-step-4 .tutorial-guide::after,.tutorial-live.tutorial-step-5 .tutorial-guide::after,.tutorial-live.tutorial-step-6 .tutorial-guide::after { right:38px;top:100%;border-top-color:#d2ad50; }
+.tutorial-live.tutorial-step-2 .tutorial-guide,.tutorial-live.tutorial-step-3 .tutorial-guide { left:18px;top:80px; }.tutorial-live.tutorial-step-2 .tutorial-guide::after,.tutorial-live.tutorial-step-3 .tutorial-guide::after { left:35px;top:100%;border-top-color:#d2ad50; }
+.tutorial-live.track-spotlight-0 .tutorial-guide,.tutorial-live.track-spotlight-1 .tutorial-guide,.tutorial-live.track-spotlight-2 .tutorial-guide { left:50%;top:78px;transform:translateX(-50%); }
+.tutorial-live .modal-backdrop { z-index:130; }.tutorial-live:has(.modal-backdrop) .tutorial-guide { opacity:.18;pointer-events:none; }
+@media (max-width:760px) {
+  .tutorial-live .tutorial-exit { margin-right:0; }.tutorial-live + .rulebook-launcher { display:none; }
+  .tutorial-live .tutorial-guide,.tutorial-live.tutorial-step-0 .tutorial-guide,.tutorial-live.tutorial-step-1 .tutorial-guide,.tutorial-live.tutorial-step-2 .tutorial-guide,.tutorial-live.tutorial-step-3 .tutorial-guide,.tutorial-live.tutorial-step-4 .tutorial-guide,.tutorial-live.tutorial-step-5 .tutorial-guide,.tutorial-live.tutorial-step-6 .tutorial-guide { left:10px;right:10px;top:auto;bottom:116px;width:auto;transform:none; }
+  .tutorial-live .tutorial-guide::after { display:none; }
 }
 
 .penalty-warning { margin:10px 14px;padding:12px;border:1px solid #c75b51;background:#422521;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;color:#ffd3ce; }
