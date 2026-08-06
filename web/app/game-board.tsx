@@ -608,7 +608,7 @@ export function GameBoard() {
                   disabled={Boolean(selectedSkill?.target) && !selectable}
                 >
                   <span className="seat-pointer" /><span className="seat-number">{player.id}</span>
-                  {effectTarget?.id === player.id && effectTarget.type !== "attack" && <span className={`public-action-effect ${effectTarget.type}`} aria-label={effectTarget.type === "scan" ? "스캔당하는 중" : "확인당하는 중"}><b>◉</b><i /><i /></span>}
+                  {effectTarget?.id === player.id && effectTarget.type !== "attack" && <span className="public-action-effect" aria-label="살펴지는 중"><b>🔍</b><i /><i /></span>}
                   <span className="portrait"><span className="portrait-art" style={portraitStyle(player.role)} />{!player.alive && <b>☠</b>}</span>
                   <span className="player-copy"><strong>{player.name}{player.isMe && <em>YOU</em>}</strong><small>공표 · <b className={`${factionOf(player.announced)}-text`}>{player.announced}</b></small><small className={`revealed-role ${factionOf(player.role)}-text`}>실제 · {player.role}</small></span>
                   <span className={`life-state ${player.alive ? "" : "down"}`}>{player.alive ? "생존" : "사망 · 직업 공개"}</span>
