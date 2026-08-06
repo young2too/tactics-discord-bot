@@ -130,6 +130,10 @@ button { font:inherit; }
 .event-panel .chat-stream { flex:0 1 190px;min-height:100px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable; }
 .event-panel .event-list { flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable; }
 .event-panel .intel-note { flex:0 0 auto;margin-top:0; }
+.private-result { min-height:0;display:flex;flex-direction:column; }
+.private-log-list { max-height:180px;margin-top:7px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable; }
+.private-log-list p { display:grid;grid-template-columns:34px 1fr;gap:7px;margin:0!important;padding:8px 0;border-bottom:1px solid #34505d; }
+.private-log-list time { color:#7192a1;font:9px monospace; }
 
 /* Brighter tactical theme: retain the night-operation palette without crushing contrast. */
 :root { --ink:#f1f6fa;--muted:#a8b7c2;--line:#425664;--panel:#1c2932; }

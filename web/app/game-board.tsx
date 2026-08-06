@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { botNames, formations, initialPlayers, MANA_INTERVAL_SECONDS, MANA_MAX, MANA_TICK, roleSkillIds, skillCatalog } from "../game/catalog";
 import { checkVictory, factionOf, shuffle } from "../game/rules";
-import type { ChatMessage, GameResult, Player, PublicEffect, Skill } from "../game/types";
+import type { ChatMessage, GameResult, Player, PrivateLog, PublicEffect, Skill } from "../game/types";
 import { CommunicationPanel, DebugLobby, PrivateRolePanel, SkillDeck } from "../components/game-panels";
 import { Battlefield } from "../components/battlefield";
 import { GameOverModal, ProclamationModal, RoleChoiceModal } from "../components/game-modals";
@@ -30,17 +30,23 @@ export function GameBoard() {
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
   const [effectTarget, setEffectTarget] = useState<PublicEffect>(null);
-  const [notice, setNotice] = useState("상급 공격을 준비하려면 우하단 스킬을 선택하세요.");
+  const [notice, setNoticeState] = useState("상급 공격을 준비하려면 우하단 스킬을 선택하세요.");
+  const [privateLogs, setPrivateLogs] = useState<PrivateLog[]>([]);
   const [logs, setLogs] = useState([
-    { time: "21:08", icon: "⚑", text: "윤서가 경찰반장을 공표했습니다.", tone: "plain" },
-    { time: "21:07", icon: "🔍", text: "누군가 민준을 살피고 있습니다.", tone: "scan" },
     { time: "21:05", icon: "+", text: "마나 보급 · 모든 플레이어 +20", tone: "mana" },
+    { time: "21:07", icon: "🔍", text: "누군가 민준을 살피고 있습니다.", tone: "scan" },
+    { time: "21:08", icon: "⚑", text: "윤서가 경찰반장을 공표했습니다.", tone: "plain" },
   ]);
 
   const me = players.find((player) => player.isMe)!;
   const mySeatIndex = players.findIndex((player) => player.isMe);
   const manaTickLabel = `${String(Math.floor(manaTickSeconds / 60)).padStart(2, "0")}:${String(manaTickSeconds % 60).padStart(2, "0")}`;
   const availableSkills = useMemo(() => [skillCatalog.announce, ...(roleSkillIds[me.role] ?? []).map((id) => skillCatalog[id]), skillCatalog["ally-add"], skillCatalog["ally-remove"]].map((skill, index) => ({ ...skill, key: ["Q", "W", "E", "R", "T", "Y"][index] ?? String(index + 1) })), [me.role]);
+
+  function setNotice(message: string) {
+    setNoticeState(message);
+    if (started) setPrivateLogs((current) => [...current.slice(-29), { time: "지금", text: message }]);
+  }
 
   useEffect(() => {
     if (gameResult) return;
@@ -58,7 +64,7 @@ export function GameBoard() {
     if (manaTickSeconds !== 0) return;
     setMana((current) => Math.min(MANA_MAX, current + MANA_TICK));
     setBotMana((current) => Object.fromEntries(Object.entries(current).map(([id, value]) => [id, Math.min(MANA_MAX, value + MANA_TICK)])));
-    setLogs((current) => [{ time: "지금", icon: "+", text: `마나 보급 · 모든 플레이어 +${MANA_TICK}`, tone: "mana" }, ...current]);
+    setLogs((current) => [...current, { time: "지금", icon: "+", text: `마나 보급 · 모든 플레이어 +${MANA_TICK}`, tone: "mana" }]);
     setNotice(`마나 보급 완료 · 마나가 ${MANA_TICK} 회복되었습니다.`);
     setManaTickSeconds(MANA_INTERVAL_SECONDS);
   }, [manaTickSeconds]);
@@ -76,7 +82,7 @@ export function GameBoard() {
         const gain = claim === actor.role ? 10 : 5;
         setPlayers((current) => current.map((player) => player.id === actor.id ? { ...player, announced: claim } : player));
         setBotMana((current) => ({ ...current, [actor.id]: Math.min(MANA_MAX, (current[actor.id] ?? 20) + gain) }));
-        setLogs((current) => [{ time: "지금", icon: "⚑", text: `${actor.name}이(가) ${claim}을(를) 공표했습니다.`, tone: "plain" }, ...current]);
+        setLogs((current) => [...current, { time: "지금", icon: "⚑", text: `${actor.name}이(가) ${claim}을(를) 공표했습니다.`, tone: "plain" }]);
         return;
       }
 
@@ -94,10 +100,10 @@ export function GameBoard() {
           const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
           const result = checkVictory(nextPlayers, successorId);
           setPlayers(nextPlayers);
-          setLogs((current) => [{ time: "지금", icon: "✦", text: `${actor.role}이(가) ${target.role}을(를) 처치했습니다.`, tone: "danger" }, ...current]);
+          setLogs((current) => [...current, { time: "지금", icon: "✦", text: `${actor.role}이(가) ${target.role}을(를) 처치했습니다.`, tone: "danger" }]);
           if (result) { setGameResult(result); setNotice(`게임 종료 · ${result.reason}`); }
         } else {
-          setLogs((current) => [{ time: "지금", icon: "↗", text: `${actor.role}이(가) 누군가를 ${guessedRole}(으)로 공격했으나 실패했습니다.`, tone: "danger" }, ...current]);
+          setLogs((current) => [...current, { time: "지금", icon: "↗", text: `${actor.role}이(가) 누군가를 ${guessedRole}(으)로 공격했으나 실패했습니다.`, tone: "danger" }]);
         }
         return;
       }
@@ -109,7 +115,7 @@ export function GameBoard() {
         setBotMana((current) => ({ ...current, [actor.id]: (current[actor.id] ?? 20) - 5 }));
         setEffectTarget({ id: target.id, type: effectType });
         window.setTimeout(() => setEffectTarget(null), 1400);
-        setLogs((current) => [{ time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
+        setLogs((current) => [...current, { time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }]);
       }
     }, 2800);
     return () => window.clearTimeout(timer);
@@ -151,6 +157,7 @@ export function GameBoard() {
     setSuccessorId(null);
     setSkillText("");
     setLogs([{ time: "지금", icon: "◆", text: `${playerCount}인 디버그 게임이 시작되었습니다.`, tone: "plain" }]);
+    setPrivateLogs([{ time: "지금", text: "직업이 배정되었습니다. 먼저 직업을 공표하세요." }]);
     setNotice("직업이 배정되었습니다. 먼저 직업을 공표하세요.");
     setStarted(true);
   }
@@ -247,7 +254,7 @@ export function GameBoard() {
       const announceGain = guessedRole === me.role ? 10 : 5;
       setMana((current) => Math.min(MANA_MAX, current + announceGain));
       setPlayers((current) => current.map((player) => player.isMe ? { ...player, announced: guessedRole } : player));
-      setLogs((current) => [{ time: "지금", icon: "⚑", text: `내가 ${guessedRole}을 공표했습니다.`, tone: "plain" }, ...current]);
+      setLogs((current) => [...current, { time: "지금", icon: "⚑", text: `내가 ${guessedRole}을 공표했습니다.`, tone: "plain" }]);
       setNotice(`${guessedRole} 공표 완료 · 마나 +${announceGain} · 진명 여부와 보상량은 비공개입니다.`);
       return;
     }
@@ -267,7 +274,7 @@ export function GameBoard() {
 
     if (skill.id === "ally-scan" || skill.id === "enemy-scan") {
       const hit = guessedRole === target.role;
-      setLogs((current) => [{ time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
+      setLogs((current) => [...current, { time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }]);
       setNotice(hit ? `스캔 성공 · ${target.name}은(는) ${target.role}입니다.` : `스캔 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.`);
       return;
     }
@@ -282,11 +289,11 @@ export function GameBoard() {
         setPlayers(nextPlayers);
         if (result) {
           setGameResult(result);
-          setLogs((current) => [{ time: "지금", icon: "🏁", text: `게임 종료 · ${result.winner === "mafia" ? "마피아" : "시민"} 진영 승리`, tone: "danger" }, { time: "지금", icon: "✦", text: `${me.role}이 ${target.role}을 처치했습니다.`, tone: "danger" }, ...current]);
+          setLogs((current) => [...current, { time: "지금", icon: "✦", text: `${me.role}이 ${target.role}을 처치했습니다.`, tone: "danger" }, { time: "지금", icon: "🏁", text: `게임 종료 · ${result.winner === "mafia" ? "마피아" : "시민"} 진영 승리`, tone: "danger" }]);
           setNotice(`게임 종료 · ${result.reason}`);
           return;
         }
-        setLogs((current) => [{ time: "지금", icon: "✦", text: `${me.role}이 ${target.role}을 처치했습니다.`, tone: "danger" }, ...current]);
+        setLogs((current) => [...current, { time: "지금", icon: "✦", text: `${me.role}이 ${target.role}을 처치했습니다.`, tone: "danger" }]);
         setNotice(`공격 명중 · ${target.name}의 실제 직업은 ${target.role}이었습니다.`);
       } else {
         if (skill.id === "lower-attack") {
@@ -296,13 +303,13 @@ export function GameBoard() {
             const nextPlayers = players.map((player) => player.isMe ? { ...player, alive: false } : player);
             const result = checkVictory(nextPlayers, successorId);
             setPlayers(nextPlayers);
-            setLogs((current) => [{ time: "지금", icon: "☠", text: `${me.role}이 하급 공격을 2회 실패하여 사망했습니다.`, tone: "danger" }, ...current]);
+            setLogs((current) => [...current, { time: "지금", icon: "☠", text: `${me.role}이 하급 공격을 2회 실패하여 사망했습니다.`, tone: "danger" }]);
             setNotice("하급 공격 2회 누적 실패 · 자멸했습니다.");
             if (result) setGameResult(result);
             return;
           }
         }
-        setLogs((current) => [{ time: "지금", icon: "↗", text: `${me.role}이 누군가를 ${guessedRole}(으)로 공격했으나 실패했습니다.`, tone: "danger" }, ...current]);
+        setLogs((current) => [...current, { time: "지금", icon: "↗", text: `${me.role}이 누군가를 ${guessedRole}(으)로 공격했으나 실패했습니다.`, tone: "danger" }]);
         setNotice(shielded ? "공격 실패 · 순찰경찰이 경찰반장을 보호하고 있습니다." : `공격 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.${skill.id === "lower-attack" ? ` (누적 ${lowAttackFails + 1}/2)` : ""}`);
       }
       return;
@@ -316,7 +323,7 @@ export function GameBoard() {
 
     if (skill.id === "support") {
       setBotMana((current) => ({ ...current, [target.id]: Math.min(MANA_MAX, (current[target.id] ?? 20) + 30) }));
-      setLogs((current) => [{ time: "지금", icon: "+", text: `공무원이 ${target.name}에게 마나를 지원했습니다.`, tone: "mana" }, ...current]);
+      setLogs((current) => [...current, { time: "지금", icon: "+", text: `공무원이 ${target.name}에게 마나를 지원했습니다.`, tone: "mana" }]);
       setNotice(`${target.name}에게 마나 30을 지원했습니다.`);
       return;
     }
@@ -326,10 +333,10 @@ export function GameBoard() {
       if (target.role === "마피아후계자") {
         setSuccessorId(target.id);
         setNotice(`후계자 지정 성공 · ${target.id}번 ${target.name}이 후계자로 등록되었습니다.`);
-        setLogs((current) => [{ time: "지금", icon: "♚", text: "마피아대부가 후계자를 지정했습니다.", tone: "plain" }, ...current]);
+        setLogs((current) => [...current, { time: "지금", icon: "♚", text: "마피아대부가 후계자를 지정했습니다.", tone: "plain" }]);
       } else {
         setNotice(`후계자 지정 실패 · ${target.name}은(는) 마피아후계자가 아닙니다.`);
-        setLogs((current) => [{ time: "지금", icon: "!", text: "마피아대부의 후계자 지정이 실패했습니다.", tone: "danger" }, ...current]);
+        setLogs((current) => [...current, { time: "지금", icon: "!", text: "마피아대부의 후계자 지정이 실패했습니다.", tone: "danger" }]);
       }
       return;
     }
@@ -357,7 +364,7 @@ export function GameBoard() {
       setUsedOnce((current) => ({ ...current, [skill.id]: true }));
       const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
       setPlayers(nextPlayers);
-      setLogs((current) => [{ time: "지금", icon: "☠", text: `${skill.name} 발동 · ${target.name}(${target.role}) 사망`, tone: "danger" }, ...current]);
+      setLogs((current) => [...current, { time: "지금", icon: "☠", text: `${skill.name} 발동 · ${target.name}(${target.role}) 사망`, tone: "danger" }]);
       const result = checkVictory(nextPlayers, successorId);
       if (result) setGameResult(result);
       setNotice(`${skill.name} 성공 · ${target.name}을(를) 즉사시켰습니다.`);
@@ -376,7 +383,7 @@ export function GameBoard() {
       return;
     }
 
-    setLogs((current) => [{ time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }, ...current]);
+    setLogs((current) => [...current, { time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }]);
     const spyFooled = skill.id === "ally-check" && target.role === "스파이" && target.faction === "mafia" && factionOf(target.announced) === "citizen" && me.faction === "citizen";
     setNotice(`${target.name}의 공표는 ${spyFooled || target.announced === target.role ? "진명" : "가명"}입니다.`);
   }
@@ -387,7 +394,7 @@ export function GameBoard() {
     if (!text || selectedSkill?.id !== "proclamation") return;
     setCooldowns((current) => ({ ...current, proclamation: skillCatalog.proclamation.cooldown }));
     setChatMessages((current) => [...current.slice(-30), { id: Date.now(), from: me.id, text: `📜 [공문] ${text}`, channel: "public" }]);
-    setLogs((current) => [{ time: "지금", icon: "✉", text: `공무원 공문 · ${text}`, tone: "plain" }, ...current]);
+    setLogs((current) => [...current, { time: "지금", icon: "✉", text: `공무원 공문 · ${text}`, tone: "plain" }]);
     setNotice("공문을 전체 플레이어에게 발송했습니다.");
     setSkillText(""); setSelectedSkill(null); setChatChannel("public");
   }
@@ -416,7 +423,7 @@ export function GameBoard() {
 
         <Battlefield players={players} mySeatIndex={mySeatIndex} selectedSkill={selectedSkill} notice={notice} effectTarget={effectTarget} alliances={alliances} whisper={whisperBubble} onCancel={cancelTargeting} onTarget={chooseTarget} isTargetable={isTargetable} />
 
-        <PrivateRolePanel me={me} notice={notice} />
+        <PrivateRolePanel me={me} notice={notice} logs={privateLogs} />
       </section>
 
       <SkillDeck me={me} notice={notice} skills={availableSkills} selectedSkill={selectedSkill} cooldowns={cooldowns} usedOnce={usedOnce} gameResult={gameResult} onChoose={chooseSkill} />

@@ -1,7 +1,9 @@
-import type { Dispatch, FormEvent, SetStateAction } from "react";
+"use client";
+
+import { useEffect, useRef, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { formations } from "../game/catalog";
 import { factionOf, portraitStyle } from "../game/rules";
-import type { BattleLog, ChatMessage, GameResult, Player, Skill } from "../game/types";
+import type { BattleLog, ChatMessage, GameResult, Player, PrivateLog, Skill } from "../game/types";
 
 export function DebugLobby({ playerCount, debugRole, setPlayerCount, setDebugRole, onStart }: {
   playerCount: number; debugRole: string; setPlayerCount: (count: number) => void; setDebugRole: (role: string) => void; onStart: () => void;
@@ -24,6 +26,8 @@ export function CommunicationPanel({ players, messages, channel, setChannel, inp
   input: string; setInput: Dispatch<SetStateAction<string>>; onSubmit: (event: FormEvent<HTMLFormElement>) => void; logs: BattleLog[];
 }) {
   const visibleMessages = messages.filter((message) => message.channel === channel);
+  const eventListRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { eventListRef.current?.scrollTo({ top: eventListRef.current.scrollHeight, behavior: "smooth" }); }, [logs.length]);
   return <aside className="event-panel panel">
     <div className="panel-heading chat-heading"><span>채팅</span><div className="chat-tabs"><button className={channel === "public" ? "active" : ""} onClick={() => setChannel("public")}>공개</button><button className={channel === "alliance" ? "active" : ""} onClick={() => setChannel("alliance")}>동맹</button></div></div>
     <div className="chat-stream">{visibleMessages.length === 0 ? <p className="chat-empty">{channel === "public" ? <>모두에게 메시지를 보냅니다.<br/><code>-3 야</code> → 3번에게 귓말<br/><code>+3 야</code> → 3번에게서 수신 테스트<br/><code>/a 작전</code> → 동맹챗</> : <>현재 동맹에게만 보이는 채팅입니다.<br/>동맹 추가/파기는 우하단 스킬을 사용하세요.</>}</p> : visibleMessages.map((message) => {
@@ -32,15 +36,17 @@ export function CommunicationPanel({ players, messages, channel, setChannel, inp
     })}</div>
     <form className="chat-form" onSubmit={onSubmit}><input aria-label="채팅 메시지" value={input} onChange={(event) => setInput(event.target.value)} placeholder={channel === "public" ? "전체 · -3 발신 · +3 수신 테스트 · /a 동맹" : "동맹에게 메시지 보내기"} maxLength={160}/><button>전송</button></form>
     <div className="panel-heading event-subheading"><span>전장 기록</span><button>전체</button></div>
-    <div className="event-list">{logs.map((log, index) => <div className={`event-row ${log.tone}`} key={`${log.time}-${index}`}><span className="event-icon">{log.icon}</span><p>{log.text}</p><time>{log.time}</time></div>)}</div>
+    <div className="event-list" ref={eventListRef}>{logs.map((log, index) => <div className={`event-row ${log.tone}`} key={`${log.time}-${index}`}><span className="event-icon">{log.icon}</span><p>{log.text}</p><time>{log.time}</time></div>)}</div>
     <div className="intel-note"><span>정보 규칙</span><p>사망한 플레이어의 실제 직업은 모든 플레이어에게 공개됩니다.</p></div>
   </aside>;
 }
 
-export function PrivateRolePanel({ me, notice }: { me: Player; notice: string }) {
+export function PrivateRolePanel({ me, notice, logs }: { me: Player; notice: string; logs: PrivateLog[] }) {
+  const privateListRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { privateListRef.current?.scrollTo({ top: privateListRef.current.scrollHeight, behavior: "smooth" }); }, [logs.length]);
   return <aside className="detail-panel panel"><div className="panel-heading"><span>전술 정보</span><b>PRIVATE</b></div>
     <div className="role-card"><span className="role-kicker">나의 실제 직업</span><div className="role-portrait-large"><span style={portraitStyle(me.role)} /></div><h2>{me.role}</h2><p>시민 진영을 제거하고 팀의 승리 조건을 완성하십시오.</p><span className="faction-tag">{me.faction === "mafia" ? "마피아" : "시민"} 진영</span></div>
-    <div className="private-result"><span>개인 판정</span><p>{notice}</p></div>
+    <div className="private-result"><span>개인 판정</span><div className="private-log-list" ref={privateListRef}>{logs.length ? logs.map((log, index) => <p key={`${log.time}-${index}`}><time>{log.time}</time>{log.text}</p>) : <p><time>현재</time>{notice}</p>}</div></div>
     <div className="mana-block"><div><span>디버그 마나</span><strong>∞<small> 무제한</small></strong></div><div className="mana-track"><i style={{ width: "100%" }} /></div></div>
   </aside>;
 }
