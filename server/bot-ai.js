@@ -48,6 +48,14 @@ function reportedPairs(room, text) {
   }).filter(Boolean);
 }
 
+function attributedSource(room, text) {
+  const match = text.match(/(\d+)번([^\d]{0,24}?)(?:알려|말해|제보|전달|들었|출처|정보)/);
+  if (!match) return null;
+  const player = room.players.find((entry) => entry.id === Number(match[1])); if (!player) return null;
+  const role = formations[room.totalPlayers].find((candidate) => match[2].includes(candidate)) ?? null;
+  return { player, role };
+}
+
 function introducedAllies(room, actor, sender, incoming) {
   if (incoming.channel !== "alliance" || !actor.alliances.has(sender.id) || !/아군|동맹|같은\s*편|서로\s*믿/.test(incoming.text)) return null;
   const seats = [...new Set([...incoming.text.matchAll(/\d+/g)].map((match) => Number(match[0])))].filter((id) => room.players.some((player) => player.id === id));
@@ -122,12 +130,16 @@ function respondToMessage(room, actor) {
   if (commanderProof) { memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: "마피아대부", trust: 1, source: "저격명령" }; remember(actor, sender, { role: "마피아대부", confidence: 1, source: "저격명령" }); }
   if (selfRoleClaim) memory.claims[sender.id] = { ...(memory.claims[sender.id] ?? {}), role: selfRoleClaim, trust: memory.trust[sender.id] ?? .15 };
   const publicInvestigationOrder = incoming.channel === "public" && observedInspection && selfRoleClaim && (roleSkills[selfRoleClaim] ?? []).some((id) => SCANS.has(id)) && /공격|쳐|때려|잡아/.test(incoming.text);
+  const relay = attributedSource(room, incoming.text);
   for (const { target, role } of reportedPairs(room, incoming.text)) {
-    if (target.id === sender.id) continue;
+    if (target.id === sender.id || target.id === relay?.player.id) continue;
     const pairObserved = Boolean(room.publicInspections?.some((entry) => entry.targetId === target.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
     const knownSenderRole = memory.knowledge[sender.id]?.role; const senderSkills = roleSkills[knownSenderRole] ?? [];
     const roleCanProveReport = (memory.knowledge[sender.id]?.confidence ?? 0) >= .7 && (senderSkills.some((skillId) => ["enemy-scan", "advanced-scan"].includes(skillId)) || (senderSkills.includes("enemy-check") && target.announced === role));
-    if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || incoming.channel === "public" || senderIntelTrust >= .7 || roleCanProveReport) memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : roleCanProveReport ? `${knownSenderRole}의 조사 가능 정보` : senderIntelTrust >= .7 ? "신뢰 동맹 제보" : skillClaim?.label ?? "공개 제보", evidence: pairObserved ? .55 : roleCanProveReport ? .8 : senderIntelTrust >= .7 ? .7 : incoming.channel === "public" ? .45 : .1 };
+    const knownRelayRole = relay ? memory.knowledge[relay.player.id]?.role : null; const relayRole = knownRelayRole ?? relay?.role ?? null; const relaySkills = roleSkills[relayRole] ?? [];
+    const relayCanProve = Boolean(relay && relayRole && (relaySkills.some((skillId) => ["enemy-scan", "advanced-scan"].includes(skillId)) || (relaySkills.includes("enemy-check") && target.announced === role)));
+    const relayVerified = Boolean(relayCanProve && knownRelayRole && (memory.knowledge[relay.player.id]?.confidence ?? 0) >= .7);
+    if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || incoming.channel === "public" || senderIntelTrust >= .7 || roleCanProveReport || relayCanProve) memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : roleCanProveReport ? `${knownSenderRole}의 조사 가능 정보` : relayCanProve ? `${relay.player.id}번 ${relayRole}에게 전달받은 정보` : senderIntelTrust >= .7 ? "신뢰 동맹 제보" : skillClaim?.label ?? "공개 제보", evidence: pairObserved ? .55 : roleCanProveReport ? .8 : relayVerified ? .8 : relayCanProve ? .55 : senderIntelTrust >= .7 ? .7 : incoming.channel === "public" ? .45 : .1, sourceId: relay?.player.id };
   }
   const publicCitizenInvestigator = incoming.channel === "public" && selfRoleClaim && factionOf(selfRoleClaim) === "citizen" && (roleSkills[selfRoleClaim] ?? []).some((skillId) => ["enemy-scan", "enemy-check"].includes(skillId));
   if (factionOf(actor.role) === "mafia" && publicCitizenInvestigator && reportedPairs(room, incoming.text).length) {

@@ -246,6 +246,13 @@ test("a patrol with one failure still trusts a terse report from a known investi
   assert.equal(patrol.aiMemory.reports[target.id].evidence, .8); room.result = null; runStrategicBot(room); assert.equal(target.alive, false);
 });
 
+test("a patrol follows relayed intel when the attributed source is a known investigator", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const patrol = room.join({ nickname: "patrol", socket: {} }); const detective = room.join({ nickname: "detective", socket: {} }); room.start(human.id);
+  const target = room.players.find((player) => ![human.id, patrol.id, detective.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); human.role = "공무원"; patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.aiControlled = true; patrol.mana = 200; patrol.lowAttackFails = 1; detective.role = "사립탐정"; target.role = "마피아일원"; target.announced = "마피아일원"; patrol.aiMemory = { knowledge: { [detective.id]: { role: "사립탐정", faction: "citizen", confidence: .85, source: "동맹 소개", excluded: [] } }, trust: {}, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
+  room.chat(human.id, { text: `-${patrol.id} ${target.id}번 마피아일원이야. ${detective.id}번 사립탐정이 알려줬어` }); runStrategicBot(room);
+  assert.equal(patrol.aiMemory.reports[target.id].evidence, .8); assert.equal(patrol.aiMemory.reports[detective.id], undefined); room.result = null; runStrategicBot(room); assert.equal(target.alive, false);
+});
+
 test("an AI trusts a valid ally-check claimant who whispers immediately after inspecting it", () => {
   const room = new SingleRoom({ random: () => 0 });
   const patrol = room.join({ nickname: "patrol", socket: {} });
