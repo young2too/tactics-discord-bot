@@ -32,6 +32,12 @@ function claimedSkill(text) {
   return SKILL_CLAIMS.find((entry) => entry.words.some((word) => text.includes(word))) ?? null;
 }
 
+function requestsSnipeAuthorization(text) {
+  const compact = text.replace(/[\s.,!?~·_-]+/g, "");
+  if (!compact.includes("저격")) return false;
+  return /줘|주라|주세요|달라|내놔|내려|부여|허가|열어|활성|가능|쓸수|사용할수|받고싶/.test(compact);
+}
+
 function reportedPairs(room, text) {
   const matches = [...text.matchAll(/(\d+)번/g)];
   return matches.map((match, index) => {
@@ -114,7 +120,7 @@ function respondToMessage(room, actor) {
   }
   const verified = memory.knowledge[sender.id]; let response;
   const knownHitman = verified?.role === "히트맨" && (verified.confidence ?? 0) >= .8;
-  const requestsSnipeProof = actor.role === "마피아대부" && (selfRoleClaim === "히트맨" || knownHitman) && /저격\s*명령/.test(incoming.text);
+  const requestsSnipeProof = actor.role === "마피아대부" && (selfRoleClaim === "히트맨" || knownHitman) && requestsSnipeAuthorization(incoming.text);
   if (requestsSnipeProof && ready(room, actor, "snipe-command")) {
     room.act(actor.id, { skillId: "snipe-command", targetId: sender.id });
     if (actor.verdict?.success) { memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: "히트맨", trust: 1, source: "저격명령 검증" }; remember(actor, sender, { role: "히트맨", confidence: 1, source: "저격명령 검증" }); }

@@ -445,6 +445,14 @@ test("a hitman already found by leadership can simply ask the AI boss for snipe 
   assert.equal(hitman.snipeAuthorized, true); assert.equal(hitman.snipeCommanderId, boss.id); assert.equal(boss.usedOnce["snipe-command"], true);
 });
 
+test("snipe authorization intent accepts colloquial wording and spacing", () => {
+  for (const request of ["저격내놔", "저격 줘", "저격권 좀 열어줘", "나 저격 쓸 수 있게 해줘", "저격 허가 내려 주세요"]) {
+    const room = new SingleRoom({ random: () => 0 }); const hitman = room.join({ nickname: "hitman", socket: {} }); const boss = room.join({ nickname: "boss", socket: {} }); room.start(hitman.id);
+    room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); hitman.role = "히트맨"; boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.aiControlled = true; boss.mana = 200; boss.aiMemory = { knowledge: { [hitman.id]: { role: "히트맨", faction: "mafia", confidence: 1, source: "리더십", excluded: [] } }, trust: {}, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
+    room.chat(hitman.id, { text: `-${boss.id} ${request}` }); runStrategicBot(room); assert.equal(hitman.snipeAuthorized, true, request);
+  }
+});
+
 test("a privately approaching human mafia member can form a provisional mafia alliance", () => {
   const room = new SingleRoom({ random: () => 0 }); const member = room.join({ nickname: "member", socket: {} }); const boss = room.join({ nickname: "boss", socket: {} }); room.start(member.id);
   room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); member.role = "마피아일원"; member.announced = "순찰경찰"; boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.aiControlled = true; boss.mana = 200;
