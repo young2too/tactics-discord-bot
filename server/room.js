@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { botNames, factionOf, formations, MANA_INTERVAL, MANA_MAX, MANA_TICK, roleSkills, shuffle, skills } from "./game-config.js";
+import { runStrategicBot } from "./bot-ai.js";
 import { checkVictory } from "./game-rules.js";
 
 const nowLabel = () => new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -149,15 +150,7 @@ export class SingleRoom {
     return true;
   }
   runBot() {
-    const bots = this.players.filter((player) => player.alive && player.aiControlled); if (!bots.length) return;
-    const actor = bots[Math.floor(this.random() * bots.length)];
-    try {
-      if (actor.announced === "미공표") { const claim = this.random() < .65 ? actor.role : formations[this.totalPlayers][Math.floor(this.random() * this.totalPlayers)]; this.act(actor.id, { skillId: "announce", role: claim }); return; }
-      const targets = this.players.filter((player) => player.alive && player.id !== actor.id); if (!targets.length) return;
-      const target = targets[Math.floor(this.random() * targets.length)]; const available = roleSkills[actor.role] ?? [];
-      const attacks = available.filter((id) => ["upper-attack", "lower-attack"].includes(id) && actor.mana >= skills[id].cost && (actor.cooldowns[id] ?? 0) <= this.now());
-      if (attacks.length && this.random() < .45) this.act(actor.id, { skillId: attacks[0], targetId: target.id, role: this.random() < .55 ? target.role : formations[this.totalPlayers][Math.floor(this.random() * this.totalPlayers)] });
-    } catch { /* A bot can skip an invalid tactical choice. */ }
+    runStrategicBot(this);
   }
   snapshotFor(viewer) {
     const current = this.now(); return {

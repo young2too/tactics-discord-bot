@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SingleRoom } from "../room.js";
+import { runStrategicBot } from "../bot-ai.js";
 import { checkVictory } from "../game-rules.js";
 
 test("fills one room with bots and privately assigns roles", () => {
@@ -54,6 +55,33 @@ test("mafia successor advanced scan covers both factions but excludes the police
   assert.equal(room.snapshotFor(host).verdict.success, true);
   host.cooldowns["advanced-scan"] = 0;
   assert.throws(() => room.act(host.id, { skillId: "advanced-scan", targetId: guest.id, role: "경찰반장" }), /리더/);
+});
+
+test("strategic successor finds the boss, allies, and explains itself by whisper", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const boss = room.join({ nickname: "boss", socket: {} });
+  const successor = room.join({ nickname: "successor", socket: {} });
+  room.start(boss.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  boss.role = "마피아대부"; successor.role = "마피아후계자"; successor.announced = "마피아후계자"; successor.mana = 200; successor.aiControlled = true;
+  successor.aiMemory = { knowledge: Object.fromEntries(room.players.filter((player) => player.id !== boss.id && player.id !== successor.id).map((player) => [player.id, { excluded: ["마피아대부"] }])), sharedWith: {}, lastPublicAt: 0, recentLines: [] };
+  runStrategicBot(room);
+  assert.equal(successor.aiMemory.knowledge[boss.id].role, "마피아대부");
+  runStrategicBot(room);
+  assert.equal(successor.alliances.has(boss.id), true);
+  assert.match(boss.whisper.text, /보스 확인/);
+  assert.match(boss.whisper.text, /마피아후계자/);
+});
+
+test("strategic bots use contextual public chat without an LLM", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const actor = room.join({ nickname: "speaker", socket: {} });
+  room.start(actor.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  actor.role = "마피아일원"; actor.announced = "마피아일원"; actor.mana = 0; actor.aiControlled = true;
+  const claimant = room.players.find((player) => player.id !== actor.id); claimant.announced = "마피아대부";
+  runStrategicBot(room);
+  assert.match(room.chats.at(-1).text, /대부 이름|리더십/);
 });
 
 test("disconnect hands the live seat to AI and token reconnect takes it back", () => {
