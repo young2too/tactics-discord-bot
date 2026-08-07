@@ -386,7 +386,7 @@ test("an AI private detective scans a concrete target requested by a confirmed a
   human.role = "순찰경찰"; human.announced = "순찰경찰"; detective.role = "사립탐정"; detective.announced = "사립탐정"; detective.aiControlled = true; detective.mana = 200; target.role = "히트맨"; target.announced = "히트맨";
   detective.aiMemory = { knowledge: { [human.id]: { role: "순찰경찰", faction: "citizen", confidence: .75, source: "직후 아군 확인 접촉", excluded: [] } }, trust: { [human.id]: .75 }, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
   room.chat(human.id, { text: `-${detective.id} ${target.id}번 히트맨 스캔해봐` }); runStrategicBot(room);
-  assert.equal(detective.aiMemory.knowledge[target.id].role, "히트맨");
+  assert.equal(detective.aiMemory.knowledge[target.id].role, "히트맨"); assert.match(human.whisper?.text ?? "", /스캔 성공.*히트맨/);
 });
 
 test("an allied human can directly order a support skill from an AI official", () => {

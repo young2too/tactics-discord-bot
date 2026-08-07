@@ -32,6 +32,12 @@ function claimedSkill(text) {
   return SKILL_CLAIMS.find((entry) => entry.words.some((word) => text.includes(word))) ?? null;
 }
 
+function replyPrivately(room, actor, recipient, text) {
+  if (!room.result) { room.chat(actor.id, { text: `-${recipient.id} ${text}` }); return; }
+  const sentAt = room.now(); const message = { from: actor.id, to: recipient.id, text, until: sentAt + 5500 };
+  actor.whisper = message; recipient.whisper = message; room.private(actor, `${recipient.id}번 ${recipient.nickname}에게 귓말 · ${text}`); room.private(recipient, `${actor.id}번 ${actor.nickname}의 귓말 · ${text}`);
+}
+
 function tryHumanAllianceOrder(room, actor, sender, text, target, role) {
   if (sender.isBot || sender.aiControlled || !actor.alliances.has(sender.id)) return false;
   if (actor.role === "히트맨" && actor.snipeAuthorized && actor.snipeCommanderId === sender.id) { memoryOf(actor).trust[sender.id] = 1; memoryOf(actor).claims[sender.id] = { role: "마피아대부", trust: 1, source: "저격명령" }; remember(actor, sender, { role: "마피아대부", confidence: 1, source: "저격명령" }); }
@@ -61,7 +67,11 @@ function tryHumanAllianceOrder(room, actor, sender, text, target, role) {
     if (CHECKS.has(skillId) && target && actor.verdict?.success) { remember(actor, target, { faction: factionOf(target.announced), confidence: .8, source: "인간 동맹 확인 지시" }); memoryOf(actor).trust[target.id] = Math.max(memoryOf(actor).trust[target.id] ?? 0, .8); }
     if (["boss-check", "detective-check"].includes(skillId) && target && actor.verdict?.success) remember(actor, target, { role: skillId === "boss-check" ? "마피아대부" : "사립탐정", source: "인간 동맹 확인 지시" });
     if (skillId === "leadership" && role) { const found = room.players.find((player) => player.alive && player.role === role); if (found) remember(actor, found, { role, source: "인간 동맹 리더십 지시" }); }
-    if (!room.result) room.chat(actor.id, { text: `-${sender.id} 동맹 명령 확인. ${ORDER_LABELS[skillId] ?? skillId} 실행을 완료했어.` });
+    const investigation = SCANS.has(skillId) || CHECKS.has(skillId) || ["boss-check", "detective-check", "leadership"].includes(skillId);
+    const feedback = investigation && actor.verdict
+      ? `${ORDER_LABELS[skillId] ?? skillId} ${actor.verdict.success ? "성공" : "실패"}. ${actor.verdict.message}`
+      : `동맹 명령 확인. ${ORDER_LABELS[skillId] ?? skillId} 실행을 완료했어.`;
+    replyPrivately(room, actor, sender, feedback);
   } catch (error) {
     if (!room.result) room.chat(actor.id, { text: `-${sender.id} 명령을 실행할 수 없어: ${error instanceof Error ? error.message : "규칙상 사용할 수 없는 행동"}` });
   }
@@ -104,7 +114,7 @@ function respondToMessage(room, actor) {
   if (trustedBoss && wantsScan && ready(room, actor, "enemy-scan") && reportedTarget.alive && reportedTarget.id !== actor.id && !["마피아대부", "경찰반장"].includes(reportedRole)) {
     room.act(actor.id, { skillId: "enemy-scan", targetId: reportedTarget.id, role: reportedRole });
     const hit = actor.verdict?.success; if (hit) remember(actor, reportedTarget, { role: reportedRole, source: "대부 지시 스캔" }); else remember(actor, reportedTarget, { source: "대부 지시 스캔", excludedRole: reportedRole });
-    if (!room.result) room.chat(actor.id, { text: `-${sender.id} ${reportedTarget.id}번 ${reportedRole} 스캔 ${hit ? "성공" : "실패"}.` });
+    replyPrivately(room, actor, sender, `${reportedTarget.id}번 ${reportedRole} 스캔 ${hit ? "성공" : "실패"}. ${actor.verdict?.message ?? ""}`.trim());
     return true;
   }
   const directAllyTrust = Math.max(memory.trust[sender.id] ?? memory.claims[sender.id]?.trust ?? 0, verified?.faction === factionOf(actor.role) ? verified.confidence ?? 0 : 0);
@@ -112,7 +122,7 @@ function respondToMessage(room, actor) {
   if (wantsScan && commandedScan && directAllyTrust >= .7 && reportedTarget.alive && reportedTarget.id !== actor.id && allowedScanRoles(room, actor, commandedScan).includes(reportedRole)) {
     room.act(actor.id, { skillId: commandedScan, targetId: reportedTarget.id, role: reportedRole });
     const hit = actor.verdict?.success; if (hit) remember(actor, reportedTarget, { role: reportedRole, source: "아군 지시 스캔" }); else remember(actor, reportedTarget, { source: "아군 지시 스캔", excludedRole: reportedRole });
-    if (!room.result) room.chat(actor.id, { text: `-${sender.id} ${reportedTarget.id}번 ${reportedRole} 스캔 ${hit ? "성공" : "실패"}.` });
+    replyPrivately(room, actor, sender, `${reportedTarget.id}번 ${reportedRole} 스캔 ${hit ? "성공" : "실패"}. ${actor.verdict?.message ?? ""}`.trim());
     return true;
   }
   const commandedAttack = (roleSkills[actor.role] ?? []).find((id) => ATTACKS.has(id) && ready(room, actor, id));
