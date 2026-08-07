@@ -490,7 +490,7 @@ export function GameBoard() {
       </header>
 
       <section className="battle-layout">
-        <CommunicationPanel players={players} messages={chatMessages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs} />
+        <CommunicationPanel players={players} messages={chatMessages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs} privateLogs={privateLogs} />
 
         <Battlefield players={players} mySeatIndex={mySeatIndex} selectedSkill={selectedSkill} notice={notice} effectTarget={effectTarget} alliances={alliances} whisper={whisperBubble} onCancel={cancelTargeting} onTarget={chooseTarget} isTargetable={isTargetable} />
 

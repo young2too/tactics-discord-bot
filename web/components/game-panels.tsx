@@ -21,20 +21,23 @@ export function DebugLobby({ playerCount, debugRole, setPlayerCount, setDebugRol
   </section></main>;
 }
 
-export function CommunicationPanel({ players, messages, channel, setChannel, input, setInput, onSubmit, logs }: {
+export function CommunicationPanel({ players, messages, channel, setChannel, input, setInput, onSubmit, logs, privateLogs = [] }: {
   players: Player[]; messages: ChatMessage[]; channel: "public" | "alliance"; setChannel: Dispatch<SetStateAction<"public" | "alliance">>;
-  input: string; setInput: Dispatch<SetStateAction<string>>; onSubmit: (event: FormEvent<HTMLFormElement>) => void; logs: BattleLog[];
+  input: string; setInput: Dispatch<SetStateAction<string>>; onSubmit: (event: FormEvent<HTMLFormElement>) => void; logs: BattleLog[]; privateLogs?: PrivateLog[];
 }) {
+  const [mobileTab, setMobileTab] = useState<"public" | "alliance" | "battle" | "tactical">("public");
   const visibleMessages = messages.filter((message) => message.channel === channel);
   const eventListRef = useRef<HTMLDivElement>(null);
   useEffect(() => { eventListRef.current?.scrollTo({ top: eventListRef.current.scrollHeight, behavior: "smooth" }); }, [logs.length]);
   return <aside className="event-panel panel">
-    <div className="panel-heading chat-heading"><span>채팅</span><div className="chat-tabs"><button className={channel === "public" ? "active" : ""} onClick={() => setChannel("public")}>공개</button><button className={channel === "alliance" ? "active" : ""} onClick={() => setChannel("alliance")}>동맹</button></div></div>
-    <div className="chat-stream">{visibleMessages.length === 0 ? <p className="chat-empty">{channel === "public" ? <>모두에게 메시지를 보냅니다.<br/><code>-3 야</code> → 3번에게 귓말<br/><code>+3 야</code> → 3번에게서 수신 테스트<br/><code>/a 작전</code> → 동맹챗</> : <>현재 동맹에게만 보이는 채팅입니다.<br/>동맹 추가/파기는 우하단 스킬을 사용하세요.</>}</p> : visibleMessages.map((message) => {
+    <div className="panel-heading chat-heading"><span>통신·기록</span><div className="chat-tabs"><button className={mobileTab === "public" ? "active" : ""} onClick={() => { setMobileTab("public"); setChannel("public"); }}>공개</button><button className={mobileTab === "alliance" ? "active" : ""} onClick={() => { setMobileTab("alliance"); setChannel("alliance"); }}>동맹</button><button className={`mobile-record-tab ${mobileTab === "battle" ? "active" : ""}`} onClick={() => setMobileTab("battle")}>전장</button><button className={`mobile-record-tab ${mobileTab === "tactical" ? "active" : ""}`} onClick={() => setMobileTab("tactical")}>전술</button></div></div>
+    <div className={`chat-stream ${mobileTab === "battle" || mobileTab === "tactical" ? "mobile-chat-hidden" : ""}`}>{visibleMessages.length === 0 ? <p className="chat-empty">{channel === "public" ? <>모두에게 메시지를 보냅니다.<br/><code>-3 야</code> → 3번에게 귓말<br/><code>+3 야</code> → 3번에게서 수신 테스트<br/><code>/a 작전</code> → 동맹챗</> : <>현재 동맹에게만 보이는 채팅입니다.<br/>동맹 추가/파기는 우하단 스킬을 사용하세요.</>}</p> : visibleMessages.map((message) => {
       const sender = players.find((player) => player.id === message.from);
       return <p className={message.channel} key={message.id}><b>{message.channel === "alliance" ? "◇ 동맹 · " : ""}{message.from}번 {sender?.name}</b><span>{message.text}</span></p>;
     })}</div>
-    <form className="chat-form" onSubmit={onSubmit}><input aria-label="채팅 메시지" value={input} onChange={(event) => setInput(event.target.value)} placeholder={channel === "public" ? "전체 · -3 발신 · +3 수신 테스트 · /a 동맹" : "동맹에게 메시지 보내기"} maxLength={160}/><button>전송</button></form>
+    <form className={`chat-form ${mobileTab === "battle" || mobileTab === "tactical" ? "mobile-chat-hidden" : ""}`} onSubmit={onSubmit}><input aria-label="채팅 메시지" value={input} onChange={(event) => setInput(event.target.value)} placeholder={channel === "public" ? "전체 · -3 발신 · +3 수신 테스트 · /a 동맹" : "동맹에게 메시지 보내기"} maxLength={160}/><button>전송</button></form>
+    <div className={`mobile-record-view ${mobileTab === "battle" ? "active" : ""}`}>{logs.map((log, index) => <div className={`event-row ${log.tone}`} key={`${log.time}-mobile-${index}`}><span className="event-icon">{log.icon}</span><p>{log.text}</p><time>{log.time}</time></div>)}</div>
+    <div className={`mobile-record-view tactical ${mobileTab === "tactical" ? "active" : ""}`}>{privateLogs.length ? privateLogs.map((log, index) => <p key={`${log.time}-mobile-private-${index}`}><time>{log.time}</time><span>{log.text}</span></p>) : <p className="chat-empty">아직 개인 판정 기록이 없습니다.</p>}</div>
     <div className="panel-heading event-subheading"><span>전장 기록</span><button>전체</button></div>
     <div className="event-list" ref={eventListRef}>{logs.map((log, index) => <div className={`event-row ${log.tone}`} key={`${log.time}-${index}`}><span className="event-icon">{log.icon}</span><p>{log.text}</p><time>{log.time}</time></div>)}</div>
     <div className="intel-note"><span>정보 규칙</span><p>사망한 플레이어의 실제 직업은 모든 플레이어에게 공개됩니다.</p></div>

@@ -109,7 +109,7 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
   return <main className={`game-shell tutorial-live tutorial-step-${step} ${selectedSkill ? "tutorial-target-phase" : ""}`}>
     <header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>기본 전술 훈련</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {basicSteps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header>
     <div className={`tutorial-guide arrow-${callout.side}`} style={callout.style} role="status"><small>STEP {step + 1}</small><strong>{basicSteps[step][0]}</strong><span>{basicSteps[step][1]}</span>{step === 0 && <button onClick={() => { record("좌석과 공개 정보를 확인했습니다."); next(); }}>확인했어요</button>}</div>
-    <section className="battle-layout"><CommunicationPanel players={players} messages={messages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs}/><Battlefield players={players} mySeatIndex={0} selectedSkill={selectedSkill} notice={notice} effectTarget={effect} alliances={alliances} whisper={whisper} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }} onTarget={chooseTarget} isTargetable={(player) => !player.isMe && player.alive}/><PrivateRolePanel me={me} notice={notice} logs={privateLogs}/></section>
+    <section className="battle-layout"><CommunicationPanel players={players} messages={messages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs} privateLogs={privateLogs}/><Battlefield players={players} mySeatIndex={0} selectedSkill={selectedSkill} notice={notice} effectTarget={effect} alliances={alliances} whisper={whisper} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }} onTarget={chooseTarget} isTargetable={(player) => !player.isMe && player.alive}/><PrivateRolePanel me={me} notice={notice} logs={privateLogs}/></section>
     <SkillDeck me={me} notice={notice} skills={skills} selectedSkill={selectedSkill} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={chooseSkill}/>
     {selectedSkill?.needsRole && (selectedTarget || !selectedSkill.target) && (
       <RoleChoiceModal skill={selectedSkill} target={selectedTarget} roles={modalRoles} onResolve={resolveRole} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }}/>
@@ -120,7 +120,7 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
 function TrackTraining({ track, step, onAdvance, onExit }: { track: (typeof trainingTracks)[number]; step: number; onAdvance: () => void; onExit: () => void }) {
   const players = initialTrainingPlayers;
   const callout = useTutorialCallout([".board-area", ".skill-deck", ".detail-panel"][step] ?? ".board-area");
-  return <main className={`game-shell tutorial-live track-spotlight-${step}`}><header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>{track.title}</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {track.steps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header><div className={`tutorial-guide arrow-${callout.side}`} style={callout.style}><small>{track.roles}</small><strong>{track.steps[step]}</strong><span>실제 게임판의 UI를 확인한 뒤 진행하세요.</span><button onClick={onAdvance}>{step === track.steps.length - 1 ? "과정 완료" : "다음 기능"}</button></div><section className="battle-layout"><CommunicationPanel players={players} messages={[]} channel="public" setChannel={() => {}} input="" setInput={() => {}} onSubmit={(event) => event.preventDefault()} logs={[{ time: "지금", icon: "◆", text: `${track.title} 진행 중`, tone: "plain" }]}/><Battlefield players={players} mySeatIndex={0} selectedSkill={null} notice={track.steps[step]} effectTarget={null} alliances={[]} whisper={null} onCancel={() => {}} onTarget={() => {}} isTargetable={() => false}/><PrivateRolePanel me={players[0]} notice={track.steps[step]} logs={[{ time: "지금", text: track.steps[step] }]}/></section><SkillDeck me={players[0]} notice={track.steps[step]} skills={[skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"]]} selectedSkill={null} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={onAdvance}/></main>;
+  return <main className={`game-shell tutorial-live track-spotlight-${step}`}><header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>{track.title}</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {track.steps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header><div className={`tutorial-guide arrow-${callout.side}`} style={callout.style}><small>{track.roles}</small><strong>{track.steps[step]}</strong><span>실제 게임판의 UI를 확인한 뒤 진행하세요.</span><button onClick={onAdvance}>{step === track.steps.length - 1 ? "과정 완료" : "다음 기능"}</button></div><section className="battle-layout"><CommunicationPanel players={players} messages={[]} channel="public" setChannel={() => {}} input="" setInput={() => {}} onSubmit={(event) => event.preventDefault()} logs={[{ time: "지금", icon: "◆", text: `${track.title} 진행 중`, tone: "plain" }]} privateLogs={[{ time: "지금", text: track.steps[step] }]}/><Battlefield players={players} mySeatIndex={0} selectedSkill={null} notice={track.steps[step]} effectTarget={null} alliances={[]} whisper={null} onCancel={() => {}} onTarget={() => {}} isTargetable={() => false}/><PrivateRolePanel me={players[0]} notice={track.steps[step]} logs={[{ time: "지금", text: track.steps[step] }]}/></section><SkillDeck me={players[0]} notice={track.steps[step]} skills={[skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"]]} selectedSkill={null} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={onAdvance}/></main>;
 }
 
 type CalloutStyle = CSSProperties & { "--arrow-offset"?: string };
@@ -129,6 +129,7 @@ function useTutorialCallout(selector: string): { side: "up" | "down" | "left" | 
   const [position, setPosition] = useState<{ side: "up" | "down" | "left" | "right"; style: CalloutStyle }>({ side: "down", style: { left: "50%", top: 82, transform: "translateX(-50%)", "--arrow-offset": "50%" } });
   useEffect(() => {
     let target: HTMLElement | null = null;
+    let settleTimer: number | null = null;
     const measure = () => {
       target?.classList.remove("tutorial-callout-target");
       target = document.querySelector<HTMLElement>(`.tutorial-live ${selector}`);
@@ -145,8 +146,18 @@ function useTutorialCallout(selector: string): { side: "up" | "down" | "left" | 
       else if (rect.left >= width + gap) { const top = clampY(rect.top + rect.height / 2 - height / 2); setPosition({ side: "right", style: { left: rect.left - width - gap, top, transform: "none", "--arrow-offset": vertical(top) } }); }
       else { const left = clampX(rect.left + rect.width / 2 - width / 2); setPosition({ side: "up", style: { left, top: clampY(rect.bottom + gap), transform: "none", "--arrow-offset": horizontal(left) } }); }
     };
-    const frame = requestAnimationFrame(measure); window.addEventListener("resize", measure); window.addEventListener("scroll", measure, true);
-    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", measure); window.removeEventListener("scroll", measure, true); target?.classList.remove("tutorial-callout-target"); };
+    const frame = requestAnimationFrame(() => {
+      measure();
+      if (window.innerWidth <= 760 && target) {
+        const rect = target.getBoundingClientRect();
+        if (rect.top < 62 || rect.bottom > window.innerHeight - 118) {
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+          settleTimer = window.setTimeout(measure, 380);
+        }
+      }
+    });
+    window.addEventListener("resize", measure); window.addEventListener("scroll", measure, true);
+    return () => { cancelAnimationFrame(frame); if (settleTimer !== null) window.clearTimeout(settleTimer); window.removeEventListener("resize", measure); window.removeEventListener("scroll", measure, true); target?.classList.remove("tutorial-callout-target"); };
   }, [selector]);
   return position;
 }
