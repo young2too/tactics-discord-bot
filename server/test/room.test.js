@@ -159,9 +159,9 @@ test("a verified public report can trigger a safe attack and build a citizen all
 
 test("a private detective trusts a recent detective-check approach without repeated role self-introduction", () => {
   const room = new SingleRoom({ random: () => 0 }); const assistant = room.join({ nickname: "assistant", socket: {} }); const detective = room.join({ nickname: "detective", socket: {} }); room.start(assistant.id);
-  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); assistant.role = "탐정조수"; assistant.announced = "탐정조수"; assistant.mana = 200; detective.role = "사립탐정"; detective.announced = "사립탐정"; detective.aiControlled = true;
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); assistant.role = "탐정조수"; assistant.announced = "마피아일원"; assistant.mana = 200; detective.role = "사립탐정"; detective.announced = "사립탐정"; detective.aiControlled = true;
   room.act(assistant.id, { skillId: "detective-check", targetId: detective.id }); room.result = null; room.chat(assistant.id, { text: `-${detective.id} 탐정확인 찍고 찾아왔어.` }); runStrategicBot(room);
-  assert.equal(detective.aiMemory.trust[assistant.id], .85); assert.match(detective.whisper?.text ?? "", /탐정 확인으로 찾아온 걸 믿을게/);
+  assert.equal(detective.aiMemory.trust[assistant.id], .85); assert.match(detective.whisper?.text ?? "", /공표와 무관하게/);
 });
 
 test("a lower attacker may test a report that immediately follows a public inspection", () => {
@@ -228,17 +228,17 @@ test("an AI trusts a valid ally-check claimant who whispers immediately after in
   room.chat(patrol.id, { text: `-${detective.id} 나는 순찰경찰이고 방금 너를 아군 확인하고 왔어.` });
   runStrategicBot(room);
   assert.equal(detective.aiMemory.trust[patrol.id], .75);
-  assert.match(detective.whisper?.text ?? "", /정황을 믿을게/);
+  assert.match(detective.whisper?.text ?? "", /정황.*믿을게/);
   room.result = null; runStrategicBot(room);
   assert.equal(detective.alliances.has(patrol.id), true);
 });
 
-test("an AI accepts a delayed alliance-chat ally-check approach using the sender's public claim", () => {
+test("an AI accepts a delayed ally-check approach regardless of the sender's public claim", () => {
   let now = 1_000_000; const room = new SingleRoom({ random: () => 0, now: () => now }); const patrol = room.join({ nickname: "patrol", socket: {} }); const detective = room.join({ nickname: "detective", socket: {} }); room.start(patrol.id);
-  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.mana = 200; detective.role = "사립탐정"; detective.announced = "사립탐정"; detective.aiControlled = true;
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); patrol.role = "순찰경찰"; patrol.announced = "마피아일원"; patrol.mana = 200; detective.role = "사립탐정"; detective.announced = "사립탐정"; detective.aiControlled = true;
   room.act(patrol.id, { skillId: "ally-check", targetId: detective.id }); room.result = null; patrol.alliances.add(detective.id); detective.alliances.add(patrol.id); now += 12_000;
   room.chat(patrol.id, { text: "아확 찍고 찾아왔어", channel: "alliance" }); runStrategicBot(room);
-  assert.equal(detective.aiMemory.trust[patrol.id], .75); assert.match(detective.whisper?.text ?? "", /정황을 믿을게/);
+  assert.equal(detective.aiMemory.trust[patrol.id], .75); assert.match(detective.whisper?.text ?? "", /정황.*믿을게/);
 });
 
 test("an AI reveals its real role when a directly confirmed ally asks privately", () => {
@@ -414,7 +414,7 @@ test("an AI mafia boss autonomously uses leadership to find its hitman", () => {
 
 test("a human hitman can ask an unallied AI boss to verify it with snipe command", () => {
   const room = new SingleRoom({ random: () => 0 }); const hitman = room.join({ nickname: "hitman", socket: {} }); const boss = room.join({ nickname: "boss", socket: {} }); room.start(hitman.id);
-  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); hitman.role = "히트맨"; hitman.announced = "히트맨"; boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.aiControlled = true; boss.mana = 200;
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); hitman.role = "히트맨"; hitman.announced = "자경단원"; boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.aiControlled = true; boss.mana = 200;
   room.chat(hitman.id, { text: `-${boss.id} 나는 히트맨이야. 저격명령으로 확인해줘.` }); runStrategicBot(room);
   assert.equal(hitman.snipeAuthorized, true); assert.equal(boss.aiMemory.trust[hitman.id], 1);
   room.result = null; runStrategicBot(room); assert.equal(boss.alliances.has(hitman.id), true);
@@ -422,7 +422,7 @@ test("a human hitman can ask an unallied AI boss to verify it with snipe command
 
 test("a privately approaching human mafia member can form a provisional mafia alliance", () => {
   const room = new SingleRoom({ random: () => 0 }); const member = room.join({ nickname: "member", socket: {} }); const boss = room.join({ nickname: "boss", socket: {} }); room.start(member.id);
-  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); member.role = "마피아일원"; member.announced = "마피아일원"; boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.aiControlled = true; boss.mana = 200;
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); member.role = "마피아일원"; member.announced = "순찰경찰"; boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.aiControlled = true; boss.mana = 200;
   room.chat(member.id, { text: `-${boss.id} 나는 마피아일원이야. 같이 움직이자.` }); runStrategicBot(room);
   assert.equal(boss.aiMemory.trust[member.id], .7); room.result = null; runStrategicBot(room); assert.equal(boss.alliances.has(member.id), true);
 });
