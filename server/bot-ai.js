@@ -251,6 +251,15 @@ function tryPublishFinding(room, actor) {
   room.chat(actor.id, { text: `나는 ${actor.role}이야. ${target.id}번 ${role} 조사 성공. 공격권 있는 시민은 ${role}(으)로 쳐줘.`, aiBroadcast: true }); return true;
 }
 
+function tryAuthorizeHitman(room, actor) {
+  if (actor.role !== "마피아대부" || !ready(room, actor, "snipe-command")) return false;
+  const hitman = room.players.find((player) => player.alive && memoryOf(actor).knowledge[player.id]?.role === "히트맨" && (memoryOf(actor).knowledge[player.id]?.confidence ?? 0) >= .8);
+  if (!hitman) return false;
+  room.act(actor.id, { skillId: "snipe-command", targetId: hitman.id });
+  if (actor.verdict?.success) { memoryOf(actor).trust[hitman.id] = 1; memoryOf(actor).claims[hitman.id] = { role: "히트맨", trust: 1, source: "저격명령" }; }
+  return true;
+}
+
 function whisperIntroduction(room, actor, target) {
   const known = memoryOf(actor).knowledge[target.id];
   const source = known?.source ?? "조사";
@@ -404,7 +413,7 @@ export function runStrategicBot(room) {
       const roles = formations[room.totalPlayers]; const claim = room.random() < .68 ? actor.role : pick(room, roles);
       room.act(actor.id, { skillId: "announce", role: claim }); return;
     }
-    if (tryPublishFinding(room, actor) || tryBridgeAllies(room, actor) || tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryShareFinding(room, actor)) return;
+    if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryShareFinding(room, actor)) return;
     if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
     tryPublicChat(room, actor);
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }

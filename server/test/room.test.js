@@ -426,6 +426,7 @@ test("an AI mafia boss autonomously uses leadership to find its hitman", () => {
   boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.aiControlled = true; boss.mana = 200; hitman.role = "히트맨"; hitman.announced = "히트맨";
   runStrategicBot(room);
   assert.equal(boss.aiMemory.knowledge[hitman.id].role, "히트맨"); assert.equal(boss.usedOnce.leadership, true);
+  room.result = null; runStrategicBot(room); assert.equal(hitman.snipeAuthorized, true); assert.equal(hitman.snipeCommanderId, boss.id); assert.equal(boss.usedOnce["snipe-command"], true);
   room.result = null; runStrategicBot(room); assert.equal(boss.alliances.has(hitman.id), true);
 });
 
