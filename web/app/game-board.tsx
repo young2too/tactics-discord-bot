@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { botNames, formations, initialPlayers, MANA_INTERVAL_SECONDS, MANA_MAX, MANA_TICK, roleSkillIds, skillCatalog } from "../game/catalog";
 import { checkVictory, factionOf, shuffle } from "../game/rules";
 import type { ChatMessage, GameResult, Player, PrivateLog, PublicEffect, Skill } from "../game/types";
-import { CommunicationPanel, DebugLobby, PrivateRolePanel, SkillDeck } from "../components/game-panels";
+import { CommunicationPanel, DebugLobby, MobilePanelDock, PrivateRolePanel, SkillDeck, type MobilePanel } from "../components/game-panels";
 import { Battlefield } from "../components/battlefield";
 import { GameOverModal, ProclamationModal, RoleChoiceModal } from "../components/game-modals";
 import { ModeLobby, MultiplayerLobby } from "../components/multiplayer-lobby";
@@ -25,6 +25,7 @@ export function GameBoard() {
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatChannel, setChatChannel] = useState<"public" | "alliance">("public");
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>(null);
   const [whisperBubble, setWhisperBubble] = useState<{ from: number; to: number; text: string } | null>(null);
   const [alliances, setAlliances] = useState<number[]>([]);
   const [usedOnce, setUsedOnce] = useState<Record<string, boolean>>({});
@@ -216,6 +217,7 @@ export function GameBoard() {
     }
     if (skill.id === "snipe" && !snipeAuthorized) { setNotice("마피아대부의 저격명령을 받은 뒤 저격을 사용할 수 있습니다."); return; }
     if (skill.id === "deception") { setNotice("기만은 패시브입니다. 시민 직업을 공표하면 시민의 아군 확인을 속입니다."); return; }
+    setMobilePanel(null);
     setSelectedTarget(null);
     setSelectedSkill(skill);
     setNotice(skill.target ? `${skill.name}: 게임판에서 대상을 선택하세요.` : skill.needsText ? `${skill.name}: 내용을 입력하세요.` : `${skill.name}: 직업을 선택하세요.`);
@@ -482,7 +484,7 @@ export function GameBoard() {
   }
 
   return (
-    <main className={`game-shell size-${players.length}`}>
+    <main className={`game-shell size-${players.length} mobile-panel-${mobilePanel ?? "closed"}`}>
       <header className="topbar">
         <div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>실시간 마피아 전술전</small></div></div>
         <div className="room-status"><span className="live-dot" /> DEBUG ROOM <b>{players.length} / {players.length}</b></div>
@@ -493,12 +495,13 @@ export function GameBoard() {
       <section className="battle-layout">
         <CommunicationPanel players={players} messages={chatMessages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs} privateLogs={privateLogs} />
 
-        <Battlefield players={players} mySeatIndex={mySeatIndex} selectedSkill={selectedSkill} notice={notice} effectTarget={effectTarget} alliances={alliances} whisper={whisperBubble} onCancel={cancelTargeting} onTarget={chooseTarget} onWhisperPrefill={(player) => { setChatChannel("public"); setChatInput(`-${player.id} `); }} isTargetable={isTargetable} />
+        <Battlefield players={players} mySeatIndex={mySeatIndex} selectedSkill={selectedSkill} notice={notice} effectTarget={effectTarget} alliances={alliances} whisper={whisperBubble} onCancel={cancelTargeting} onTarget={chooseTarget} onWhisperPrefill={(player) => { setChatChannel("public"); setChatInput(`-${player.id} `); setMobilePanel("chat"); }} isTargetable={isTargetable} />
 
         <PrivateRolePanel me={me} notice={notice} logs={privateLogs} />
       </section>
 
       <SkillDeck me={me} notice={notice} skills={availableSkills} selectedSkill={selectedSkill} cooldowns={cooldowns} usedOnce={usedOnce} gameResult={gameResult} onChoose={chooseSkill} disabledSkills={!snipeAuthorized ? ["snipe"] : []} />
+      <MobilePanelDock open={mobilePanel} setOpen={setMobilePanel}/>
 
       {selectedSkill?.needsRole && (selectedTarget || !selectedSkill.target) && <RoleChoiceModal skill={selectedSkill} target={selectedTarget} roles={modalRoles} onResolve={(role) => resolveSkill(selectedSkill, selectedTarget, role)} onCancel={cancelTargeting} />}
 

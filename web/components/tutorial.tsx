@@ -7,7 +7,7 @@ import { factionOf } from "../game/rules";
 import type { BattleLog, ChatMessage, Player, PrivateLog, PublicEffect, Skill } from "../game/types";
 import { Battlefield } from "./battlefield";
 import { RoleChoiceModal } from "./game-modals";
-import { CommunicationPanel, PrivateRolePanel, SkillDeck } from "./game-panels";
+import { CommunicationPanel, MobilePanelDock, PrivateRolePanel, SkillDeck, type MobilePanel } from "./game-panels";
 
 const basicSteps = [
   ["전장을 읽으세요", "당신은 항상 6시 방향입니다. 번호·공표·생존 여부는 공개되며 실제 직업은 본인과 사망자만 보입니다."],
@@ -61,6 +61,7 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
   const [selectedTarget, setSelectedTarget] = useState<Player | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatChannel, setChatChannel] = useState<"public" | "alliance">("public");
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [logs, setLogs] = useState<BattleLog[]>([{ time: "지금", icon: "◆", text: "실제 게임 UI를 사용하는 기본 훈련이 시작되었습니다.", tone: "plain" }]);
   const [privateLogs, setPrivateLogs] = useState<PrivateLog[]>([{ time: "지금", text: "훈련 안내에 따라 직접 조작하세요." }]);
@@ -82,10 +83,16 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
   const callout = useTutorialCallout(calloutSelector);
   const notice = `${step + 1}/${basicSteps.length} · ${basicSteps[step][0]} — ${basicSteps[step][1]}`;
   const modalRoles = useMemo(() => formations[8].map((name) => ({ name, faction: factionOf(name) })), []);
+  useEffect(() => {
+    if (selectedSkill) setMobilePanel(null);
+    else if ([1, 4, 6, 7, 8].includes(step)) setMobilePanel("skills");
+    else if ([2, 5].includes(step) || (step === 3 && chatInput.startsWith("-3 "))) setMobilePanel("chat");
+    else setMobilePanel(null);
+  }, [step, selectedSkill, chatInput]);
 
   function record(text: string, icon = "◆", tone = "plain") { setLogs((current) => [...current, { time: "지금", icon, text, tone }]); setPrivateLogs((current) => [...current, { time: "지금", text }]); }
   function next() { setSelectedSkill(null); setSelectedTarget(null); if (step === basicSteps.length - 1) onComplete(); else setStep((current) => current + 1); }
-  function chooseSkill(skill: Skill) { if (expectedSkill !== skill.id) { record(`지금은 ${basicSteps[step][0]} 단계입니다. 안내된 행동을 먼저 수행하세요.`, "!", "danger"); return; } setSelectedSkill(skill); setSelectedTarget(null); }
+  function chooseSkill(skill: Skill) { if (expectedSkill !== skill.id) { record(`지금은 ${basicSteps[step][0]} 단계입니다. 안내된 행동을 먼저 수행하세요.`, "!", "danger"); return; } setMobilePanel(null); setSelectedSkill(skill); setSelectedTarget(null); }
   function chooseTarget(player: Player) {
     if (!selectedSkill || player.isMe || !player.alive) return;
     if (step === 4 && player.id === 2) { setAlliances([2]); record("2번 민준과 동맹이 되었습니다. 이제 동맹 채팅을 공유합니다.", "🤝"); next(); return; }
@@ -107,11 +114,12 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
     record(step === 3 ? "‘-3 내용’ 형식으로 3번에게 귓말을 보내세요." : step === 5 ? "먼저 동맹 탭으로 전환한 뒤 메시지를 보내세요." : "현재 단계에서는 공개 메시지를 보내세요.", "!", "danger");
   }
 
-  return <main className={`game-shell tutorial-live tutorial-step-${step} ${selectedSkill ? "tutorial-target-phase" : ""}`}>
+  return <main className={`game-shell tutorial-live tutorial-step-${step} mobile-panel-${mobilePanel ?? "closed"} ${selectedSkill ? "tutorial-target-phase" : ""}`}>
     <header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>기본 전술 훈련</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {basicSteps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header>
     <div className={`tutorial-guide arrow-${callout.side}`} style={callout.style} role="status"><small>STEP {step + 1}</small><strong>{basicSteps[step][0]}</strong><span>{basicSteps[step][1]}</span>{step === 0 && <button onClick={() => { record("좌석과 공개 정보를 확인했습니다."); next(); }}>확인했어요</button>}</div>
-    <section className="battle-layout"><CommunicationPanel players={players} messages={messages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs} privateLogs={privateLogs}/><Battlefield players={players} mySeatIndex={0} selectedSkill={selectedSkill} notice={notice} effectTarget={effect} alliances={alliances} whisper={whisper} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }} onTarget={chooseTarget} onWhisperPrefill={(player) => { setChatChannel("public"); setChatInput(`-${player.id} `); }} isTargetable={(player) => !player.isMe && player.alive}/><PrivateRolePanel me={me} notice={notice} logs={privateLogs}/></section>
+    <section className="battle-layout"><CommunicationPanel players={players} messages={messages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs} privateLogs={privateLogs}/><Battlefield players={players} mySeatIndex={0} selectedSkill={selectedSkill} notice={notice} effectTarget={effect} alliances={alliances} whisper={whisper} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }} onTarget={chooseTarget} onWhisperPrefill={(player) => { setChatChannel("public"); setChatInput(`-${player.id} `); setMobilePanel("chat"); }} isTargetable={(player) => !player.isMe && player.alive}/><PrivateRolePanel me={me} notice={notice} logs={privateLogs}/></section>
     <SkillDeck me={me} notice={notice} skills={skills} selectedSkill={selectedSkill} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={chooseSkill}/>
+    <MobilePanelDock open={mobilePanel} setOpen={setMobilePanel}/>
     {selectedSkill?.needsRole && (selectedTarget || !selectedSkill.target) && (
       <RoleChoiceModal skill={selectedSkill} target={selectedTarget} roles={modalRoles} onResolve={resolveRole} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }}/>
     )}
@@ -120,8 +128,10 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
 
 function TrackTraining({ track, step, onAdvance, onExit }: { track: (typeof trainingTracks)[number]; step: number; onAdvance: () => void; onExit: () => void }) {
   const players = initialTrainingPlayers;
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>(step === 1 ? "skills" : null);
+  useEffect(() => setMobilePanel(step === 1 ? "skills" : null), [step]);
   const callout = useTutorialCallout([".board-area", ".skill-deck", ".detail-panel"][step] ?? ".board-area");
-  return <main className={`game-shell tutorial-live track-spotlight-${step}`}><header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>{track.title}</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {track.steps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header><div className={`tutorial-guide arrow-${callout.side}`} style={callout.style}><small>{track.roles}</small><strong>{track.steps[step]}</strong><span>실제 게임판의 UI를 확인한 뒤 진행하세요.</span><button onClick={onAdvance}>{step === track.steps.length - 1 ? "과정 완료" : "다음 기능"}</button></div><section className="battle-layout"><CommunicationPanel players={players} messages={[]} channel="public" setChannel={() => {}} input="" setInput={() => {}} onSubmit={(event) => event.preventDefault()} logs={[{ time: "지금", icon: "◆", text: `${track.title} 진행 중`, tone: "plain" }]} privateLogs={[{ time: "지금", text: track.steps[step] }]}/><Battlefield players={players} mySeatIndex={0} selectedSkill={null} notice={track.steps[step]} effectTarget={null} alliances={[]} whisper={null} onCancel={() => {}} onTarget={() => {}} isTargetable={() => false}/><PrivateRolePanel me={players[0]} notice={track.steps[step]} logs={[{ time: "지금", text: track.steps[step] }]}/></section><SkillDeck me={players[0]} notice={track.steps[step]} skills={[skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"]]} selectedSkill={null} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={onAdvance}/></main>;
+  return <main className={`game-shell tutorial-live track-spotlight-${step} mobile-panel-${mobilePanel ?? "closed"}`}><header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>{track.title}</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {track.steps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header><div className={`tutorial-guide arrow-${callout.side}`} style={callout.style}><small>{track.roles}</small><strong>{track.steps[step]}</strong><span>실제 게임판의 UI를 확인한 뒤 진행하세요.</span><button onClick={onAdvance}>{step === track.steps.length - 1 ? "과정 완료" : "다음 기능"}</button></div><section className="battle-layout"><CommunicationPanel players={players} messages={[]} channel="public" setChannel={() => {}} input="" setInput={() => {}} onSubmit={(event) => event.preventDefault()} logs={[{ time: "지금", icon: "◆", text: `${track.title} 진행 중`, tone: "plain" }]} privateLogs={[{ time: "지금", text: track.steps[step] }]}/><Battlefield players={players} mySeatIndex={0} selectedSkill={null} notice={track.steps[step]} effectTarget={null} alliances={[]} whisper={null} onCancel={() => {}} onTarget={() => {}} isTargetable={() => false}/><PrivateRolePanel me={players[0]} notice={track.steps[step]} logs={[{ time: "지금", text: track.steps[step] }]}/></section><SkillDeck me={players[0]} notice={track.steps[step]} skills={[skillCatalog.announce, skillCatalog["ally-check"], skillCatalog["lower-attack"]]} selectedSkill={null} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={onAdvance}/><MobilePanelDock open={mobilePanel} setOpen={setMobilePanel}/></main>;
 }
 
 type CalloutStyle = CSSProperties & { "--arrow-offset"?: string };

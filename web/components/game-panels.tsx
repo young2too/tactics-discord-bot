@@ -5,6 +5,12 @@ import { formations, skillTooltips } from "../game/catalog";
 import { factionOf, portraitStyle } from "../game/rules";
 import type { BattleLog, ChatMessage, GameResult, Player, PrivateLog, Skill } from "../game/types";
 
+export type MobilePanel = "chat" | "skills" | null;
+
+export function MobilePanelDock({ open, setOpen }: { open: MobilePanel; setOpen: (panel: MobilePanel) => void }) {
+  return <><button className={`mobile-panel-shade ${open ? "open" : ""}`} aria-label="패널 닫기" onClick={() => setOpen(null)}/><nav className="mobile-panel-dock" aria-label="모바일 게임 메뉴"><button className={open === "chat" ? "active" : ""} onClick={() => setOpen(open === "chat" ? null : "chat")}><span>▤</span>채팅</button><button className={open === "skills" ? "active" : ""} onClick={() => setOpen(open === "skills" ? null : "skills")}><span>✦</span>스킬</button></nav></>;
+}
+
 export function DebugLobby({ playerCount, debugRole, setPlayerCount, setDebugRole, onStart }: {
   playerCount: number; debugRole: string; setPlayerCount: (count: number) => void; setDebugRole: (role: string) => void; onStart: () => void;
 }) {
