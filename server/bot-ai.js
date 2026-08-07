@@ -32,6 +32,16 @@ function claimedSkill(text) {
   return SKILL_CLAIMS.find((entry) => entry.words.some((word) => text.includes(word))) ?? null;
 }
 
+function reportedPairs(room, text) {
+  const matches = [...text.matchAll(/(\d+)번/g)];
+  return matches.map((match, index) => {
+    const target = room.players.find((player) => player.id === Number(match[1]));
+    const segment = text.slice(match.index, matches[index + 1]?.index ?? text.length);
+    const role = formations[room.totalPlayers].find((candidate) => segment.includes(candidate));
+    return target && role ? { target, role } : null;
+  }).filter(Boolean);
+}
+
 function replyPrivately(room, actor, recipient, text) {
   if (!room.result) { room.chat(actor.id, { text: `-${recipient.id} ${text}` }); return; }
   const sentAt = room.now(); const message = { from: actor.id, to: recipient.id, text, until: sentAt + 5500 };
@@ -92,7 +102,11 @@ function respondToMessage(room, actor) {
   if (commanderProof) { memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: "마피아대부", trust: 1, source: "저격명령" }; remember(actor, sender, { role: "마피아대부", confidence: 1, source: "저격명령" }); }
   if (selfRoleClaim) memory.claims[sender.id] = { ...(memory.claims[sender.id] ?? {}), role: selfRoleClaim, trust: memory.trust[sender.id] ?? .15 };
   const publicInvestigationOrder = incoming.channel === "public" && observedInspection && selfRoleClaim && (roleSkills[selfRoleClaim] ?? []).some((id) => SCANS.has(id)) && /공격|쳐|때려|잡아/.test(incoming.text);
-  if (reportedTarget && reportedRole && reportedTarget.id !== sender.id && (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || publicInvestigationOrder)) memory.reports[reportedTarget.id] = { role: reportedRole, reporterId: sender.id, source: publicInvestigationOrder ? "공개 합동수사" : skillClaim?.label ?? "제보", evidence: observedInspection ? .55 : .1 };
+  for (const { target, role } of reportedPairs(room, incoming.text)) {
+    if (target.id === sender.id) continue;
+    const pairObserved = Boolean(room.publicInspections?.some((entry) => entry.targetId === target.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
+    if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || publicInvestigationOrder || (incoming.channel === "public" && pairObserved)) memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : skillClaim?.label ?? "제보", evidence: pairObserved ? .55 : .1 };
+  }
   const verified = memory.knowledge[sender.id]; let response;
   const requestsSnipeProof = actor.role === "마피아대부" && selfRoleClaim === "히트맨" && /저격\s*명령/.test(incoming.text);
   if (requestsSnipeProof && ready(room, actor, "snipe-command")) {
