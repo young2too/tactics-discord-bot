@@ -7,6 +7,25 @@ import type { BattleLog, ChatMessage, GameResult, Player, PrivateLog, Skill } fr
 
 export type MobilePanel = "chat" | "info" | "skills" | null;
 
+function useBottomLockedScroll(changeKey: string | number, viewKey?: string) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pinnedToBottom = useRef(true);
+  useEffect(() => {
+    const container = containerRef.current; if (!container) return;
+    const trackPosition = () => { if (container.clientHeight > 0) pinnedToBottom.current = container.scrollHeight - container.scrollTop - container.clientHeight <= 36; };
+    container.addEventListener("scroll", trackPosition, { passive: true }); trackPosition();
+    return () => container.removeEventListener("scroll", trackPosition);
+  }, []);
+  useEffect(() => {
+    const container = containerRef.current; if (!container) return;
+    pinnedToBottom.current = true; container.scrollTop = container.scrollHeight;
+  }, [viewKey]);
+  useEffect(() => {
+    const container = containerRef.current; if (container && pinnedToBottom.current) container.scrollTop = container.scrollHeight;
+  }, [changeKey]);
+  return containerRef;
+}
+
 export function MobilePanelDock({ open, setOpen }: { open: MobilePanel; setOpen: (panel: MobilePanel) => void }) {
   return <><button className={`mobile-panel-shade ${open ? "open" : ""}`} aria-label="패널 닫기" onClick={() => setOpen(null)}/><nav className="mobile-panel-dock" aria-label="모바일 게임 메뉴"><button className={open === "chat" ? "active" : ""} onClick={() => setOpen(open === "chat" ? null : "chat")}><span>▤</span>채팅</button><button className={open === "info" ? "active" : ""} onClick={() => setOpen(open === "info" ? null : "info")}><span>●</span>내 정보</button><button className={open === "skills" ? "active" : ""} onClick={() => setOpen(open === "skills" ? null : "skills")}><span>✦</span>스킬</button></nav></>;
 }
@@ -41,22 +60,24 @@ export function CommunicationPanel({ players, messages, channel, setChannel, inp
     if (mobileTab === "alliance") seenAllianceRef.current = latestAllianceIncoming;
     else setAllianceUnread(true);
   }, [latestAllianceIncoming, mobileTab]);
+  const chatScrollRef = useBottomLockedScroll(visibleMessages.at(-1)?.id ?? 0, channel);
+  const battleScrollRef = useBottomLockedScroll(logs.length);
+  const tacticalScrollRef = useBottomLockedScroll(privateLogs.length);
   function openAlliance() { seenAllianceRef.current = latestAllianceIncoming; setAllianceUnread(false); setMobileTab("alliance"); setChannel("alliance"); }
   return <aside className="event-panel panel">
     <div className="panel-heading chat-heading"><span>통신·기록</span><div className="chat-tabs"><button className={mobileTab === "public" ? "active" : ""} onClick={() => { setMobileTab("public"); setChannel("public"); }}>공개</button><button className={`${mobileTab === "alliance" ? "active" : ""} ${allianceUnread ? "alliance-unread" : ""}`} onClick={openAlliance}>동맹{allianceUnread && <i aria-label="새 동맹 메시지">!</i>}</button><button className={`mobile-record-tab ${mobileTab === "battle" ? "active" : ""}`} onClick={() => setMobileTab("battle")}>전장</button><button className={`mobile-record-tab ${mobileTab === "tactical" ? "active" : ""}`} onClick={() => setMobileTab("tactical")}>전술</button></div></div>
-    <div className={`chat-stream ${mobileTab === "battle" || mobileTab === "tactical" ? "mobile-chat-hidden" : ""}`}>{visibleMessages.length === 0 ? <p className="chat-empty">{channel === "public" ? <>모두에게 메시지를 보냅니다.<br/><code>-3 야</code> → 3번에게 귓말<br/><code>+3 야</code> → 3번에게서 수신 테스트<br/><code>/a 작전</code> → 동맹챗</> : <>현재 동맹에게만 보이는 채팅입니다.<br/>동맹 추가/파기는 우하단 스킬을 사용하세요.</>}</p> : visibleMessages.map((message) => {
+    <div ref={chatScrollRef} className={`chat-stream ${mobileTab === "battle" || mobileTab === "tactical" ? "mobile-chat-hidden" : ""}`}>{visibleMessages.length === 0 ? <p className="chat-empty">{channel === "public" ? <>모두에게 메시지를 보냅니다.<br/><code>-3 야</code> → 3번에게 귓말<br/><code>+3 야</code> → 3번에게서 수신 테스트<br/><code>/a 작전</code> → 동맹챗</> : <>현재 동맹에게만 보이는 채팅입니다.<br/>동맹 추가/파기는 우하단 스킬을 사용하세요.</>}</p> : visibleMessages.map((message) => {
       const sender = players.find((player) => player.id === message.from);
       return <p className={message.channel} key={message.id}><b>{message.channel === "alliance" ? "◇ 동맹 · " : ""}{message.from}번 {sender?.name}</b><span>{message.text}</span></p>;
     })}</div>
     <form className={`chat-form ${mobileTab === "battle" || mobileTab === "tactical" ? "mobile-chat-hidden" : ""}`} onSubmit={onSubmit}><input aria-label="채팅 메시지" value={input} onChange={(event) => setInput(event.target.value)} placeholder={channel === "public" ? "전체 · -3 발신 · +3 수신 테스트 · /a 동맹" : "동맹에게 메시지 보내기"} maxLength={160}/><button>전송</button></form>
-    <div className={`mobile-record-view ${mobileTab === "battle" ? "active" : ""}`}>{logs.map((log, index) => <div className={`event-row ${log.tone}`} key={`${log.time}-mobile-${index}`}><span className="event-icon">{log.icon}</span><p>{log.text}</p><time>{log.time}</time></div>)}</div>
-    <div className={`mobile-record-view tactical ${mobileTab === "tactical" ? "active" : ""}`}>{privateLogs.length ? privateLogs.map((log, index) => <p key={`${log.time}-mobile-private-${index}`}><time>{log.time}</time><span>{log.text}</span></p>) : <p className="chat-empty">아직 개인 판정 기록이 없습니다.</p>}</div>
+    <div ref={battleScrollRef} className={`mobile-record-view ${mobileTab === "battle" ? "active" : ""}`}>{logs.map((log, index) => <div className={`event-row ${log.tone}`} key={`${log.time}-mobile-${index}`}><span className="event-icon">{log.icon}</span><p>{log.text}</p><time>{log.time}</time></div>)}</div>
+    <div ref={tacticalScrollRef} className={`mobile-record-view tactical ${mobileTab === "tactical" ? "active" : ""}`}>{privateLogs.length ? privateLogs.map((log, index) => <p key={`${log.time}-mobile-private-${index}`}><time>{log.time}</time><span>{log.text}</span></p>) : <p className="chat-empty">아직 개인 판정 기록이 없습니다.</p>}</div>
   </aside>;
 }
 
 export function PrivateRolePanel({ me, notice, logs }: { me: Player; notice: string; logs: PrivateLog[] }) {
-  const privateListRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { privateListRef.current?.scrollTo({ top: privateListRef.current.scrollHeight, behavior: "smooth" }); }, [logs.length]);
+  const privateListRef = useBottomLockedScroll(logs.length);
   return <aside className="detail-panel panel"><div className="panel-heading"><span>전술 정보</span><b>PRIVATE</b></div>
     <div className="role-card"><span className="role-kicker">나의 실제 직업</span><div className="role-portrait-large"><span style={portraitStyle(me.role)} /></div><h2>{me.role}</h2><p>시민 진영을 제거하고 팀의 승리 조건을 완성하십시오.</p><span className="faction-tag">{me.faction === "mafia" ? "마피아" : "시민"} 진영</span></div>
     <div className="private-result"><span>개인 판정</span><div className="private-log-list" ref={privateListRef}>{logs.length ? logs.map((log, index) => <p key={`${log.time}-${index}`}><time>{log.time}</time>{log.text}</p>) : <p><time>현재</time>{notice}</p>}</div></div>
