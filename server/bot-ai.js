@@ -6,7 +6,7 @@ const CHECKS = new Set(["ally-check", "enemy-check"]);
 
 function memoryOf(actor) {
   actor.aiMemory ??= {};
-  actor.aiMemory.knowledge ??= {}; actor.aiMemory.sharedWith ??= {}; actor.aiMemory.lastPublicAt ??= 0; actor.aiMemory.recentLines ??= []; actor.aiMemory.inbox ??= []; actor.aiMemory.claims ??= {};
+  actor.aiMemory.knowledge ??= {}; actor.aiMemory.sharedWith ??= {}; actor.aiMemory.lastPublicAt ??= 0; actor.aiMemory.recentLines ??= []; actor.aiMemory.inbox ??= []; actor.aiMemory.claims ??= {}; actor.aiMemory.trust ??= {}; actor.aiMemory.reports ??= {};
   return actor.aiMemory;
 }
 
@@ -23,6 +23,10 @@ function claimedRole(room, text) {
   return formations[room.totalPlayers].find((role) => text.includes(role)) ?? null;
 }
 
+function selfClaimedRole(room, text) {
+  return formations[room.totalPlayers].find((role) => new RegExp(`(?:나는|난|저는|제가|나)\\s*${role}`).test(text)) ?? null;
+}
+
 function claimedSkill(text) {
   return SKILL_CLAIMS.find((entry) => entry.words.some((word) => text.includes(word))) ?? null;
 }
@@ -30,11 +34,18 @@ function claimedSkill(text) {
 function respondToMessage(room, actor) {
   const memory = memoryOf(actor); const incoming = memory.inbox.shift(); if (!incoming) return false;
   const sender = room.player(incoming.from); if (!sender.alive) return true;
-  const roleClaim = claimedRole(room, incoming.text); const skillClaim = claimedSkill(incoming.text);
+  const selfRoleClaim = selfClaimedRole(room, incoming.text); const roleClaim = selfRoleClaim ?? claimedRole(room, incoming.text); const skillClaim = claimedSkill(incoming.text);
+  const reportMatch = incoming.text.match(/(\d+)번/); const reportedId = Number(reportMatch?.[1] ?? 0); const reportedTarget = room.players.find((player) => player.id === reportedId); const reportedRole = reportMatch ? claimedRole(room, incoming.text.slice(reportMatch.index)) : null;
+  if (selfRoleClaim) memory.claims[sender.id] = { ...(memory.claims[sender.id] ?? {}), role: selfRoleClaim, trust: memory.trust[sender.id] ?? .15 };
+  if (reportedTarget && reportedRole && reportedTarget.id !== sender.id && /진명|확인|맞아|맞음|찾았/.test(incoming.text)) memory.reports[reportedTarget.id] = { role: reportedRole, reporterId: sender.id, source: skillClaim?.label ?? "제보" };
   const verified = memory.knowledge[sender.id]; let response;
-  if (roleClaim && skillClaim && !(roleSkills[roleClaim] ?? []).includes(skillClaim.id)) {
-    response = `${roleClaim}(은)는 ${skillClaim.label}을 쓸 수 없는데? 그 말은 못 믿겠어.`;
-    memory.claims[sender.id] = { role: roleClaim, trust: -.5, contradiction: `${skillClaim.label} 사용 불가` };
+  const privateRoleProof = selfRoleClaim && skillClaim && ((actor.role === "사립탐정" && selfRoleClaim === "탐정조수" && skillClaim.id === "detective-check") || (actor.role === "마피아대부" && selfRoleClaim === "마피아후계자" && skillClaim.id === "boss-check"));
+  if (privateRoleProof) {
+    memory.trust[sender.id] = .85; remember(actor, sender, { role: selfRoleClaim, confidence: .85, source: skillClaim.label });
+    response = `${skillClaim.label}으로 나를 찾아온 정황은 강한 증거야. ${selfRoleClaim}으로 우선 신뢰할게.`;
+  } else if (selfRoleClaim && skillClaim && !(roleSkills[selfRoleClaim] ?? []).includes(skillClaim.id)) {
+    response = `${selfRoleClaim}(은)는 ${skillClaim.label}을 쓸 수 없는데? 그 말은 못 믿겠어.`;
+    memory.trust[sender.id] = -.5; memory.claims[sender.id] = { role: selfRoleClaim, trust: -.5, contradiction: `${skillClaim.label} 사용 불가` };
   } else if (verified?.role) {
     response = roleClaim === verified.role
       ? `응, 내가 직접 확인한 정보와 일치해. ${sender.id}번 ${roleClaim}으로 믿고 움직일게.`
@@ -52,7 +63,7 @@ function respondToMessage(room, actor) {
     response = "몇 번을 어떤 직업으로 확인했는지 말해줘. 근거가 있어야 판단할 수 있어.";
   } else if (actor.alliances.has(sender.id)) response = "동맹 메시지 확인했어. 직접 확인된 정보와 맞춰보면서 움직일게.";
   else response = "말은 들었어. 아직 확인된 정보는 아니라서 참고만 할게.";
-  room.chat(actor.id, incoming.channel === "public" ? { text: response, channel: "public" } : { text: `-${sender.id} ${response}` });
+  if (incoming.respond !== false) room.chat(actor.id, incoming.channel === "public" ? { text: response, channel: "public" } : { text: `-${sender.id} ${response}` });
   return true;
 }
 
@@ -75,7 +86,7 @@ function remember(actor, target, { role = null, faction = null, confidence = 1, 
 }
 
 function knownAllies(room, actor) {
-  return room.players.filter((target) => target.alive && target.id !== actor.id && memoryOf(actor).knowledge[target.id]?.faction === factionOf(actor.role) && (memoryOf(actor).knowledge[target.id]?.confidence ?? 0) >= .8);
+  return room.players.filter((target) => { const memory = memoryOf(actor); const direct = memory.knowledge[target.id]; const trustedClaim = memory.claims[target.id]; return target.alive && target.id !== actor.id && ((direct?.faction === factionOf(actor.role) && (direct?.confidence ?? 0) >= .8) || (trustedClaim?.role && factionOf(trustedClaim.role) === factionOf(actor.role) && (memory.trust[target.id] ?? trustedClaim.trust ?? 0) >= .7)); });
 }
 
 function knownEnemies(room, actor) {
@@ -110,6 +121,14 @@ function tryKnownAttack(room, actor) {
   const target = pick(room, knownEnemies(room, actor).filter((candidate) => memoryOf(actor).knowledge[candidate.id]?.role));
   if (!target) return false;
   room.act(actor.id, { skillId, targetId: target.id, role: memoryOf(actor).knowledge[target.id].role }); return true;
+}
+
+function tryReportedAttack(room, actor) {
+  const skillId = (roleSkills[actor.role] ?? []).find((id) => ATTACKS.has(id) && ready(room, actor, id)); if (!skillId) return false;
+  const threshold = skillId === "upper-attack" ? .1 : .7; const memory = memoryOf(actor);
+  const entry = Object.entries(memory.reports).find(([targetId, report]) => { const target = room.players.find((player) => player.id === Number(targetId)); return target?.alive && factionOf(report.role) !== factionOf(actor.role) && (memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15) >= threshold; });
+  if (!entry) return false; const [targetId, report] = entry; const target = room.player(Number(targetId));
+  room.act(actor.id, { skillId, targetId: target.id, role: report.role }); return true;
 }
 
 function tryRoleCheck(room, actor) {
@@ -190,8 +209,17 @@ export function runStrategicBot(room) {
       const roles = formations[room.totalPlayers]; const claim = room.random() < .68 ? actor.role : pick(room, roles);
       room.act(actor.id, { skillId: "announce", role: claim }); return;
     }
-    if (tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor)) return;
+    if (tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor)) return;
     if (tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
     tryPublicChat(room, actor);
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }
+}
+
+export function recordPublicDeath(room, target) {
+  for (const observer of room.players.filter((player) => player.aiControlled)) {
+    const memory = memoryOf(observer); const report = memory.reports[target.id]; if (!report) continue;
+    const delta = report.role === target.role ? .55 : -.45;
+    memory.trust[report.reporterId] = Math.max(-1, Math.min(1, (memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15) + delta));
+    if (memory.claims[report.reporterId]) memory.claims[report.reporterId].trust = memory.trust[report.reporterId];
+  }
 }

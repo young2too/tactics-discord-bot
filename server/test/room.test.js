@@ -126,6 +126,35 @@ test("strategic bots challenge impossible role and skill claims", () => {
   assert.equal(bot.aiMemory.claims[human.id].trust, -.5);
 });
 
+test("a verified public report can trigger a safe attack and build a citizen alliance", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const assistant = room.join({ nickname: "assistant", socket: {} });
+  const vigilante = room.join({ nickname: "vigilante", socket: {} });
+  const detective = room.join({ nickname: "detective", socket: {} });
+  room.start(assistant.id);
+  const target = room.players.find((player) => ![assistant.id, vigilante.id, detective.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  assistant.role = "탐정조수"; assistant.announced = "탐정조수";
+  vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.mana = 200; vigilante.aiControlled = true;
+  detective.role = "사립탐정"; detective.announced = "사립탐정"; detective.aiControlled = true;
+  target.role = "마피아일원"; target.announced = "마피아일원";
+  room.chat(assistant.id, { text: `-${detective.id} 나는 탐정조수고 탐정 확인으로 당신이 사립탐정인 걸 찾았어.` });
+  runStrategicBot(room);
+  assert.equal(detective.aiMemory.trust[assistant.id], .85);
+  room.chat(assistant.id, { text: `나는 탐정조수고 ${target.id}번 마피아일원 진명 확인했어.` });
+  runStrategicBot(room); runStrategicBot(room);
+  runStrategicBot(room);
+  assert.equal(target.alive, false);
+  assert.ok(vigilante.aiMemory.trust[assistant.id] >= .7);
+  room.result = null; // Keep the synthetic role-overridden fixture running to inspect alliance behavior.
+  runStrategicBot(room);
+  assert.equal(vigilante.alliances.has(assistant.id), true);
+  room.result = null;
+  vigilante.aiControlled = false;
+  runStrategicBot(room);
+  assert.equal(detective.alliances.has(assistant.id), true);
+});
+
 test("disconnect hands the live seat to AI and token reconnect takes it back", () => {
   const room = new SingleRoom({ random: () => 0.5 }); const socket = {};
   const host = room.join({ nickname: "host", socket }); room.start(host.id); room.disconnect(socket);

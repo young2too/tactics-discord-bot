@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { botNames, factionOf, formations, MANA_INTERVAL, MANA_MAX, MANA_TICK, roleSkills, shuffle, skills } from "./game-config.js";
-import { runStrategicBot } from "./bot-ai.js";
+import { recordPublicDeath, runStrategicBot } from "./bot-ai.js";
 import { checkVictory } from "./game-rules.js";
 
 const nowLabel = () => new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -140,14 +140,14 @@ export class SingleRoom {
       }
     }
   }
-  kill(target, cause) { if (!target.alive) return; target.alive = false; this.addLog("☠", `${target.nickname}이(가) ${cause}(으)로 사망했습니다. 직업은 ${target.role}입니다.`, "danger"); }
+  kill(target, cause) { if (!target.alive) return; target.alive = false; this.addLog("☠", `${target.nickname}이(가) ${cause}(으)로 사망했습니다. 직업은 ${target.role}입니다.`, "danger"); recordPublicDeath(this, target); }
   chat(playerId, payload) {
     this.assertGame(); const actor = this.player(playerId); const text = String(payload.text ?? "").trim().slice(0, 160); if (!text) return;
     const whisper = text.match(/^-(\d+)\s+(.+)$/s);
     if (whisper) { const target = this.player(Number(whisper[1])); const body = whisper[2].trim(); const message = { from: actor.id, to: target.id, text: body, until: this.now() + 5500 }; actor.whisper = message; target.whisper = message; this.private(actor, `${target.id}번 ${target.nickname}에게 귓말 · ${body}`); this.private(target, `${actor.id}번 ${actor.nickname}의 귓말 · ${body}`); if (!actor.aiControlled && target.aiControlled) { target.aiMemory ??= {}; target.aiMemory.inbox ??= []; target.aiMemory.inbox.push({ from: actor.id, text: body, channel: "whisper" }); this.nextBotAt = Math.min(this.nextBotAt ?? Infinity, this.now() + 650); } return; }
     const allianceText = text.match(/^\/a\s+(.+)$/s)?.[1] ?? (payload.channel === "alliance" ? text : null);
     if (allianceText) { if (!actor.alliances.size) throw new Error("동맹이 없습니다."); this.chats.push({ id: this.now(), from: actor.id, text: allianceText, channel: "alliance", recipients: [actor.id, ...actor.alliances] }); if (!actor.aiControlled) { const listener = this.players.find((player) => actor.alliances.has(player.id) && player.alive && player.aiControlled); if (listener) { listener.aiMemory ??= {}; listener.aiMemory.inbox ??= []; listener.aiMemory.inbox.push({ from: actor.id, text: allianceText, channel: "whisper" }); this.nextBotAt = Math.min(this.nextBotAt ?? Infinity, this.now() + 650); } } }
-    else { this.chats.push({ id: this.now(), from: actor.id, text, channel: "public" }); if (!actor.aiControlled) { const listeners = this.players.filter((player) => player.alive && player.aiControlled && player.id !== actor.id); const listener = listeners[Math.floor(this.random() * listeners.length)]; if (listener) { listener.aiMemory ??= {}; listener.aiMemory.inbox ??= []; listener.aiMemory.inbox.push({ from: actor.id, text, channel: "public" }); this.nextBotAt = Math.min(this.nextBotAt ?? Infinity, this.now() + 900); } } }
+    else { this.chats.push({ id: this.now(), from: actor.id, text, channel: "public" }); if (!actor.aiControlled) { const listeners = this.players.filter((player) => player.alive && player.aiControlled && player.id !== actor.id); listeners.forEach((listener, index) => { listener.aiMemory ??= {}; listener.aiMemory.inbox ??= []; listener.aiMemory.inbox.push({ from: actor.id, text, channel: "public", respond: index === 0 }); }); if (listeners.length) this.nextBotAt = Math.min(this.nextBotAt ?? Infinity, this.now() + 900); } }
     this.chats = this.chats.slice(-50);
   }
   tick() {
