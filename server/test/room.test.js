@@ -59,6 +59,13 @@ test("a mafia member can ally-check mafia claims but not citizen claims", () => 
   assert.throws(() => room.act(member.id, { skillId: "ally-check", targetId: citizen.id }), /공표 진영에 맞는 대상/);
 });
 
+test("an isolated AI checker actively checks and does not repeat a disproved claim", () => {
+  let now = 1_000; const room = new SingleRoom({ random: () => 0, now: () => now }); const member = room.join({ nickname: "member", socket: {} }); room.start(member.id);
+  const [falseClaim, hitman] = room.players.filter((player) => player.id !== member.id).slice(0, 2); room.players.forEach((player) => { player.aiControlled = false; player.announced = "경찰반장"; }); member.role = "마피아일원"; member.announced = "마피아일원"; member.aiControlled = true; member.mana = 100; falseClaim.role = "자경단원"; falseClaim.announced = "히트맨"; hitman.role = "히트맨"; hitman.announced = "히트맨";
+  runStrategicBot(room); assert.ok(member.aiMemory.knowledge[falseClaim.id].excluded.includes("히트맨"));
+  now += 11_000; room.result = null; runStrategicBot(room); assert.equal(member.aiMemory.knowledge[hitman.id].role, "히트맨");
+});
+
 test("enemy scanners cannot nominate the opposing leader", () => {
   const room = new SingleRoom({ random: () => 0.5 });
   const host = room.join({ nickname: "host", socket: {} });

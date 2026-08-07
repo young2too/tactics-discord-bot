@@ -424,14 +424,21 @@ function tryScan(room, actor) {
 }
 
 function tryClaimCheck(room, actor) {
-  const skillId = (roleSkills[actor.role] ?? []).find((id) => CHECKS.has(id) && ready(room, actor, id));
-  if (!skillId) return false;
-  const mine = factionOf(actor.role);
-  const candidates = room.players.filter((target) => target.alive && target.id !== actor.id && !actor.alliances.has(target.id) && !memoryOf(actor).knowledge[target.id]?.role && target.announced !== "미공표" && (skillId === "ally-check") === (factionOf(target.announced) === mine));
+  const plan = claimCheckPlan(room, actor); if (!plan) return false;
+  const { skillId, candidates } = plan;
   const target = pick(room, candidates); if (!target) return false;
   room.act(actor.id, { skillId, targetId: target.id });
   if (actor.verdict?.success) { remember(actor, target, { role: target.announced, confidence: .8, source: "공표 확인" }); memoryOf(actor).trust[target.id] = Math.max(memoryOf(actor).trust[target.id] ?? 0, .8); }
+  else remember(actor, target, { confidence: .8, source: "공표 확인 실패", excludedRole: target.announced });
   return true;
+}
+
+function claimCheckPlan(room, actor) {
+  const skillId = (roleSkills[actor.role] ?? []).find((id) => CHECKS.has(id) && ready(room, actor, id));
+  if (!skillId) return null;
+  const mine = factionOf(actor.role);
+  const candidates = room.players.filter((target) => { const known = memoryOf(actor).knowledge[target.id]; return target.alive && target.id !== actor.id && !actor.alliances.has(target.id) && !known?.role && !known?.excluded?.includes(target.announced) && target.announced !== "미공표" && (skillId === "ally-check") === (factionOf(target.announced) === mine); });
+  return candidates.length ? { skillId, candidates } : null;
 }
 
 function publicLine(room, actor) {
@@ -457,7 +464,9 @@ function tryPublicChat(room, actor) {
 
 export function runStrategicBot(room) {
   const bots = room.players.filter((player) => player.alive && player.aiControlled); if (!bots.length) return;
-  const waiting = bots.filter((player) => memoryOf(player).inbox.length); const actor = pick(room, waiting.length ? waiting : bots); memoryOf(actor);
+  const waiting = bots.filter((player) => memoryOf(player).inbox.length);
+  const isolatedCheckers = bots.filter((player) => !player.alliances.size && knownAllies(room, player).length === 0 && claimCheckPlan(room, player));
+  const actor = pick(room, waiting.length ? waiting : isolatedCheckers.length ? isolatedCheckers : bots); memoryOf(actor);
   try {
     if (respondToMessage(room, actor)) return;
     if (tryAnnounce(room, actor)) return;
