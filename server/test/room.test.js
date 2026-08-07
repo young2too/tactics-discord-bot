@@ -363,6 +363,15 @@ test("an authorized AI hitman follows its boss's concrete alliance scan order", 
   assert.equal(hitman.aiMemory.knowledge[target.id].role, "순찰경찰"); assert.equal(hitman.aiMemory.trust[boss.id], 1);
 });
 
+test("an AI vigilante attacks a concrete role target requested by a confirmed ally", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); room.start(human.id);
+  const target = room.players.find((player) => ![human.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  human.role = "사립탐정"; human.announced = "사립탐정"; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.aiControlled = true; vigilante.mana = 200; target.role = "히트맨"; target.announced = "히트맨";
+  vigilante.aiMemory = { knowledge: { [human.id]: { faction: "citizen", confidence: .8, source: "공표 확인", excluded: [] } }, trust: { [human.id]: .8 }, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
+  room.chat(human.id, { text: `-${vigilante.id} ${target.id}번 히트맨 쳐볼래?` }); runStrategicBot(room);
+  assert.equal(target.alive, false);
+});
+
 test("both sides receive distinct alliance and shared hostility notifications", () => {
   let now = 1_000;
   const room = new SingleRoom({ now: () => now, random: () => 0.5 });
