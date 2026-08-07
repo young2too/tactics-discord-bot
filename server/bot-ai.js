@@ -105,7 +105,7 @@ function respondToMessage(room, actor) {
   for (const { target, role } of reportedPairs(room, incoming.text)) {
     if (target.id === sender.id) continue;
     const pairObserved = Boolean(room.publicInspections?.some((entry) => entry.targetId === target.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
-    if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || publicInvestigationOrder || (incoming.channel === "public" && pairObserved)) memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : skillClaim?.label ?? "제보", evidence: pairObserved ? .55 : .1 };
+    if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || incoming.channel === "public") memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : skillClaim?.label ?? "공개 제보", evidence: pairObserved ? .55 : incoming.channel === "public" ? .45 : .1 };
   }
   const verified = memory.knowledge[sender.id]; let response;
   const requestsSnipeProof = actor.role === "마피아대부" && selfRoleClaim === "히트맨" && /저격\s*명령/.test(incoming.text);

@@ -191,7 +191,7 @@ test("a lower attacker may test a report that immediately follows a public inspe
   assert.equal(patrol.lowAttackFails, 0);
 });
 
-test("an unknown public report without an observed inspection does not trigger an attack", () => {
+test("a patrol risks its first lower attack on a concrete public report", () => {
   const room = new SingleRoom({ random: () => 0 });
   const reporter = room.join({ nickname: "reporter", socket: {} });
   const patrol = room.join({ nickname: "patrol", socket: {} });
@@ -200,9 +200,9 @@ test("an unknown public report without an observed inspection does not trigger a
   room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
   patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.mana = 200; patrol.aiControlled = true;
   target.role = "마피아일원"; target.announced = "마피아일원";
-  patrol.aiMemory = { reports: { [target.id]: { role: "마피아일원", reporterId: reporter.id, source: "제보", evidence: .1 } }, trust: {}, claims: {}, knowledge: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
-  runStrategicBot(room);
-  assert.equal(target.alive, true);
+  room.chat(reporter.id, { text: `${target.id}번 마피아일원!` }); runStrategicBot(room);
+  assert.equal(patrol.aiMemory.reports[target.id].evidence, .45); runStrategicBot(room);
+  assert.equal(target.alive, false);
   assert.equal(patrol.lowAttackFails, 0);
 });
 
@@ -481,7 +481,7 @@ test("a private detective's reports become trusted when their role is revealed o
   const room = new SingleRoom({ random: () => 0 }); const detective = room.join({ nickname: "detective", socket: {} }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); room.start(detective.id);
   const hitman = room.players.find((player) => ![detective.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); detective.role = "사립탐정"; detective.announced = "마피아일원"; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.mana = 200; vigilante.aiControlled = true; hitman.role = "히트맨"; hitman.announced = "히트맨";
   room.chat(detective.id, { text: `나는 사립탐정이야. ${hitman.id}번 히트맨 스캔 성공. 공격해줘.` }); runStrategicBot(room);
-  assert.equal(vigilante.aiMemory.reports[hitman.id].evidence, .1);
+  assert.equal(vigilante.aiMemory.reports[hitman.id].evidence, .45);
   room.kill(detective, "공격"); room.result = null; runStrategicBot(room);
   assert.equal(vigilante.aiMemory.trust[detective.id], 1); assert.equal(hitman.alive, false);
 });
