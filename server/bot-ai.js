@@ -61,6 +61,13 @@ function respondToMessage(room, actor) {
     return true;
   }
   const directAllyTrust = Math.max(memory.trust[sender.id] ?? memory.claims[sender.id]?.trust ?? 0, verified?.faction === factionOf(actor.role) ? verified.confidence ?? 0 : 0);
+  const commandedScan = (roleSkills[actor.role] ?? []).find((id) => SCANS.has(id) && ready(room, actor, id));
+  if (wantsScan && commandedScan && directAllyTrust >= .7 && reportedTarget.alive && reportedTarget.id !== actor.id && allowedScanRoles(room, actor, commandedScan).includes(reportedRole)) {
+    room.act(actor.id, { skillId: commandedScan, targetId: reportedTarget.id, role: reportedRole });
+    const hit = actor.verdict?.success; if (hit) remember(actor, reportedTarget, { role: reportedRole, source: "아군 지시 스캔" }); else remember(actor, reportedTarget, { source: "아군 지시 스캔", excludedRole: reportedRole });
+    if (!room.result) room.chat(actor.id, { text: `-${sender.id} ${reportedTarget.id}번 ${reportedRole} 스캔 ${hit ? "성공" : "실패"}.` });
+    return true;
+  }
   const commandedAttack = (roleSkills[actor.role] ?? []).find((id) => ATTACKS.has(id) && ready(room, actor, id));
   const attackTrustNeeded = commandedAttack === "lower-attack" && actor.lowAttackFails > 0 ? .8 : .7;
   if (wantsAttack && commandedAttack && directAllyTrust >= attackTrustNeeded && reportedTarget.alive && reportedTarget.id !== actor.id && factionOf(reportedRole) !== factionOf(actor.role)) {
