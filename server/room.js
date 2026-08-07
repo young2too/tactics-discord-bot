@@ -176,8 +176,8 @@ export class SingleRoom {
   }
   addLog(icon, text, tone) { this.logs.push({ time: nowLabel(), icon, text, tone }); this.logs = this.logs.slice(-60); }
   private(player, text) { player.privateLogs.push({ time: nowLabel(), text }); player.privateLogs = player.privateLogs.slice(-40); }
-  verdict(player, title, success, message) { player.verdict = { id: this.now() + this.random(), title, success, message, until: this.now() + 4500 }; }
-  notify(player, title, message, tone) { player.notification = { id: this.now() + this.random(), title, message, tone, until: this.now() + 4500 }; }
+  verdict(player, title, success, message) { player.verdict = { id: this.now() + this.random(), title, success, message, until: this.now() + 3000 }; }
+  notify(player, title, message, tone) { player.notification = { id: this.now() + this.random(), title, message, tone, until: this.now() + 3000 }; }
   player(id) { const player = this.players.find((entry) => entry.id === id); if (!player) throw new Error("플레이어를 찾을 수 없습니다."); return player; }
   assertGame() { if (this.phase !== "game" || this.result) throw new Error("진행 중인 게임이 없습니다."); }
   nextSeat() { for (let id = 1; id <= 13; id += 1) if (!this.players.some((player) => player.id === id)) return id; throw new Error("빈 좌석이 없습니다."); }

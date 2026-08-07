@@ -80,7 +80,7 @@ export function GameBoard() {
   function showVerdict(title: string, success: boolean, message: string) {
     const verdict = { id: Date.now(), title, success, message };
     setLocalVerdict(verdict);
-    window.setTimeout(() => setLocalVerdict((current) => current?.id === verdict.id ? null : current), 4500);
+    window.setTimeout(() => setLocalVerdict((current) => current?.id === verdict.id ? null : current), 3000);
   }
 
   useEffect(() => {
@@ -517,7 +517,7 @@ export function GameBoard() {
 
       {selectedSkill?.needsText && <ProclamationModal text={skillText} setText={setSkillText} onSubmit={sendProclamation} onCancel={cancelTargeting} />}
 
-      {localVerdict && <div className={`verdict-popup ${localVerdict.success ? "success" : "failure"}`} key={localVerdict.id} role="status"><span>{localVerdict.title}</span><strong>{localVerdict.success ? "성공" : "실패"}</strong><p>{localVerdict.message}</p></div>}
+      {localVerdict && <div className={`verdict-popup ${localVerdict.success ? "success" : "failure"}`} key={localVerdict.id} role="button" tabIndex={0} onClick={() => setLocalVerdict(null)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setLocalVerdict(null); }}><span>{localVerdict.title}</span><strong>{localVerdict.success ? "성공" : "실패"}</strong><p>{localVerdict.message}</p></div>}
 
       {gameResult && <GameOverModal result={gameResult} players={players} />}
     </main>
