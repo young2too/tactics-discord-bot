@@ -75,20 +75,20 @@ button { font:inherit; }
   .event-panel .mobile-record-view.tactical p { display:grid;grid-template-columns:40px 1fr;gap:8px;margin:0;padding:11px 8px;border-bottom:1px solid #344852;color:#d6e0e5;font-size:12px;line-height:1.45; }
   .event-panel .mobile-record-view.tactical time { color:#7e9dac;font:9px monospace; }
   .command-deck { position:sticky;z-index:30;bottom:0;overflow:visible;min-height:0;padding:7px 5px 9px;box-shadow:0 -8px 28px #071015cc; }
-  .skill-deck { width:100%;min-width:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;align-items:stretch;justify-content:stretch!important;padding:0; }
+  .skill-deck { width:100%;min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;align-items:stretch;justify-content:stretch!important;padding:0; }
   .skill-slot { min-width:0; }
-  .skill-button { width:100%;max-width:none;height:76px;padding:6px 2px 5px;gap:1px; }
+  .skill-button { width:100%;max-width:none;aspect-ratio:1.08/1;height:auto;min-height:72px;max-height:88px;padding:7px 3px 6px;gap:1px; }
   .skill-button kbd { display:none; }
-  .skill-icon { font-size:20px;line-height:27px; }
-  .skill-button strong { width:100%;overflow:hidden;font-size:9px;line-height:13px;white-space:nowrap;text-overflow:ellipsis; }
-  .skill-button small { font-size:8px; }
-  .skill-upper-attack .skill-icon,.skill-snipe-command .skill-icon { font-size:12px; }
-  .skill-lower-attack .skill-icon { font-size:16px; }
-  .skill-ally-add .skill-icon,.skill-ally-remove .skill-icon,.skill-announce .skill-icon { font-size:20px; }
-  .skill-info { right:2px;top:2px;width:15px;height:15px;font-size:9px; }
-  .cooldown-time { font-size:13px; }
-  .spent-label { padding:2px;font-size:8px;line-height:1.25;text-align:center; }
-  .skill-tooltip { bottom:96px; }
+  .skill-icon { font-size:24px;line-height:31px; }
+  .skill-button strong { width:100%;overflow:hidden;font-size:11px;line-height:14px;white-space:nowrap;text-overflow:ellipsis; }
+  .skill-button small { font-size:9px; }
+  .skill-upper-attack .skill-icon,.skill-snipe-command .skill-icon { font-size:15px; }
+  .skill-lower-attack .skill-icon { font-size:19px; }
+  .skill-ally-add .skill-icon,.skill-ally-remove .skill-icon,.skill-announce .skill-icon { font-size:24px; }
+  .skill-info { right:3px;top:3px;width:17px;height:17px;font-size:10px; }
+  .cooldown-time { font-size:15px; }
+  .spent-label { padding:3px;font-size:9px;line-height:1.25;text-align:center; }
+  .skill-tooltip { bottom:190px; }
 }
 
 /* Rulebook and onboarding */
@@ -274,7 +274,7 @@ html,body { background:#142029; }
 .skill-tooltip.red { border-color:#8d4f4a; }.skill-tooltip.blue { border-color:#457d96; }.skill-tooltip.gold { border-color:#8c7541; }
 @media (max-width:760px) {
   .skill-info { width:22px;height:22px;right:3px;top:3px;font-size:13px;opacity:.88;touch-action:manipulation; }
-  .skill-tooltip { position:fixed;z-index:120;left:12px;right:12px;bottom:122px;width:auto;max-height:48vh;overflow:auto;transform:translateY(8px); }
+  .skill-tooltip { position:fixed;z-index:120;left:12px;right:12px;bottom:190px;width:auto;max-height:48vh;overflow:auto;transform:translateY(8px); }
   .skill-tooltip::after { display:none; }
   .skill-slot.tooltip-open .skill-tooltip { transform:translateY(0); }
 }
