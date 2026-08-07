@@ -360,7 +360,17 @@ export function runStrategicBot(room) {
 
 export function recordPublicDeath(room, target) {
   for (const observer of room.players.filter((player) => player.aiControlled)) {
-    const memory = memoryOf(observer); const report = memory.reports[target.id]; if (!report) continue;
+    const memory = memoryOf(observer);
+    remember(observer, target, { role: target.role, confidence: 1, source: "사후 직업 공개" });
+    if (target.role === "사립탐정") {
+      memory.trust[target.id] = 1;
+      memory.claims[target.id] = { role: target.role, trust: 1, source: "사후 직업 공개" };
+      for (const report of Object.values(memory.reports).filter((entry) => entry.reporterId === target.id)) {
+        report.evidence = Math.max(report.evidence ?? .1, .85);
+        report.source = "사망한 사립탐정의 공개 제보";
+      }
+    }
+    const report = memory.reports[target.id]; if (!report) continue;
     const delta = report.role === target.role ? .55 : -.45;
     memory.trust[report.reporterId] = Math.max(-1, Math.min(1, (memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15) + delta));
     if (memory.claims[report.reporterId]) memory.claims[report.reporterId].trust = memory.trust[report.reporterId];
