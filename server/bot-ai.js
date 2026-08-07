@@ -67,8 +67,8 @@ function tryHumanAllianceOrder(room, actor, sender, text, target, role) {
     if (CHECKS.has(skillId) && target && actor.verdict?.success) { remember(actor, target, { faction: factionOf(target.announced), confidence: .8, source: "인간 동맹 확인 지시" }); memoryOf(actor).trust[target.id] = Math.max(memoryOf(actor).trust[target.id] ?? 0, .8); }
     if (["boss-check", "detective-check"].includes(skillId) && target && actor.verdict?.success) remember(actor, target, { role: skillId === "boss-check" ? "마피아대부" : "사립탐정", source: "인간 동맹 확인 지시" });
     if (skillId === "leadership" && role) { const found = room.players.find((player) => player.alive && player.role === role); if (found) remember(actor, found, { role, source: "인간 동맹 리더십 지시" }); }
-    const investigation = SCANS.has(skillId) || CHECKS.has(skillId) || ["boss-check", "detective-check", "leadership"].includes(skillId);
-    const feedback = investigation && actor.verdict
+    const returnsResult = SCANS.has(skillId) || CHECKS.has(skillId) || ATTACKS.has(skillId) || ["boss-check", "detective-check", "leadership", "snipe", "revenge", "arrest", "snipe-command", "successor"].includes(skillId);
+    const feedback = returnsResult && actor.verdict
       ? `${ORDER_LABELS[skillId] ?? skillId} ${actor.verdict.success ? "성공" : "실패"}. ${actor.verdict.message}`
       : `동맹 명령 확인. ${ORDER_LABELS[skillId] ?? skillId} 실행을 완료했어.`;
     replyPrivately(room, actor, sender, feedback);
@@ -129,7 +129,7 @@ function respondToMessage(room, actor) {
   const attackTrustNeeded = commandedAttack === "lower-attack" && actor.lowAttackFails > 0 ? .8 : .7;
   if (wantsAttack && commandedAttack && directAllyTrust >= attackTrustNeeded && reportedTarget.alive && reportedTarget.id !== actor.id && factionOf(reportedRole) !== factionOf(actor.role)) {
     room.act(actor.id, { skillId: commandedAttack, targetId: reportedTarget.id, role: reportedRole });
-    if (!room.result) room.chat(actor.id, { text: `-${sender.id} 제보를 믿고 ${reportedTarget.id}번을 ${reportedRole}(으)로 공격했어.` });
+    replyPrivately(room, actor, sender, `${reportedTarget.id}번 ${reportedRole} 공격 ${actor.verdict?.success ? "성공" : "실패"}. ${actor.verdict?.message ?? ""}`.trim());
     return true;
   }
   const proofClaimRole = skillClaim?.id === "detective-check" ? "탐정조수" : skillClaim?.id === "boss-check" ? "마피아후계자" : selfRoleClaim;

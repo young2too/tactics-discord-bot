@@ -377,7 +377,7 @@ test("an AI vigilante attacks a concrete role target requested by a confirmed al
   human.role = "사립탐정"; human.announced = "사립탐정"; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.aiControlled = true; vigilante.mana = 200; target.role = "히트맨"; target.announced = "히트맨";
   vigilante.aiMemory = { knowledge: { [human.id]: { faction: "citizen", confidence: .8, source: "공표 확인", excluded: [] } }, trust: { [human.id]: .8 }, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
   room.chat(human.id, { text: `-${vigilante.id} ${target.id}번 히트맨 쳐볼래?` }); runStrategicBot(room);
-  assert.equal(target.alive, false);
+  assert.equal(target.alive, false); assert.match(human.whisper?.text ?? "", /공격 성공.*공격 명중/);
 });
 
 test("an AI private detective scans a concrete target requested by a confirmed ally", () => {
