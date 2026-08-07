@@ -329,6 +329,24 @@ test("snipe command result is public while its target stays private", () => {
   assert.match(boss.privateLogs.at(-1).text, /실패/);
 });
 
+test("an authorized AI hitman immediately follows its boss's alliance snipe order", () => {
+  const room = new SingleRoom({ random: () => 0 }); const boss = room.join({ nickname: "boss", socket: {} }); const hitman = room.join({ nickname: "hitman", socket: {} }); room.start(boss.id);
+  const victim = room.players.find((player) => ![boss.id, hitman.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.mana = 200; hitman.role = "히트맨"; hitman.announced = "히트맨"; hitman.aiControlled = true; hitman.mana = 200;
+  boss.alliances.add(hitman.id); hitman.alliances.add(boss.id); room.act(boss.id, { skillId: "snipe-command", targetId: hitman.id }); room.result = null;
+  room.chat(boss.id, { text: `저격으로 ${victim.id}번 쏴줘`, channel: "alliance" }); runStrategicBot(room);
+  assert.equal(victim.alive, false); assert.equal(hitman.snipeAuthorized, false); assert.equal(hitman.aiMemory.trust[boss.id], 1);
+});
+
+test("an authorized AI hitman follows its boss's concrete alliance scan order", () => {
+  const room = new SingleRoom({ random: () => 0 }); const boss = room.join({ nickname: "boss", socket: {} }); const hitman = room.join({ nickname: "hitman", socket: {} }); room.start(boss.id);
+  const target = room.players.find((player) => ![boss.id, hitman.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.mana = 200; hitman.role = "히트맨"; hitman.announced = "히트맨"; hitman.aiControlled = true; hitman.mana = 200; target.role = "순찰경찰"; target.announced = "순찰경찰";
+  boss.alliances.add(hitman.id); hitman.alliances.add(boss.id); room.act(boss.id, { skillId: "snipe-command", targetId: hitman.id }); room.result = null;
+  room.chat(boss.id, { text: `${target.id}번이 순찰경찰 같아. 스캔해줘`, channel: "alliance" }); runStrategicBot(room);
+  assert.equal(hitman.aiMemory.knowledge[target.id].role, "순찰경찰"); assert.equal(hitman.aiMemory.trust[boss.id], 1);
+});
+
 test("both sides receive distinct alliance and shared hostility notifications", () => {
   let now = 1_000;
   const room = new SingleRoom({ now: () => now, random: () => 0.5 });

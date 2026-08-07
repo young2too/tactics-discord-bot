@@ -32,16 +32,32 @@ function claimedSkill(text) {
 }
 
 function respondToMessage(room, actor) {
-  const memory = memoryOf(actor); const incoming = memory.inbox.shift(); if (!incoming) return false;
+  const memory = memoryOf(actor); const commandIndex = memory.inbox.findIndex((message) => /(\d+)번/.test(message.text) && /저격|쏴|사살|스캔|살펴|확인해/.test(message.text)); const incoming = commandIndex >= 0 ? memory.inbox.splice(commandIndex, 1)[0] : memory.inbox.shift(); if (!incoming) return false;
   const sender = room.player(incoming.from); if (!sender.alive) return true;
   const selfRoleClaim = selfClaimedRole(room, incoming.text); const roleClaim = selfRoleClaim ?? claimedRole(room, incoming.text); const skillClaim = claimedSkill(incoming.text);
   const reportMatch = incoming.text.match(/(\d+)번/); const reportedId = Number(reportMatch?.[1] ?? 0); const reportedTarget = room.players.find((player) => player.id === reportedId); const reportedRole = reportMatch ? claimedRole(room, incoming.text.slice(reportMatch.index)) : null;
   const reportAt = incoming.at ?? room.now();
   const observedInspection = Boolean(reportedTarget && room.publicInspections?.some((entry) => entry.targetId === reportedTarget.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
   const observedSelfInspection = Boolean(room.publicInspections?.some((entry) => entry.targetId === actor.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
+  const commanderProof = actor.role === "히트맨" && actor.snipeAuthorized && actor.snipeCommanderId === sender.id;
+  if (commanderProof) { memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: "마피아대부", trust: 1, source: "저격명령" }; remember(actor, sender, { role: "마피아대부", confidence: 1, source: "저격명령" }); }
   if (selfRoleClaim) memory.claims[sender.id] = { ...(memory.claims[sender.id] ?? {}), role: selfRoleClaim, trust: memory.trust[sender.id] ?? .15 };
   if (reportedTarget && reportedRole && reportedTarget.id !== sender.id && /진명|확인|맞아|맞음|찾았/.test(incoming.text)) memory.reports[reportedTarget.id] = { role: reportedRole, reporterId: sender.id, source: skillClaim?.label ?? "제보", evidence: observedInspection ? .55 : .1 };
   const verified = memory.knowledge[sender.id]; let response;
+  const trustedBoss = actor.role === "히트맨" && (commanderProof || (verified?.role === "마피아대부" && (verified.confidence ?? 0) >= .8));
+  const wantsSnipe = reportedTarget && /저격|쏴|사살/.test(incoming.text);
+  const wantsScan = reportedTarget && reportedRole && /스캔|살펴|확인해/.test(incoming.text);
+  if (trustedBoss && wantsSnipe && actor.snipeAuthorized && reportedTarget.alive && reportedTarget.id !== actor.id) {
+    room.act(actor.id, { skillId: "snipe", targetId: reportedTarget.id });
+    if (!room.result) room.chat(actor.id, { text: `-${sender.id} 명령 확인. ${reportedTarget.id}번 저격을 완료했어.` });
+    return true;
+  }
+  if (trustedBoss && wantsScan && ready(room, actor, "enemy-scan") && reportedTarget.alive && reportedTarget.id !== actor.id && !["마피아대부", "경찰반장"].includes(reportedRole)) {
+    room.act(actor.id, { skillId: "enemy-scan", targetId: reportedTarget.id, role: reportedRole });
+    const hit = actor.verdict?.success; if (hit) remember(actor, reportedTarget, { role: reportedRole, source: "대부 지시 스캔" }); else remember(actor, reportedTarget, { source: "대부 지시 스캔", excludedRole: reportedRole });
+    if (!room.result) room.chat(actor.id, { text: `-${sender.id} ${reportedTarget.id}번 ${reportedRole} 스캔 ${hit ? "성공" : "실패"}.` });
+    return true;
+  }
   const privateRoleProof = selfRoleClaim && skillClaim && ((actor.role === "사립탐정" && selfRoleClaim === "탐정조수" && skillClaim.id === "detective-check") || (actor.role === "마피아대부" && selfRoleClaim === "마피아후계자" && skillClaim.id === "boss-check"));
   const reciprocalAllyProof = incoming.channel === "whisper" && observedSelfInspection && selfRoleClaim && skillClaim?.id === "ally-check" && (roleSkills[selfRoleClaim] ?? []).includes("ally-check") && sender.announced === selfRoleClaim && factionOf(selfRoleClaim) === factionOf(actor.announced);
   if (reciprocalAllyProof) {
