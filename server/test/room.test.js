@@ -381,6 +381,20 @@ test("an AI private detective scans a concrete target requested by a confirmed a
   assert.equal(detective.aiMemory.knowledge[target.id].role, "히트맨");
 });
 
+test("an allied human can directly order a support skill from an AI official", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const official = room.join({ nickname: "official", socket: {} }); room.start(human.id);
+  const target = room.players.find((player) => ![human.id, official.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); official.role = "공무원"; official.announced = "공무원"; official.aiControlled = true; official.mana = 200; target.mana = 20;
+  human.alliances.add(official.id); official.alliances.add(human.id); room.chat(human.id, { text: `${target.id}번에게 마나 지원해줘`, channel: "alliance" }); runStrategicBot(room);
+  assert.equal(target.mana, 50); assert.match(official.whisper?.text ?? "", /마나 지원 실행/);
+});
+
+test("an allied human can order an AI leader to use leadership", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const boss = room.join({ nickname: "boss", socket: {} }); room.start(human.id);
+  const hitman = room.players.find((player) => ![human.id, boss.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.aiControlled = true; boss.mana = 200; hitman.role = "히트맨"; hitman.announced = "히트맨";
+  human.alliances.add(boss.id); boss.alliances.add(human.id); room.chat(human.id, { text: "히트맨을 리더십으로 찾아봐", channel: "alliance" }); runStrategicBot(room);
+  assert.equal(boss.aiMemory.knowledge[hitman.id].role, "히트맨"); assert.equal(boss.usedOnce.leadership, true);
+});
+
 test("both sides receive distinct alliance and shared hostility notifications", () => {
   let now = 1_000;
   const room = new SingleRoom({ now: () => now, random: () => 0.5 });

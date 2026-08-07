@@ -3,6 +3,7 @@ import { factionOf, formations, roleSkills, skills } from "./game-config.js";
 const ATTACKS = new Set(["upper-attack", "lower-attack"]);
 const SCANS = new Set(["ally-scan", "advanced-scan", "enemy-scan"]);
 const CHECKS = new Set(["ally-check", "enemy-check"]);
+const ORDER_LABELS = { "snipe-command": "저격명령", successor: "후계자 지정", leadership: "리더십", snipe: "저격", revenge: "복수", arrest: "검거", support: "마나 지원", "boss-check": "보스 확인", "detective-check": "탐정 확인", "ally-check": "아군 확인", "enemy-check": "적군 확인", "ally-scan": "아군 스캔", "advanced-scan": "상급 스캔", "enemy-scan": "적군 스캔", "upper-attack": "상급공격", "lower-attack": "하급공격", "ally-add": "동맹 추가", "ally-remove": "동맹 파기" };
 
 function memoryOf(actor) {
   actor.aiMemory ??= {};
@@ -31,11 +32,48 @@ function claimedSkill(text) {
   return SKILL_CLAIMS.find((entry) => entry.words.some((word) => text.includes(word))) ?? null;
 }
 
+function tryHumanAllianceOrder(room, actor, sender, text, target, role) {
+  if (sender.isBot || sender.aiControlled || !actor.alliances.has(sender.id)) return false;
+  if (actor.role === "히트맨" && actor.snipeAuthorized && actor.snipeCommanderId === sender.id) { memoryOf(actor).trust[sender.id] = 1; memoryOf(actor).claims[sender.id] = { role: "마피아대부", trust: 1, source: "저격명령" }; remember(actor, sender, { role: "마피아대부", confidence: 1, source: "저격명령" }); }
+  const available = roleSkills[actor.role] ?? []; let skillId = null; const payload = {};
+  if (/저격\s*명령/.test(text) && available.includes("snipe-command") && target) skillId = "snipe-command";
+  else if (/후계자.*지정|후계자로/.test(text) && available.includes("successor") && target) skillId = "successor";
+  else if (/리더십|리더쉽/.test(text) && available.includes("leadership") && role) { skillId = "leadership"; payload.role = role; }
+  else if (/저격|쏴|사살/.test(text) && available.includes("snipe") && target) skillId = "snipe";
+  else if (/복수/.test(text) && available.includes("revenge") && target) skillId = "revenge";
+  else if (/검거/.test(text) && available.includes("arrest") && target) skillId = "arrest";
+  else if (/지원|마나.*줘/.test(text) && available.includes("support") && target) skillId = "support";
+  else if (/보스\s*확인|보확/.test(text) && available.includes("boss-check") && target) skillId = "boss-check";
+  else if (/탐정\s*확인|탐확/.test(text) && available.includes("detective-check") && target) skillId = "detective-check";
+  else if (/아확|아군\s*확인/.test(text) && available.includes("ally-check") && target) skillId = "ally-check";
+  else if (/적확|적군\s*확인/.test(text) && available.includes("enemy-check") && target) skillId = "enemy-check";
+  else if (/스캔|살펴|확인해/.test(text) && role && target) skillId = available.find((id) => SCANS.has(id)) ?? null;
+  else if (/공격|쳐|때려|잡아/.test(text) && role && target) skillId = available.find((id) => ATTACKS.has(id)) ?? null;
+  else if (/동맹.*파기|적대/.test(text) && target) skillId = "ally-remove";
+  else if (/동맹.*추가|동맹.*맺/.test(text) && target) skillId = "ally-add";
+  if (!skillId) return false;
+  if (target) payload.targetId = target.id;
+  if (role && (SCANS.has(skillId) || ATTACKS.has(skillId))) payload.role = role;
+  try {
+    if (SCANS.has(skillId) && role && !allowedScanRoles(room, actor, skillId).includes(role)) throw new Error(`${role}은(는) 이 스캔으로 지정할 수 없어.`);
+    room.act(actor.id, { skillId, ...payload });
+    if (SCANS.has(skillId) && target && role) { if (actor.verdict?.success) remember(actor, target, { role, source: "인간 동맹 지시" }); else remember(actor, target, { source: "인간 동맹 지시", excludedRole: role }); }
+    if (CHECKS.has(skillId) && target && actor.verdict?.success) { remember(actor, target, { faction: factionOf(target.announced), confidence: .8, source: "인간 동맹 확인 지시" }); memoryOf(actor).trust[target.id] = Math.max(memoryOf(actor).trust[target.id] ?? 0, .8); }
+    if (["boss-check", "detective-check"].includes(skillId) && target && actor.verdict?.success) remember(actor, target, { role: skillId === "boss-check" ? "마피아대부" : "사립탐정", source: "인간 동맹 확인 지시" });
+    if (skillId === "leadership" && role) { const found = room.players.find((player) => player.alive && player.role === role); if (found) remember(actor, found, { role, source: "인간 동맹 리더십 지시" }); }
+    if (!room.result) room.chat(actor.id, { text: `-${sender.id} 동맹 명령 확인. ${ORDER_LABELS[skillId] ?? skillId} 실행을 완료했어.` });
+  } catch (error) {
+    if (!room.result) room.chat(actor.id, { text: `-${sender.id} 명령을 실행할 수 없어: ${error instanceof Error ? error.message : "규칙상 사용할 수 없는 행동"}` });
+  }
+  return true;
+}
+
 function respondToMessage(room, actor) {
-  const memory = memoryOf(actor); const commandIndex = memory.inbox.findIndex((message) => /(\d+)번/.test(message.text) && /저격|쏴|사살|스캔|살펴|확인해|공격|쳐|때려|잡아/.test(message.text)); const incoming = commandIndex >= 0 ? memory.inbox.splice(commandIndex, 1)[0] : memory.inbox.shift(); if (!incoming) return false;
+  const memory = memoryOf(actor); const commandIndex = memory.inbox.findIndex((message) => /(\d+)번/.test(message.text) && /저격|쏴|사살|스캔|살펴|확인해|공격|쳐|때려|잡아|검거|지원|아확|적확|확인|동맹/.test(message.text)); const incoming = commandIndex >= 0 ? memory.inbox.splice(commandIndex, 1)[0] : memory.inbox.shift(); if (!incoming) return false;
   const sender = room.player(incoming.from); if (!sender.alive) return true;
   const selfRoleClaim = selfClaimedRole(room, incoming.text); const roleClaim = selfRoleClaim ?? claimedRole(room, incoming.text); const skillClaim = claimedSkill(incoming.text);
   const reportMatch = incoming.text.match(/(\d+)번/); const reportedId = Number(reportMatch?.[1] ?? 0); const reportedTarget = room.players.find((player) => player.id === reportedId); const reportedRole = reportMatch ? claimedRole(room, incoming.text.slice(reportMatch.index)) : null;
+  if (tryHumanAllianceOrder(room, actor, sender, incoming.text, reportedTarget, reportedRole ?? roleClaim)) return true;
   const reportAt = incoming.at ?? room.now();
   const observedInspection = Boolean(reportedTarget && room.publicInspections?.some((entry) => entry.targetId === reportedTarget.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
   const observedSelfInspection = Boolean(room.publicInspections?.some((entry) => entry.targetId === actor.id && reportAt >= entry.at && reportAt - entry.at <= 20_000));
