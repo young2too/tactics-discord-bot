@@ -38,7 +38,7 @@ function respondToMessage(room, actor) {
   const reportMatch = incoming.text.match(/(\d+)번/); const reportedId = Number(reportMatch?.[1] ?? 0); const reportedTarget = room.players.find((player) => player.id === reportedId); const reportedRole = reportMatch ? claimedRole(room, incoming.text.slice(reportMatch.index)) : null;
   const reportAt = incoming.at ?? room.now();
   const observedInspection = Boolean(reportedTarget && room.publicInspections?.some((entry) => entry.targetId === reportedTarget.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
-  const observedSelfInspection = Boolean(room.publicInspections?.some((entry) => entry.targetId === actor.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
+  const observedSelfInspection = Boolean(room.publicInspections?.some((entry) => entry.targetId === actor.id && reportAt >= entry.at && reportAt - entry.at <= 20_000));
   const commanderProof = actor.role === "히트맨" && actor.snipeAuthorized && actor.snipeCommanderId === sender.id;
   if (commanderProof) { memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: "마피아대부", trust: 1, source: "저격명령" }; remember(actor, sender, { role: "마피아대부", confidence: 1, source: "저격명령" }); }
   if (selfRoleClaim) memory.claims[sender.id] = { ...(memory.claims[sender.id] ?? {}), role: selfRoleClaim, trust: memory.trust[sender.id] ?? .15 };
@@ -60,13 +60,14 @@ function respondToMessage(room, actor) {
     return true;
   }
   const privateRoleProof = selfRoleClaim && skillClaim && ((actor.role === "사립탐정" && selfRoleClaim === "탐정조수" && skillClaim.id === "detective-check") || (actor.role === "마피아대부" && selfRoleClaim === "마피아후계자" && skillClaim.id === "boss-check"));
-  const reciprocalAllyProof = incoming.channel === "whisper" && observedSelfInspection && selfRoleClaim && skillClaim?.id === "ally-check" && (roleSkills[selfRoleClaim] ?? []).includes("ally-check") && sender.announced === selfRoleClaim && factionOf(selfRoleClaim) === factionOf(actor.announced);
+  const reciprocalClaimRole = selfRoleClaim ?? sender.announced;
+  const reciprocalAllyProof = incoming.channel !== "public" && observedSelfInspection && /아확|아군\s*확인|확인.*왔|찾아왔/.test(incoming.text) && (roleSkills[reciprocalClaimRole] ?? []).includes("ally-check") && factionOf(reciprocalClaimRole) === factionOf(actor.announced);
   const privateAllyTrust = Math.max(memory.trust[sender.id] ?? memory.claims[sender.id]?.trust ?? 0, verified?.faction === factionOf(actor.role) ? verified.confidence ?? 0 : 0);
   if (asksIdentity && incoming.channel !== "public" && privateAllyTrust >= .7) {
     response = `나는 ${actor.role}이야. 내가 직접 확인한 아군이니까 정체를 공유할게.`;
   } else if (reciprocalAllyProof) {
-    memory.trust[sender.id] = .75; memory.claims[sender.id] = { role: selfRoleClaim, trust: .75, source: "직후 아군 확인 접촉" }; remember(actor, sender, { role: selfRoleClaim, confidence: .75, source: "직후 아군 확인 접촉" });
-    response = `방금 나에게 확인 이펙트가 들어온 직후 찾아왔고 ${selfRoleClaim}의 아군 확인 주장도 가능해. 강한 아군 후보로 믿을게.`;
+    memory.trust[sender.id] = .75; memory.claims[sender.id] = { role: reciprocalClaimRole, trust: .75, source: "직후 아군 확인 접촉" }; remember(actor, sender, { role: reciprocalClaimRole, confidence: .75, source: "직후 아군 확인 접촉" });
+    response = `조금 전 나에게 확인 이펙트가 들어왔고 공표한 ${reciprocalClaimRole}도 아군 확인을 쓸 수 있어. 네가 찾아온 정황을 믿을게.`;
   } else if (privateRoleProof) {
     memory.trust[sender.id] = .85; remember(actor, sender, { role: selfRoleClaim, confidence: .85, source: skillClaim.label });
     response = `${skillClaim.label}으로 나를 찾아온 정황은 강한 증거야. ${selfRoleClaim}으로 우선 신뢰할게.`;

@@ -176,7 +176,7 @@ export class SingleRoom {
     };
   }
   addLog(icon, text, tone) { this.logs.push({ time: nowLabel(), icon, text, tone }); this.logs = this.logs.slice(-60); }
-  recordInspection(target) { const at = this.now(); this.publicInspections.push({ targetId: target.id, at }); this.publicInspections = this.publicInspections.filter((entry) => at - entry.at <= 15_000).slice(-20); }
+  recordInspection(target) { const at = this.now(); this.publicInspections.push({ targetId: target.id, at }); this.publicInspections = this.publicInspections.filter((entry) => at - entry.at <= 30_000).slice(-20); }
   private(player, text) { player.privateLogs.push({ time: nowLabel(), text }); player.privateLogs = player.privateLogs.slice(-40); }
   verdict(player, title, success, message) { player.verdict = { id: this.now() + this.random(), title, success, message, until: this.now() + 3000 }; }
   notify(player, title, message, tone) { player.notification = { id: this.now() + this.random(), title, message, tone, until: this.now() + 3000 }; }
