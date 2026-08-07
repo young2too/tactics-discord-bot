@@ -163,6 +163,7 @@ test("a vigilante acts on multiple terse reports following public inspections", 
   room.recordInspection(hitman); room.recordInspection(member); room.chat(assistant.id, { text: `${hitman.id}번 히트맨 ${member.id}번 마피아일원!` });
   runStrategicBot(room); assert.equal(vigilante.aiMemory.reports[hitman.id].role, "히트맨"); assert.equal(vigilante.aiMemory.reports[member.id].role, "마피아일원");
   room.result = null; runStrategicBot(room); assert.equal(hitman.alive, false);
+  room.result = null; runStrategicBot(room); assert.equal(vigilante.alliances.has(assistant.id), true);
 });
 
 test("a private detective trusts a recent detective-check approach without repeated role self-introduction", () => {

@@ -425,6 +425,10 @@ export function recordPublicDeath(room, target) {
     const delta = report.role === target.role ? .55 : -.45;
     memory.trust[report.reporterId] = Math.max(-1, Math.min(1, (memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15) + delta));
     if (memory.claims[report.reporterId]) memory.claims[report.reporterId].trust = memory.trust[report.reporterId];
+    if (delta > 0) {
+      const reporter = room.player(report.reporterId); const inferredFaction = factionOf(target.role) === "mafia" ? "citizen" : "mafia";
+      remember(observer, reporter, { faction: inferredFaction, confidence: memory.trust[report.reporterId], source: "적중한 공개 제보" });
+    }
     const claim = memory.claims[report.reporterId]; if (delta > 0 && claim?.role && memory.trust[report.reporterId] >= .7) remember(observer, room.player(report.reporterId), { role: claim.role, confidence: memory.trust[report.reporterId], source: "검증된 공개 제보" });
   }
 }
