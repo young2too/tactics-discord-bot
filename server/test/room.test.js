@@ -493,6 +493,14 @@ test("a citizen AI that enemy-checks mafia publishes the result for attackers", 
   assistant.aiControlled = false; room.result = null; runStrategicBot(room); room.result = null; runStrategicBot(room); assert.equal(member.alive, false);
 });
 
+test("mafia attackers retaliate against a citizen investigator who reveals themself publicly", () => {
+  const room = new SingleRoom({ random: () => 0 }); const detective = room.join({ nickname: "detective", socket: {} }); const member = room.join({ nickname: "member", socket: {} }); room.start(detective.id);
+  const hitman = room.players.find((player) => ![detective.id, member.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); detective.role = "사립탐정"; detective.announced = "마피아일원"; member.role = "마피아일원"; member.announced = "마피아일원"; member.aiControlled = true; member.mana = 200; hitman.role = "히트맨"; hitman.announced = "히트맨";
+  room.recordInspection(hitman); room.chat(detective.id, { text: `나는 사립탐정이야. ${hitman.id}번 히트맨 조사 성공. 공격권 있는 시민은 히트맨으로 쳐줘.` });
+  runStrategicBot(room); assert.equal(member.aiMemory.reports[detective.id].role, "사립탐정");
+  room.result = null; runStrategicBot(room); assert.equal(detective.alive, false);
+});
+
 test("a private detective's reports become trusted when their role is revealed on death", () => {
   const room = new SingleRoom({ random: () => 0 }); const detective = room.join({ nickname: "detective", socket: {} }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); room.start(detective.id);
   const hitman = room.players.find((player) => ![detective.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); detective.role = "사립탐정"; detective.announced = "마피아일원"; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.mana = 200; vigilante.aiControlled = true; hitman.role = "히트맨"; hitman.announced = "히트맨";

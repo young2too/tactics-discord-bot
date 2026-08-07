@@ -107,6 +107,11 @@ function respondToMessage(room, actor) {
     const pairObserved = Boolean(room.publicInspections?.some((entry) => entry.targetId === target.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
     if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || incoming.channel === "public") memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : skillClaim?.label ?? "공개 제보", evidence: pairObserved ? .55 : incoming.channel === "public" ? .45 : .1 };
   }
+  const publicCitizenInvestigator = incoming.channel === "public" && selfRoleClaim && factionOf(selfRoleClaim) === "citizen" && (roleSkills[selfRoleClaim] ?? []).some((skillId) => ["enemy-scan", "enemy-check"].includes(skillId));
+  if (factionOf(actor.role) === "mafia" && publicCitizenInvestigator && reportedPairs(room, incoming.text).length) {
+    memory.reports[sender.id] = { role: selfRoleClaim, reporterId: sender.id, source: "공개수사 신원 노출", evidence: observedInspection ? .8 : .55 };
+    remember(actor, sender, { role: selfRoleClaim, confidence: observedInspection ? .8 : .55, source: "공개수사 신원 노출" });
+  }
   const verified = memory.knowledge[sender.id]; let response;
   const knownHitman = verified?.role === "히트맨" && (verified.confidence ?? 0) >= .8;
   const requestsSnipeProof = actor.role === "마피아대부" && (selfRoleClaim === "히트맨" || knownHitman) && /저격\s*명령/.test(incoming.text);
