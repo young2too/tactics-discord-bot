@@ -16,7 +16,7 @@ export const roleSkills = {
   탐정조수: ["detective-check", "enemy-check"], 남자연인: ["ally-check", "revenge"], 여자연인: ["enemy-check", "revenge"], 공무원: ["support", "proclamation"],
 };
 export const skills = {
-  announce: { cost: 0, cooldown: 90, role: true }, "ally-check": { cost: 5, cooldown: 10, target: true },
+  announce: { cost: 0, cooldown: 40, role: true }, "ally-check": { cost: 5, cooldown: 10, target: true },
   "enemy-check": { cost: 10, cooldown: 10, target: true }, "ally-scan": { cost: 15, cooldown: 10, target: true, role: true }, "advanced-scan": { cost: 15, cooldown: 10, target: true, role: true },
   "enemy-scan": { cost: 20, cooldown: 10, target: true, role: true }, "upper-attack": { cost: 40, cooldown: 10, target: true, role: true },
   "lower-attack": { cost: 30, cooldown: 10, target: true, role: true }, "boss-check": { cost: 10, cooldown: 10, target: true },

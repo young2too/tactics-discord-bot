@@ -12,7 +12,7 @@ export const initialPlayers: Player[] = [
 ];
 
 export const skillCatalog: Record<string, Skill> = {
-  announce: { id: "announce", key: "Q", name: "공표", icon: "📋", cost: 0, target: false, needsRole: true, tone: "gold", cooldown: 90 },
+  announce: { id: "announce", key: "Q", name: "공표", icon: "📋", cost: 0, target: false, needsRole: true, tone: "gold", cooldown: 40 },
   "ally-check": { id: "ally-check", key: "W", name: "아군 확인", icon: "◉", cost: 5, target: true, needsRole: false, tone: "blue", cooldown: 10 },
   "enemy-check": { id: "enemy-check", key: "W", name: "적군 확인", icon: "◉", cost: 10, target: true, needsRole: false, tone: "blue", cooldown: 10 },
   "ally-scan": { id: "ally-scan", key: "E", name: "아군 스캔", icon: "⌁", cost: 15, target: true, needsRole: true, tone: "blue", cooldown: 10 },

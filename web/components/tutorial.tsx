@@ -135,15 +135,20 @@ function useTutorialCallout(selector: string): { side: "up" | "down" | "left" | 
       target = document.querySelector<HTMLElement>(`.tutorial-live ${selector}`);
       if (!target) return;
       target.classList.add("tutorial-callout-target");
-      const rect = target.getBoundingClientRect(); const width = Math.min(380, window.innerWidth - 24); const height = 170; const gap = 16;
+      const rect = target.getBoundingClientRect();
+      const guide = document.querySelector<HTMLElement>(".tutorial-live .tutorial-guide");
+      const width = guide?.getBoundingClientRect().width ?? Math.min(380, window.innerWidth - 24);
+      const height = guide?.getBoundingClientRect().height ?? 150;
+      const mobile = window.innerWidth <= 760;
+      const gap = mobile ? 10 : 14;
       const clampX = (value: number) => Math.max(12, Math.min(window.innerWidth - width - 12, value));
       const clampY = (value: number) => Math.max(74, Math.min(window.innerHeight - height - 12, value));
       const horizontal = (left: number) => `${Math.max(22, Math.min(width - 22, rect.left + rect.width / 2 - left))}px`;
       const vertical = (top: number) => `${Math.max(22, Math.min(height - 22, rect.top + rect.height / 2 - top))}px`;
-      if (selector === ".board-area") { const left = clampX(rect.left + rect.width / 2 - width / 2); setPosition({ side: "down", style: { left, top: rect.top + 16, transform: "none", "--arrow-offset": horizontal(left) } }); }
+      if (selector === ".board-area") { const left = clampX(rect.left + rect.width / 2 - width / 2); setPosition({ side: "down", style: { left, top: rect.top + (mobile ? 10 : 16), transform: "none", "--arrow-offset": horizontal(left) } }); }
+      else if (!mobile && window.innerWidth - rect.right >= width + gap) { const top = clampY(rect.top + rect.height / 2 - height / 2); setPosition({ side: "left", style: { left: rect.right + gap, top, transform: "none", "--arrow-offset": vertical(top) } }); }
+      else if (!mobile && rect.left >= width + gap) { const top = clampY(rect.top + rect.height / 2 - height / 2); setPosition({ side: "right", style: { left: rect.left - width - gap, top, transform: "none", "--arrow-offset": vertical(top) } }); }
       else if (rect.top >= height + gap + 60) { const left = clampX(rect.left + rect.width / 2 - width / 2); setPosition({ side: "down", style: { left, top: rect.top - height - gap, transform: "none", "--arrow-offset": horizontal(left) } }); }
-      else if (window.innerWidth - rect.right >= width + gap) { const top = clampY(rect.top + rect.height / 2 - height / 2); setPosition({ side: "left", style: { left: rect.right + gap, top, transform: "none", "--arrow-offset": vertical(top) } }); }
-      else if (rect.left >= width + gap) { const top = clampY(rect.top + rect.height / 2 - height / 2); setPosition({ side: "right", style: { left: rect.left - width - gap, top, transform: "none", "--arrow-offset": vertical(top) } }); }
       else { const left = clampX(rect.left + rect.width / 2 - width / 2); setPosition({ side: "up", style: { left, top: clampY(rect.bottom + gap), transform: "none", "--arrow-offset": horizontal(left) } }); }
     };
     const frame = requestAnimationFrame(() => {
