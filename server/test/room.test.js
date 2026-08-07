@@ -239,6 +239,13 @@ test("a patrol attacks from a terse human ally report without an action verb", (
   assert.equal(patrol.aiMemory.reports[target.id].role, "마피아일원"); room.result = null; runStrategicBot(room); assert.equal(target.alive, false);
 });
 
+test("a patrol with one failure still trusts a terse report from a known investigator", () => {
+  const room = new SingleRoom({ random: () => 0 }); const assistant = room.join({ nickname: "assistant", socket: {} }); const patrol = room.join({ nickname: "patrol", socket: {} }); room.start(assistant.id);
+  const target = room.players.find((player) => ![assistant.id, patrol.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); assistant.role = "탐정조수"; patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.aiControlled = true; patrol.mana = 200; patrol.lowAttackFails = 1; target.role = "마피아일원"; target.announced = "마피아일원"; patrol.aiMemory = { knowledge: { [assistant.id]: { role: "탐정조수", faction: "citizen", confidence: .85, source: "탐정 확인", excluded: [] } }, trust: {}, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
+  room.chat(assistant.id, { text: `-${patrol.id} ${target.id}번 마피아일원이야` }); runStrategicBot(room);
+  assert.equal(patrol.aiMemory.reports[target.id].evidence, .8); room.result = null; runStrategicBot(room); assert.equal(target.alive, false);
+});
+
 test("an AI trusts a valid ally-check claimant who whispers immediately after inspecting it", () => {
   const room = new SingleRoom({ random: () => 0 });
   const patrol = room.join({ nickname: "patrol", socket: {} });

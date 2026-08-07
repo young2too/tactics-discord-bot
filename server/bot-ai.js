@@ -125,7 +125,9 @@ function respondToMessage(room, actor) {
   for (const { target, role } of reportedPairs(room, incoming.text)) {
     if (target.id === sender.id) continue;
     const pairObserved = Boolean(room.publicInspections?.some((entry) => entry.targetId === target.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
-    if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || incoming.channel === "public" || senderIntelTrust >= .7) memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : senderIntelTrust >= .7 ? "신뢰 동맹 제보" : skillClaim?.label ?? "공개 제보", evidence: pairObserved ? .55 : senderIntelTrust >= .7 ? .7 : incoming.channel === "public" ? .45 : .1 };
+    const knownSenderRole = memory.knowledge[sender.id]?.role; const senderSkills = roleSkills[knownSenderRole] ?? [];
+    const roleCanProveReport = (memory.knowledge[sender.id]?.confidence ?? 0) >= .7 && (senderSkills.some((skillId) => ["enemy-scan", "advanced-scan"].includes(skillId)) || (senderSkills.includes("enemy-check") && target.announced === role));
+    if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || incoming.channel === "public" || senderIntelTrust >= .7 || roleCanProveReport) memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : roleCanProveReport ? `${knownSenderRole}의 조사 가능 정보` : senderIntelTrust >= .7 ? "신뢰 동맹 제보" : skillClaim?.label ?? "공개 제보", evidence: pairObserved ? .55 : roleCanProveReport ? .8 : senderIntelTrust >= .7 ? .7 : incoming.channel === "public" ? .45 : .1 };
   }
   const publicCitizenInvestigator = incoming.channel === "public" && selfRoleClaim && factionOf(selfRoleClaim) === "citizen" && (roleSkills[selfRoleClaim] ?? []).some((skillId) => ["enemy-scan", "enemy-check"].includes(skillId));
   if (factionOf(actor.role) === "mafia" && publicCitizenInvestigator && reportedPairs(room, incoming.text).length) {
@@ -447,7 +449,7 @@ export function runStrategicBot(room) {
   try {
     if (respondToMessage(room, actor)) return;
     if (tryAnnounce(room, actor)) return;
-    if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryShareFinding(room, actor)) return;
+    if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryShare(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryAlliance(room, actor) || tryShareFinding(room, actor)) return;
     if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
     tryPublicChat(room, actor);
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }
