@@ -52,6 +52,13 @@ test("server alone spends mana, applies cooldowns, and keeps scan result private
   assert.throws(() => room.act(host.id, { skillId: "enemy-scan", targetId: guest.id, role: "자경단원" }), /쿨타임/);
 });
 
+test("a mafia member can ally-check mafia claims but not citizen claims", () => {
+  let now = 1_000; const room = new SingleRoom({ random: () => 0, now: () => now }); const member = room.join({ nickname: "member", socket: {} }); const hitman = room.join({ nickname: "hitman", socket: {} }); room.start(member.id);
+  const citizen = room.players.find((player) => ![member.id, hitman.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; }); member.role = "마피아일원"; member.announced = "마피아일원"; member.mana = 100; hitman.role = "히트맨"; hitman.announced = "히트맨"; citizen.role = "자경단원"; citizen.announced = "자경단원";
+  room.act(member.id, { skillId: "ally-check", targetId: hitman.id }); assert.equal(member.verdict.success, true); assert.match(member.verdict.message, /진명/); now += 11_000;
+  assert.throws(() => room.act(member.id, { skillId: "ally-check", targetId: citizen.id }), /공표 진영에 맞는 대상/);
+});
+
 test("enemy scanners cannot nominate the opposing leader", () => {
   const room = new SingleRoom({ random: () => 0.5 });
   const host = room.join({ nickname: "host", socket: {} });

@@ -10,7 +10,7 @@ export const formations = {
 export const botNames = ["AI 준서", "AI 민지", "AI 하림", "AI 태윤", "AI 서아", "AI 지훈", "AI 예린", "AI 현우", "AI 하빈", "AI 건우", "AI 채원", "AI 시우"];
 export const factionOf = (role) => ["마피아대부", "히트맨", "마피아일원", "마피아후계자", "스파이"].includes(role) ? "mafia" : "citizen";
 export const roleSkills = {
-  마피아대부: ["leadership", "lower-attack", "successor", "snipe-command"], 히트맨: ["enemy-scan", "snipe"], 마피아일원: ["upper-attack"],
+  마피아대부: ["leadership", "lower-attack", "successor", "snipe-command"], 히트맨: ["enemy-scan", "snipe"], 마피아일원: ["ally-check", "upper-attack"],
   마피아후계자: ["advanced-scan", "boss-check"], 스파이: ["deception"], 경찰반장: ["ally-check", "leadership", "arrest"],
   자경단원: ["upper-attack"], 사립탐정: ["enemy-scan"], 순찰경찰: ["ally-check", "lower-attack"],
   탐정조수: ["detective-check", "enemy-check"], 남자연인: ["ally-check", "revenge"], 여자연인: ["enemy-check", "revenge"], 공무원: ["support", "proclamation"],
