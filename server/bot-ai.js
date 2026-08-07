@@ -7,7 +7,7 @@ const ORDER_LABELS = { "snipe-command": "저격명령", successor: "후계자 �
 
 function memoryOf(actor) {
   actor.aiMemory ??= {};
-  actor.aiMemory.knowledge ??= {}; actor.aiMemory.sharedWith ??= {}; actor.aiMemory.lastPublicAt ??= 0; actor.aiMemory.recentLines ??= []; actor.aiMemory.inbox ??= []; actor.aiMemory.claims ??= {}; actor.aiMemory.trust ??= {}; actor.aiMemory.reports ??= {};
+  actor.aiMemory.knowledge ??= {}; actor.aiMemory.sharedWith ??= {}; actor.aiMemory.bridged ??= {}; actor.aiMemory.lastPublicAt ??= 0; actor.aiMemory.recentLines ??= []; actor.aiMemory.inbox ??= []; actor.aiMemory.claims ??= {}; actor.aiMemory.trust ??= {}; actor.aiMemory.reports ??= {};
   return actor.aiMemory;
 }
 
@@ -191,6 +191,28 @@ function knownEnemies(room, actor) {
   return room.players.filter((target) => target.alive && target.id !== actor.id && memoryOf(actor).knowledge[target.id]?.faction && memoryOf(actor).knowledge[target.id].faction !== factionOf(actor.role) && (memoryOf(actor).knowledge[target.id]?.confidence ?? 0) >= .8);
 }
 
+function trustScore(actor, target) {
+  const memory = memoryOf(actor); const known = memory.knowledge[target.id];
+  return Math.max(memory.trust[target.id] ?? 0, memory.claims[target.id]?.trust ?? 0, known?.faction === factionOf(actor.role) ? known.confidence ?? 0 : 0);
+}
+
+function tryBridgeAllies(room, actor) {
+  const memory = memoryOf(actor); const allies = knownAllies(room, actor).filter((player) => actor.alliances.has(player.id));
+  for (let leftIndex = 0; leftIndex < allies.length; leftIndex += 1) for (let rightIndex = leftIndex + 1; rightIndex < allies.length; rightIndex += 1) {
+    const left = allies[leftIndex]; const right = allies[rightIndex]; const key = [left.id, right.id].sort((a, b) => a - b).join(":");
+    if (memory.bridged[key] || left.alliances.has(right.id) || trustScore(actor, left) < .7 || trustScore(actor, right) < .7) continue;
+    const introductions = [[left, right], [right, left]];
+    for (const [recipient, subject] of introductions) {
+      if (trustScore(recipient, actor) < .7) continue;
+      const actorMemory = memoryOf(actor); const role = actorMemory.knowledge[subject.id]?.role ?? actorMemory.claims[subject.id]?.role ?? subject.announced;
+      const recipientMemory = memoryOf(recipient); recipientMemory.trust[subject.id] = Math.max(recipientMemory.trust[subject.id] ?? 0, .7); recipientMemory.claims[subject.id] = { role, trust: .7, source: `${actor.nickname}의 동맹 보증` }; remember(recipient, subject, { role, confidence: .7, source: `${actor.nickname}의 동맹 보증` });
+      room.private(recipient, `${actor.id}번 ${actor.nickname}이(가) ${subject.id}번 ${subject.nickname}을(를) 신뢰 가능한 동맹으로 소개했습니다.`);
+    }
+    memory.bridged[key] = true; return true;
+  }
+  return false;
+}
+
 function whisperIntroduction(room, actor, target) {
   const known = memoryOf(actor).knowledge[target.id];
   const source = known?.source ?? "조사";
@@ -317,7 +339,7 @@ export function runStrategicBot(room) {
       const roles = formations[room.totalPlayers]; const claim = room.random() < .68 ? actor.role : pick(room, roles);
       room.act(actor.id, { skillId: "announce", role: claim }); return;
     }
-    if (tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor)) return;
+    if (tryBridgeAllies(room, actor) || tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor)) return;
     if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
     tryPublicChat(room, actor);
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }

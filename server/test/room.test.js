@@ -429,6 +429,19 @@ test("a mafia member validates a hitman's public investigation and then allies w
   room.result = null; runStrategicBot(room); assert.equal(member.alliances.has(hitman.id), true); assert.match(hitman.whisper?.text ?? "", /공개 합동수사|히트맨/);
 });
 
+test("a trusted intermediary can introduce two allies who stay connected after its death", () => {
+  const room = new SingleRoom({ random: () => 0 }); const hitman = room.join({ nickname: "hitman", socket: {} }); const boss = room.join({ nickname: "boss", socket: {} }); const member = room.join({ nickname: "member", socket: {} }); room.start(hitman.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); hitman.role = "히트맨"; hitman.announced = "히트맨"; hitman.aiControlled = true; boss.role = "마피아대부"; boss.announced = "마피아대부"; member.role = "마피아일원"; member.announced = "마피아일원";
+  hitman.alliances.add(boss.id); hitman.alliances.add(member.id); boss.alliances.add(hitman.id); member.alliances.add(hitman.id);
+  hitman.aiMemory = { knowledge: { [boss.id]: { role: "마피아대부", faction: "mafia", confidence: 1, source: "저격명령", excluded: [] }, [member.id]: { role: "마피아일원", faction: "mafia", confidence: .7, source: "검증된 공개 제보", excluded: [] } }, trust: { [boss.id]: 1, [member.id]: .7 }, claims: { [boss.id]: { role: "마피아대부", trust: 1 }, [member.id]: { role: "마피아일원", trust: .7 } }, reports: {}, sharedWith: { [boss.id]: true, [member.id]: true }, lastPublicAt: 0, recentLines: [], inbox: [] };
+  boss.aiMemory = { knowledge: { [hitman.id]: { role: "히트맨", faction: "mafia", confidence: 1, source: "저격명령", excluded: [] } }, trust: { [hitman.id]: 1 }, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
+  member.aiMemory = { knowledge: { [hitman.id]: { role: "히트맨", faction: "mafia", confidence: .7, source: "검증된 공개 제보", excluded: [] } }, trust: { [hitman.id]: .7 }, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
+  runStrategicBot(room);
+  assert.ok(boss.aiMemory.trust[member.id] >= .7); assert.ok(member.aiMemory.trust[boss.id] >= .7);
+  hitman.alive = false; hitman.aiControlled = false; boss.aiControlled = true; member.aiControlled = true; room.result = null; runStrategicBot(room);
+  assert.equal(boss.alliances.has(member.id), true); assert.equal(member.alliances.has(boss.id), true);
+});
+
 test("both sides receive distinct alliance and shared hostility notifications", () => {
   let now = 1_000;
   const room = new SingleRoom({ now: () => now, random: () => 0.5 });
