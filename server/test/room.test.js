@@ -13,6 +13,20 @@ test("fills one room with bots and privately assigns roles", () => {
   assert.equal(room.snapshotFor(host).players.filter((player) => player.id !== host.id).every((player) => player.role === null), true);
 });
 
+test("lovers know each other from the start without revealing them to others", () => {
+  const room = new SingleRoom({ random: () => 0.5 });
+  const host = room.join({ nickname: "host", socket: {} });
+  room.setTotal(host.id, 11); room.start(host.id);
+  const male = room.players.find((player) => player.role === "남자연인");
+  const female = room.players.find((player) => player.role === "여자연인");
+  const outsider = room.players.find((player) => !["남자연인", "여자연인"].includes(player.role));
+  assert.equal(room.snapshotFor(male).players.find((player) => player.id === female.id).role, "여자연인");
+  assert.equal(room.snapshotFor(female).players.find((player) => player.id === male.id).role, "남자연인");
+  assert.equal(room.snapshotFor(outsider).players.find((player) => player.id === male.id).role, null);
+  assert.match(male.privateLogs.at(-1).text, /연인 정보/);
+  assert.equal(male.aiMemory.knowledge[female.id].confidence, 1);
+});
+
 test("returns a disconnected human seat from AI control on token reconnect", () => {
   const room = new SingleRoom(); const firstSocket = {};
   const host = room.join({ nickname: "host", socket: firstSocket }); room.start(host.id); room.disconnect(firstSocket);

@@ -44,7 +44,15 @@ export class SingleRoom {
     for (let index = 0; index < botCount; index += 1) this.players.push(this.createPlayer(this.nextSeat(), botNames[index], true));
     const roles = shuffle(formations[this.totalPlayers], this.random);
     shuffle(this.players, this.random).forEach((player, index) => { player.role = roles[index]; player.privateLogs.push({ time: nowLabel(), text: `직업이 ${player.role}(으)로 배정되었습니다.` }); });
-    this.players.sort((a, b) => a.id - b.id); this.phase = "game"; this.nextManaAt = this.now() + MANA_INTERVAL; this.nextBotAt = this.now() + 2500;
+    this.players.sort((a, b) => a.id - b.id);
+    const maleLover = this.players.find((player) => player.role === "남자연인"); const femaleLover = this.players.find((player) => player.role === "여자연인");
+    if (maleLover && femaleLover) {
+      this.private(maleLover, `연인 정보 · ${femaleLover.id}번 ${femaleLover.nickname}은(는) 여자연인입니다.`);
+      this.private(femaleLover, `연인 정보 · ${maleLover.id}번 ${maleLover.nickname}은(는) 남자연인입니다.`);
+      maleLover.aiMemory = { knowledge: { [femaleLover.id]: { role: femaleLover.role, faction: "citizen", confidence: 1, source: "연인", excluded: [] } }, sharedWith: {}, lastPublicAt: 0, recentLines: [] };
+      femaleLover.aiMemory = { knowledge: { [maleLover.id]: { role: maleLover.role, faction: "citizen", confidence: 1, source: "연인", excluded: [] } }, sharedWith: {}, lastPublicAt: 0, recentLines: [] };
+    }
+    this.phase = "game"; this.nextManaAt = this.now() + MANA_INTERVAL; this.nextBotAt = this.now() + 2500;
     this.addLog("⚔", `${this.totalPlayers}인 게임이 시작되었습니다.`, "plain");
   }
   restart(playerId) {
@@ -164,7 +172,7 @@ export class SingleRoom {
       notification: viewer.notification && viewer.notification.until > current ? { id: viewer.notification.id, title: viewer.notification.title, message: viewer.notification.message, tone: viewer.notification.tone } : null,
       whisper: viewer.whisper && viewer.whisper.until > current ? { from: viewer.whisper.from, to: viewer.whisper.to, text: viewer.whisper.text } : null,
       chats: this.chats.filter((chat) => chat.channel === "public" || chat.recipients?.includes(viewer.id)).map(({ recipients, ...chat }) => chat),
-      players: this.players.map((player) => ({ id: player.id, nickname: player.nickname, connected: player.connected, isBot: player.isBot, aiControlled: player.aiControlled, alive: player.alive, announced: player.announced, faction: player.id === viewer.id || !player.alive || this.result ? factionOf(player.role) : null, role: player.id === viewer.id || !player.alive || this.result ? player.role : null })),
+      players: this.players.map((player) => { const loverVisible = (viewer.role === "남자연인" && player.role === "여자연인") || (viewer.role === "여자연인" && player.role === "남자연인"); return { id: player.id, nickname: player.nickname, connected: player.connected, isBot: player.isBot, aiControlled: player.aiControlled, alive: player.alive, announced: player.announced, faction: player.id === viewer.id || loverVisible || !player.alive || this.result ? factionOf(player.role) : null, role: player.id === viewer.id || loverVisible || !player.alive || this.result ? player.role : null }; }),
     };
   }
   addLog(icon, text, tone) { this.logs.push({ time: nowLabel(), icon, text, tone }); this.logs = this.logs.slice(-60); }

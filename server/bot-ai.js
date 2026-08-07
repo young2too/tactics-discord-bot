@@ -70,7 +70,7 @@ function tryRoleCheck(room, actor) {
   const skillId = available.find((id) => ["boss-check", "detective-check"].includes(id) && ready(room, actor, id));
   if (!skillId) return false;
   const expected = skillId === "boss-check" ? "마피아대부" : "사립탐정";
-  const candidates = room.players.filter((target) => target.alive && target.id !== actor.id && !memoryOf(actor).knowledge[target.id]?.excluded?.includes(expected) && memoryOf(actor).knowledge[target.id]?.role !== expected);
+  const candidates = room.players.filter((target) => target.alive && target.id !== actor.id && !memoryOf(actor).knowledge[target.id]?.role && !memoryOf(actor).knowledge[target.id]?.excluded?.includes(expected));
   const target = pick(room, candidates); if (!target) return false;
   room.act(actor.id, { skillId, targetId: target.id });
   if (target.role === expected) remember(actor, target, { role: expected, source: skillId === "boss-check" ? "보스 확인" : "탐정 확인" });
@@ -106,7 +106,7 @@ function tryClaimCheck(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => CHECKS.has(id) && ready(room, actor, id));
   if (!skillId) return false;
   const mine = factionOf(actor.role);
-  const candidates = room.players.filter((target) => target.alive && target.id !== actor.id && target.announced !== "미공표" && (skillId === "ally-check") === (factionOf(target.announced) === mine));
+  const candidates = room.players.filter((target) => target.alive && target.id !== actor.id && !memoryOf(actor).knowledge[target.id]?.role && target.announced !== "미공표" && (skillId === "ally-check") === (factionOf(target.announced) === mine));
   const target = pick(room, candidates); if (!target) return false;
   room.act(actor.id, { skillId, targetId: target.id });
   if (actor.verdict?.success) remember(actor, target, { faction: factionOf(target.announced), confidence: .8, source: "공표 확인" });
