@@ -47,6 +47,7 @@ function respondToMessage(room, actor) {
   const trustedBoss = actor.role === "히트맨" && (commanderProof || (verified?.role === "마피아대부" && (verified.confidence ?? 0) >= .8));
   const wantsSnipe = reportedTarget && /저격|쏴|사살/.test(incoming.text);
   const wantsScan = reportedTarget && reportedRole && /스캔|살펴|확인해/.test(incoming.text);
+  const asksIdentity = /너\s*누구|누구야|정체|무슨\s*직업|직업\s*뭐/.test(incoming.text);
   if (trustedBoss && wantsSnipe && actor.snipeAuthorized && reportedTarget.alive && reportedTarget.id !== actor.id) {
     room.act(actor.id, { skillId: "snipe", targetId: reportedTarget.id });
     if (!room.result) room.chat(actor.id, { text: `-${sender.id} 명령 확인. ${reportedTarget.id}번 저격을 완료했어.` });
@@ -60,7 +61,10 @@ function respondToMessage(room, actor) {
   }
   const privateRoleProof = selfRoleClaim && skillClaim && ((actor.role === "사립탐정" && selfRoleClaim === "탐정조수" && skillClaim.id === "detective-check") || (actor.role === "마피아대부" && selfRoleClaim === "마피아후계자" && skillClaim.id === "boss-check"));
   const reciprocalAllyProof = incoming.channel === "whisper" && observedSelfInspection && selfRoleClaim && skillClaim?.id === "ally-check" && (roleSkills[selfRoleClaim] ?? []).includes("ally-check") && sender.announced === selfRoleClaim && factionOf(selfRoleClaim) === factionOf(actor.announced);
-  if (reciprocalAllyProof) {
+  const privateAllyTrust = Math.max(memory.trust[sender.id] ?? memory.claims[sender.id]?.trust ?? 0, verified?.faction === factionOf(actor.role) ? verified.confidence ?? 0 : 0);
+  if (asksIdentity && incoming.channel !== "public" && privateAllyTrust >= .7) {
+    response = `나는 ${actor.role}이야. 내가 직접 확인한 아군이니까 정체를 공유할게.`;
+  } else if (reciprocalAllyProof) {
     memory.trust[sender.id] = .75; memory.claims[sender.id] = { role: selfRoleClaim, trust: .75, source: "직후 아군 확인 접촉" }; remember(actor, sender, { role: selfRoleClaim, confidence: .75, source: "직후 아군 확인 접촉" });
     response = `방금 나에게 확인 이펙트가 들어온 직후 찾아왔고 ${selfRoleClaim}의 아군 확인 주장도 가능해. 강한 아군 후보로 믿을게.`;
   } else if (privateRoleProof) {

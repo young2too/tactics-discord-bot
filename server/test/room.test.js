@@ -225,6 +225,14 @@ test("an AI trusts a valid ally-check claimant who whispers immediately after in
   assert.equal(detective.alliances.has(patrol.id), true);
 });
 
+test("an AI reveals its real role when a directly confirmed ally asks privately", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const patrol = room.join({ nickname: "patrol", socket: {} }); room.start(human.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); human.role = "사립탐정"; human.announced = "사립탐정"; patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.aiControlled = true;
+  patrol.alliances.add(human.id); human.alliances.add(patrol.id); patrol.aiMemory = { knowledge: { [human.id]: { faction: "citizen", confidence: .8, source: "공표 확인", excluded: [] } }, trust: { [human.id]: .8 }, claims: {}, reports: {}, sharedWith: { [human.id]: true }, lastPublicAt: 0, recentLines: [], inbox: [] };
+  room.chat(human.id, { text: "너 누구야?", channel: "alliance" }); runStrategicBot(room);
+  assert.match(patrol.whisper?.text ?? "", /나는 순찰경찰/);
+});
+
 test("a lower attacker requires trusted information after one failure", () => {
   const room = new SingleRoom({ random: () => 0 });
   const reporter = room.join({ nickname: "reporter", socket: {} });
