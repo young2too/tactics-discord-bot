@@ -87,5 +87,5 @@ export const botNames = ["윤서", "민준", "하린", "도윤", "서아", "지�
 export const portraitRoles = ["마피아대부", "히트맨", "마피아일원", "마피아후계자", "스파이", "경찰반장", "자경단원", "사립탐정", "순찰경찰", "탐정조수", "남자연인", "여자연인", "공무원"];
 export const MANA_MAX = 200;
 export const MANA_TICK = 20;
-export const MANA_INTERVAL_SECONDS = 3 * 60;
+export const MANA_INTERVAL_SECONDS = 90;
 export const ATTACKER_ROLES = new Set(["마피아대부", "히트맨", "마피아일원", "자경단원", "순찰경찰"]);

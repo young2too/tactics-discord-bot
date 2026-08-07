@@ -30,7 +30,7 @@ export const skills = {
 export const attackerRoles = new Set(["마피아대부", "히트맨", "마피아일원", "자경단원", "순찰경찰"]);
 export const MANA_MAX = 200;
 export const MANA_TICK = 20;
-export const MANA_INTERVAL = 180_000;
+export const MANA_INTERVAL = 90_000;
 
 export function shuffle(values, random = Math.random) {
   const result = [...values];
