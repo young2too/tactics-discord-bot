@@ -141,6 +141,7 @@ test("a verified public report can trigger a safe attack and build a citizen all
   room.chat(assistant.id, { text: `-${detective.id} 나는 탐정조수고 탐정 확인으로 당신이 사립탐정인 걸 찾았어.` });
   runStrategicBot(room);
   assert.equal(detective.aiMemory.trust[assistant.id], .85);
+  room.act(assistant.id, { skillId: "enemy-check", targetId: target.id });
   room.chat(assistant.id, { text: `나는 탐정조수고 ${target.id}번 마피아일원 진명 확인했어.` });
   runStrategicBot(room); runStrategicBot(room);
   runStrategicBot(room);
@@ -155,7 +156,25 @@ test("a verified public report can trigger a safe attack and build a citizen all
   assert.equal(detective.alliances.has(assistant.id), true);
 });
 
-test("a lower attacker may spend its first safe failure on an unverified report", () => {
+test("a lower attacker may test a report that immediately follows a public inspection", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const reporter = room.join({ nickname: "reporter", socket: {} });
+  const patrol = room.join({ nickname: "patrol", socket: {} });
+  room.start(reporter.id);
+  const target = room.players.find((player) => ![reporter.id, patrol.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  reporter.role = "사립탐정"; reporter.announced = "사립탐정"; reporter.mana = 200;
+  patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.mana = 200; patrol.aiControlled = true;
+  target.role = "마피아일원"; target.announced = "마피아일원";
+  room.act(reporter.id, { skillId: "enemy-scan", targetId: target.id, role: "마피아일원" });
+  room.chat(reporter.id, { text: `${target.id}번 마피아일원 진명 확인` });
+  runStrategicBot(room); // Contextualizes and answers the report.
+  runStrategicBot(room); // Acts on the contextualized report.
+  assert.equal(target.alive, false);
+  assert.equal(patrol.lowAttackFails, 0);
+});
+
+test("an unknown public report without an observed inspection does not trigger an attack", () => {
   const room = new SingleRoom({ random: () => 0 });
   const reporter = room.join({ nickname: "reporter", socket: {} });
   const patrol = room.join({ nickname: "patrol", socket: {} });
@@ -164,9 +183,9 @@ test("a lower attacker may spend its first safe failure on an unverified report"
   room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
   patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.mana = 200; patrol.aiControlled = true;
   target.role = "마피아일원"; target.announced = "마피아일원";
-  patrol.aiMemory = { reports: { [target.id]: { role: "마피아일원", reporterId: reporter.id, source: "제보" } }, trust: {}, claims: {}, knowledge: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
+  patrol.aiMemory = { reports: { [target.id]: { role: "마피아일원", reporterId: reporter.id, source: "제보", evidence: .1 } }, trust: {}, claims: {}, knowledge: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
   runStrategicBot(room);
-  assert.equal(target.alive, false);
+  assert.equal(target.alive, true);
   assert.equal(patrol.lowAttackFails, 0);
 });
 

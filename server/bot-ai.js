@@ -36,13 +36,17 @@ function respondToMessage(room, actor) {
   const sender = room.player(incoming.from); if (!sender.alive) return true;
   const selfRoleClaim = selfClaimedRole(room, incoming.text); const roleClaim = selfRoleClaim ?? claimedRole(room, incoming.text); const skillClaim = claimedSkill(incoming.text);
   const reportMatch = incoming.text.match(/(\d+)번/); const reportedId = Number(reportMatch?.[1] ?? 0); const reportedTarget = room.players.find((player) => player.id === reportedId); const reportedRole = reportMatch ? claimedRole(room, incoming.text.slice(reportMatch.index)) : null;
+  const reportAt = incoming.at ?? room.now();
+  const observedInspection = Boolean(reportedTarget && room.publicInspections?.some((entry) => entry.targetId === reportedTarget.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
   if (selfRoleClaim) memory.claims[sender.id] = { ...(memory.claims[sender.id] ?? {}), role: selfRoleClaim, trust: memory.trust[sender.id] ?? .15 };
-  if (reportedTarget && reportedRole && reportedTarget.id !== sender.id && /진명|확인|맞아|맞음|찾았/.test(incoming.text)) memory.reports[reportedTarget.id] = { role: reportedRole, reporterId: sender.id, source: skillClaim?.label ?? "제보" };
+  if (reportedTarget && reportedRole && reportedTarget.id !== sender.id && /진명|확인|맞아|맞음|찾았/.test(incoming.text)) memory.reports[reportedTarget.id] = { role: reportedRole, reporterId: sender.id, source: skillClaim?.label ?? "제보", evidence: observedInspection ? .55 : .1 };
   const verified = memory.knowledge[sender.id]; let response;
   const privateRoleProof = selfRoleClaim && skillClaim && ((actor.role === "사립탐정" && selfRoleClaim === "탐정조수" && skillClaim.id === "detective-check") || (actor.role === "마피아대부" && selfRoleClaim === "마피아후계자" && skillClaim.id === "boss-check"));
   if (privateRoleProof) {
     memory.trust[sender.id] = .85; remember(actor, sender, { role: selfRoleClaim, confidence: .85, source: skillClaim.label });
     response = `${skillClaim.label}으로 나를 찾아온 정황은 강한 증거야. ${selfRoleClaim}으로 우선 신뢰할게.`;
+  } else if (reportedTarget && reportedRole && observedInspection) {
+    response = `방금 ${reportedTarget.id}번을 살핀 이펙트 직후 나온 제보라 맥락은 맞아. ${reportedRole} 후보로 우선 보겠어.`;
   } else if (selfRoleClaim && skillClaim && !(roleSkills[selfRoleClaim] ?? []).includes(skillClaim.id)) {
     response = `${selfRoleClaim}(은)는 ${skillClaim.label}을 쓸 수 없는데? 그 말은 못 믿겠어.`;
     memory.trust[sender.id] = -.5; memory.claims[sender.id] = { role: selfRoleClaim, trust: -.5, contradiction: `${skillClaim.label} 사용 불가` };
@@ -125,8 +129,8 @@ function tryKnownAttack(room, actor) {
 
 function tryReportedAttack(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => ATTACKS.has(id) && ready(room, actor, id)); if (!skillId) return false;
-  const threshold = skillId === "upper-attack" ? .1 : actor.lowAttackFails === 0 ? .15 : .7; const memory = memoryOf(actor);
-  const entry = Object.entries(memory.reports).find(([targetId, report]) => { const target = room.players.find((player) => player.id === Number(targetId)); return target?.alive && factionOf(report.role) !== factionOf(actor.role) && (memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15) >= threshold; });
+  const threshold = skillId === "upper-attack" ? .3 : actor.lowAttackFails === 0 ? .45 : .7; const memory = memoryOf(actor);
+  const entry = Object.entries(memory.reports).find(([targetId, report]) => { const target = room.players.find((player) => player.id === Number(targetId)); const trust = memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15; return target?.alive && factionOf(report.role) !== factionOf(actor.role) && Math.max(trust, report.evidence ?? .1) >= threshold; });
   if (!entry) return false; const [targetId, report] = entry; const target = room.player(Number(targetId));
   room.act(actor.id, { skillId, targetId: target.id, role: report.role }); return true;
 }
