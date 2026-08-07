@@ -9,7 +9,7 @@ export class SingleRoom {
   constructor({ random = Math.random, now = () => Date.now() } = {}) { this.random = random; this.now = now; this.reset(); }
   reset() {
     this.phase = "lobby"; this.totalPlayers = 8; this.players = []; this.hostId = null; this.logs = [];
-    this.chats = []; this.result = null; this.successorId = null; this.effect = null; this.publicInspections = []; this.nextManaAt = null; this.nextBotAt = null;
+    this.chats = []; this.result = null; this.successorId = null; this.effect = null; this.publicInspections = []; this.leadershipDiscoveries = []; this.nextManaAt = null; this.nextBotAt = null;
   }
   join({ nickname, token, socket }) {
     const cleanName = String(nickname ?? "").trim().slice(0, 16);
@@ -100,7 +100,7 @@ export class SingleRoom {
   resolve(actor, skillId, target, guessedRole, text) {
     if (skillId === "announce") { actor.announced = guessedRole; const gain = guessedRole === actor.role ? 10 : 5; actor.mana = Math.min(MANA_MAX, actor.mana + gain); const message = `${guessedRole} 공표 완료 · 마나 +${gain}`; this.addLog("📜", `${actor.nickname}이(가) ${guessedRole}(을)를 공표했습니다.`, "plain"); this.private(actor, message); this.verdict(actor, "공표 완료", true, message); return; }
     if (skillId === "deception") { const message = "기만은 지속 효과입니다. 시민 직업 공표 시 시민의 아군 확인을 속입니다."; this.private(actor, message); this.verdict(actor, "기만 활성", true, message); return; }
-    if (skillId === "leadership") { const match = this.players.find((player) => player.alive && player.role === guessedRole); const message = match ? `${guessedRole}은(는) ${match.id}번 ${match.nickname}입니다.` : `생존한 ${guessedRole}은(는) 없습니다.`; this.private(actor, `리더십 결과 · ${message}`); this.verdict(actor, "리더십 서치", Boolean(match), message); return; }
+    if (skillId === "leadership") { const match = this.players.find((player) => player.alive && player.role === guessedRole); const message = match ? `${guessedRole}은(는) ${match.id}번 ${match.nickname}입니다.` : `생존한 ${guessedRole}은(는) 없습니다.`; if (match) { const at = this.now(); this.leadershipDiscoveries.push({ leaderId: actor.id, leaderRole: actor.role, targetId: match.id, role: guessedRole, at }); this.leadershipDiscoveries = this.leadershipDiscoveries.filter((entry) => at - entry.at <= 45_000).slice(-10); } this.private(actor, `리더십 결과 · ${message}`); this.verdict(actor, "리더십 서치", Boolean(match), message); return; }
     if (skillId === "proclamation") { if (!text) throw new Error("공문 내용을 입력하세요."); const message = "공문을 전체 플레이어에게 발송했습니다."; this.chats.push({ id: this.now(), from: actor.id, text: `[공문] ${text}`, channel: "public" }); this.addLog("📢", `공무원 공문 · ${text}`, "plain"); this.private(actor, message); this.verdict(actor, "공문 발송", true, message); return; }
     if (skillId === "ally-add" || skillId === "ally-remove") {
       const adding = skillId === "ally-add";

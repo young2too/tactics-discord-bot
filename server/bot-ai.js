@@ -77,6 +77,7 @@ function respondToMessage(room, actor) {
   const reportAt = incoming.at ?? room.now();
   const observedInspection = Boolean(reportedTarget && room.publicInspections?.some((entry) => entry.targetId === reportedTarget.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
   const observedSelfInspection = Boolean(room.publicInspections?.some((entry) => entry.targetId === actor.id && reportAt >= entry.at && reportAt - entry.at <= 20_000));
+  const leadershipDiscovery = room.leadershipDiscoveries?.find((entry) => entry.leaderId === sender.id && entry.targetId === actor.id && entry.role === actor.role && reportAt >= entry.at && reportAt - entry.at <= 30_000);
   const commanderProof = actor.role === "히트맨" && actor.snipeAuthorized && actor.snipeCommanderId === sender.id;
   if (commanderProof) { memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: "마피아대부", trust: 1, source: "저격명령" }; remember(actor, sender, { role: "마피아대부", confidence: 1, source: "저격명령" }); }
   if (selfRoleClaim) memory.claims[sender.id] = { ...(memory.claims[sender.id] ?? {}), role: selfRoleClaim, trust: memory.trust[sender.id] ?? .15 };
@@ -127,7 +128,10 @@ function respondToMessage(room, actor) {
   const reciprocalAllyProof = incoming.channel !== "public" && observedSelfInspection && /아확|아군\s*확인|확인.*왔|찾아왔/.test(incoming.text) && (!selfRoleClaim || Boolean(reciprocalClaimRole));
   const privateMafiaApproach = incoming.channel !== "public" && factionOf(actor.role) === "mafia" && selfRoleClaim && factionOf(selfRoleClaim) === "mafia";
   const privateAllyTrust = Math.max(memory.trust[sender.id] ?? memory.claims[sender.id]?.trust ?? 0, verified?.faction === factionOf(actor.role) ? verified.confidence ?? 0 : 0);
-  if (asksIdentity && incoming.channel !== "public" && privateAllyTrust >= .7) {
+  if (incoming.channel !== "public" && leadershipDiscovery && /리더십|리더쉽/.test(incoming.text) && incoming.text.includes(actor.role)) {
+    memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: leadershipDiscovery.leaderRole, trust: 1, source: "리더십 발견 접촉" }; remember(actor, sender, { role: leadershipDiscovery.leaderRole, confidence: 1, source: "리더십 발견 접촉" });
+    response = `실제로 리더십으로 나를 찾은 기록과 일치해. 당신을 ${leadershipDiscovery.leaderRole}(으)로 확정하고 따를게.`;
+  } else if (asksIdentity && incoming.channel !== "public" && privateAllyTrust >= .7) {
     response = `나는 ${actor.role}이야. 내가 직접 확인한 아군이니까 정체를 공유할게.`;
   } else if (selfRoleClaim && skillClaim && !(roleSkills[selfRoleClaim] ?? []).includes(skillClaim.id)) {
     response = `${selfRoleClaim}(은)는 ${skillClaim.label}을 쓸 수 없는데? 그 말은 못 믿겠어.`;

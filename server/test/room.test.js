@@ -403,6 +403,14 @@ test("an allied human can order an AI leader to use leadership", () => {
   assert.equal(boss.aiMemory.knowledge[hitman.id].role, "히트맨"); assert.equal(boss.usedOnce.leadership, true);
 });
 
+test("an AI trusts the real leader who approaches after finding it with leadership", () => {
+  const room = new SingleRoom({ random: () => 0 }); const captain = room.join({ nickname: "captain", socket: {} }); const patrol = room.join({ nickname: "patrol", socket: {} }); room.start(captain.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); captain.role = "경찰반장"; captain.announced = "경찰반장"; captain.mana = 200; patrol.role = "순찰경찰"; patrol.announced = "마피아일원"; patrol.aiControlled = true;
+  room.act(captain.id, { skillId: "leadership", role: "순찰경찰" }); room.result = null; room.chat(captain.id, { text: `-${patrol.id} 리더십으로 찾아왔어 너는 순찰경찰이야` }); runStrategicBot(room);
+  assert.equal(patrol.aiMemory.trust[captain.id], 1); assert.equal(patrol.aiMemory.knowledge[captain.id].role, "경찰반장"); assert.match(patrol.whisper?.text ?? "", /리더십으로 나를 찾은 기록/);
+  room.result = null; runStrategicBot(room); assert.equal(patrol.alliances.has(captain.id), true);
+});
+
 test("an AI mafia boss autonomously uses leadership to find its hitman", () => {
   const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const boss = room.join({ nickname: "boss", socket: {} }); room.start(human.id);
   const hitman = room.players.find((player) => ![human.id, boss.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; if (player.role === "히트맨") player.role = "자경단원"; });
