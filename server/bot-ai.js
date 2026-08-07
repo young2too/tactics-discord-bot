@@ -48,6 +48,13 @@ function reportedPairs(room, text) {
   }).filter(Boolean);
 }
 
+function introducedAllies(room, actor, sender, incoming) {
+  if (incoming.channel !== "alliance" || !actor.alliances.has(sender.id) || !/아군|동맹|같은\s*편|서로\s*믿/.test(incoming.text)) return null;
+  const seats = [...new Set([...incoming.text.matchAll(/\d+/g)].map((match) => Number(match[0])))].filter((id) => room.players.some((player) => player.id === id));
+  if (!seats.includes(actor.id)) return null;
+  return room.players.find((player) => player.alive && player.id !== actor.id && seats.includes(player.id)) ?? null;
+}
+
 function replyPrivately(room, actor, recipient, text) {
   if (!room.result) { room.chat(actor.id, { text: `-${recipient.id} ${text}` }); return; }
   const sentAt = room.now(); const message = { from: actor.id, to: recipient.id, text, until: sentAt + 5500 };
@@ -99,6 +106,12 @@ function respondToMessage(room, actor) {
   const sender = room.player(incoming.from); if (!sender.alive) return true;
   const selfRoleClaim = selfClaimedRole(room, incoming.text); const roleClaim = selfRoleClaim ?? claimedRole(room, incoming.text); const skillClaim = claimedSkill(incoming.text);
   const reportMatch = incoming.text.match(/(\d+)번/); const reportedId = Number(reportMatch?.[1] ?? 0); const reportedTarget = room.players.find((player) => player.id === reportedId); const reportedRole = reportMatch ? claimedRole(room, incoming.text.slice(reportMatch.index)) : null;
+  const introducedAlly = introducedAllies(room, actor, sender, incoming);
+  if (introducedAlly) {
+    memory.trust[introducedAlly.id] = Math.max(memory.trust[introducedAlly.id] ?? 0, .7);
+    remember(actor, introducedAlly, { faction: factionOf(actor.role), confidence: .7, source: `${sender.nickname}의 동맹 소개` });
+    replyPrivately(room, actor, sender, `${introducedAlly.id}번을 아군으로 전달받았어. 서로 연결해서 조사 결과를 공유할게.`); return true;
+  }
   if (tryHumanAllianceOrder(room, actor, sender, incoming.text, reportedTarget, reportedRole ?? roleClaim)) return true;
   const reportAt = incoming.at ?? room.now();
   const observedInspection = Boolean(reportedTarget && room.publicInspections?.some((entry) => entry.targetId === reportedTarget.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
@@ -371,7 +384,7 @@ function allowedScanRoles(room, actor, skillId) {
 function tryScan(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => SCANS.has(id) && ready(room, actor, id));
   if (!skillId) return false;
-  const candidates = room.players.filter((target) => target.alive && target.id !== actor.id && !memoryOf(actor).knowledge[target.id]?.role);
+  const candidates = room.players.filter((target) => { const known = memoryOf(actor).knowledge[target.id]; const confirmedAlly = actor.alliances.has(target.id) || (known?.faction === factionOf(actor.role) && (known.confidence ?? 0) >= .7); return target.alive && target.id !== actor.id && !known?.role && !confirmedAlly; });
   const target = pick(room, candidates); if (!target) return false;
   const roles = allowedScanRoles(room, actor, skillId);
   const publicGuess = roles.includes(target.announced) ? target.announced : null;
@@ -388,7 +401,7 @@ function tryClaimCheck(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => CHECKS.has(id) && ready(room, actor, id));
   if (!skillId) return false;
   const mine = factionOf(actor.role);
-  const candidates = room.players.filter((target) => target.alive && target.id !== actor.id && !memoryOf(actor).knowledge[target.id]?.role && target.announced !== "미공표" && (skillId === "ally-check") === (factionOf(target.announced) === mine));
+  const candidates = room.players.filter((target) => target.alive && target.id !== actor.id && !actor.alliances.has(target.id) && !memoryOf(actor).knowledge[target.id]?.role && target.announced !== "미공표" && (skillId === "ally-check") === (factionOf(target.announced) === mine));
   const target = pick(room, candidates); if (!target) return false;
   room.act(actor.id, { skillId, targetId: target.id });
   if (actor.verdict?.success) { remember(actor, target, { role: target.announced, confidence: .8, source: "공표 확인" }); memoryOf(actor).trust[target.id] = Math.max(memoryOf(actor).trust[target.id] ?? 0, .8); }

@@ -483,6 +483,14 @@ test("a trusted intermediary can introduce two allies who stay connected after i
   assert.equal(boss.alliances.has(member.id), true); assert.equal(member.alliances.has(boss.id), true);
 });
 
+test("a human can introduce two AI allies with terse alliance chat", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const left = room.join({ nickname: "left", socket: {} }); const right = room.join({ nickname: "right", socket: {} }); room.start(human.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); human.role = "탐정조수"; left.role = "사립탐정"; left.announced = "사립탐정"; left.aiControlled = true; right.role = "자경단원"; right.announced = "자경단원"; right.aiControlled = true; human.alliances.add(left.id); human.alliances.add(right.id); left.alliances.add(human.id); right.alliances.add(human.id);
+  room.chat(human.id, { text: `${left.id}/${right.id} 아군이야`, channel: "alliance" }); runStrategicBot(room); runStrategicBot(room);
+  assert.ok(left.aiMemory.trust[right.id] >= .7); assert.ok(right.aiMemory.trust[left.id] >= .7);
+  room.result = null; runStrategicBot(room); assert.equal(left.alliances.has(right.id), true); assert.equal(right.alliances.has(left.id), true);
+});
+
 test("an AI private detective publishes a finding that an AI vigilante acts on", () => {
   const room = new SingleRoom({ random: () => 0 }); const detective = room.join({ nickname: "detective", socket: {} }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); room.start(detective.id);
   const hitman = room.players.find((player) => ![detective.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); detective.role = "사립탐정"; detective.announced = "마피아일원"; detective.aiControlled = true; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.mana = 200; vigilante.aiControlled = true; hitman.role = "히트맨"; hitman.announced = "히트맨";
