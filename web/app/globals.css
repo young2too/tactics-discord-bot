@@ -182,6 +182,7 @@ button { font:inherit; }
   .table-core { display:none; }
   .player-seat { position:relative!important;left:auto!important;top:auto!important;transform:none!important;width:100%;min-height:118px;grid-template-columns:64px 1fr;padding:11px 8px; }
   .player-seat:hover { transform:none!important; }
+  .player-seat { touch-action:pan-y;-webkit-touch-callout:none;user-select:none; }
   .portrait { width:62px;height:78px; }
   .player-copy strong { font-size:15px; }
   .player-copy small { font-size:11px;white-space:normal;line-height:1.35; }

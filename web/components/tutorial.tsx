@@ -13,7 +13,7 @@ const basicSteps = [
   ["전장을 읽으세요", "당신은 항상 6시 방향입니다. 번호·공표·생존 여부는 공개되며 실제 직업은 본인과 사망자만 보입니다."],
   ["직업을 공표하세요", "하단 공표 스킬을 누르고 순찰경찰을 선택하세요. 진명 공표로 마나 10을 얻습니다."],
   ["공개 채팅을 보내세요", "오른쪽 채팅창에 아무 메시지나 입력해 전체 플레이어에게 보내세요."],
-  ["귓말을 보내세요", "채팅창에 ‘-3 같이 조사하자’를 입력하세요. 공개 채팅에는 남지 않습니다."],
+  ["귓말을 보내세요", "모바일에서는 3번 플레이어 패널을 길게 누르세요. ‘-3 ’이 자동 입력되면 뒤에 내용을 적어 보내세요. 공개 채팅에는 남지 않습니다."],
   ["동맹을 맺으세요", "하단 동맹 추가 스킬을 누르고 게임판의 2번 민준을 선택하세요."],
   ["동맹 채팅을 보내세요", "채팅창의 동맹 탭으로 전환한 뒤 동맹에게만 보일 메시지를 보내세요."],
   ["공표를 확인하세요", "아군 확인을 누른 뒤 게임판의 4번 서아를 선택하세요."],
@@ -72,7 +72,8 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
   const expectedSkill = [null, "announce", null, null, "ally-add", null, "ally-check", "lower-attack", "lower-attack"][step];
   const calloutSelector = step === 0 ? ".board-area"
     : step === 1 ? (selectedSkill ? '.role-choice[data-role="순찰경찰"]' : ".skill-announce")
-    : step === 2 || step === 3 ? ".chat-form"
+    : step === 2 ? ".chat-form"
+    : step === 3 ? (chatInput.startsWith("-3 ") ? ".chat-form" : ".player-seat:nth-of-type(3)")
     : step === 5 ? ".event-panel"
     : step === 4 ? (selectedSkill ? ".player-seat:nth-of-type(2)" : ".skill-ally-add")
     : step === 6 ? (selectedSkill ? ".player-seat:nth-of-type(4)" : ".skill-ally-check")
@@ -109,7 +110,7 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
   return <main className={`game-shell tutorial-live tutorial-step-${step} ${selectedSkill ? "tutorial-target-phase" : ""}`}>
     <header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>기본 전술 훈련</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {basicSteps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header>
     <div className={`tutorial-guide arrow-${callout.side}`} style={callout.style} role="status"><small>STEP {step + 1}</small><strong>{basicSteps[step][0]}</strong><span>{basicSteps[step][1]}</span>{step === 0 && <button onClick={() => { record("좌석과 공개 정보를 확인했습니다."); next(); }}>확인했어요</button>}</div>
-    <section className="battle-layout"><CommunicationPanel players={players} messages={messages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs} privateLogs={privateLogs}/><Battlefield players={players} mySeatIndex={0} selectedSkill={selectedSkill} notice={notice} effectTarget={effect} alliances={alliances} whisper={whisper} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }} onTarget={chooseTarget} isTargetable={(player) => !player.isMe && player.alive}/><PrivateRolePanel me={me} notice={notice} logs={privateLogs}/></section>
+    <section className="battle-layout"><CommunicationPanel players={players} messages={messages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs} privateLogs={privateLogs}/><Battlefield players={players} mySeatIndex={0} selectedSkill={selectedSkill} notice={notice} effectTarget={effect} alliances={alliances} whisper={whisper} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }} onTarget={chooseTarget} onWhisperPrefill={(player) => { setChatChannel("public"); setChatInput(`-${player.id} `); }} isTargetable={(player) => !player.isMe && player.alive}/><PrivateRolePanel me={me} notice={notice} logs={privateLogs}/></section>
     <SkillDeck me={me} notice={notice} skills={skills} selectedSkill={selectedSkill} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={chooseSkill}/>
     {selectedSkill?.needsRole && (selectedTarget || !selectedSkill.target) && (
       <RoleChoiceModal skill={selectedSkill} target={selectedTarget} roles={modalRoles} onResolve={resolveRole} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }}/>

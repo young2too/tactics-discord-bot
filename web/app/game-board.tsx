@@ -493,7 +493,7 @@ export function GameBoard() {
       <section className="battle-layout">
         <CommunicationPanel players={players} messages={chatMessages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs} privateLogs={privateLogs} />
 
-        <Battlefield players={players} mySeatIndex={mySeatIndex} selectedSkill={selectedSkill} notice={notice} effectTarget={effectTarget} alliances={alliances} whisper={whisperBubble} onCancel={cancelTargeting} onTarget={chooseTarget} isTargetable={isTargetable} />
+        <Battlefield players={players} mySeatIndex={mySeatIndex} selectedSkill={selectedSkill} notice={notice} effectTarget={effectTarget} alliances={alliances} whisper={whisperBubble} onCancel={cancelTargeting} onTarget={chooseTarget} onWhisperPrefill={(player) => { setChatChannel("public"); setChatInput(`-${player.id} `); }} isTargetable={isTargetable} />
 
         <PrivateRolePanel me={me} notice={notice} logs={privateLogs} />
       </section>
