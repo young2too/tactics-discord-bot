@@ -302,15 +302,16 @@ export function GameBoard() {
       setMana((current) => Math.min(MANA_MAX, current + announceGain));
       setPlayers((current) => current.map((player) => player.isMe ? { ...player, announced: guessedRole } : player));
       setLogs((current) => [...current, { time: "지금", icon: "⚑", text: `내가 ${guessedRole}을 공표했습니다.`, tone: "plain" }]);
-      setNotice(`${guessedRole} 공표 완료 · 마나 +${announceGain} · 진명 여부와 보상량은 비공개입니다.`);
+      const message = `${guessedRole} 공표 완료 · 마나 +${announceGain} · 진명 여부와 보상량은 비공개입니다.`;
+      setNotice(message); showVerdict("공표 완료", true, message);
       return;
     }
 
     if (skill.id === "leadership" && guessedRole) {
       const match = players.find((player) => player.alive && player.role === guessedRole);
-      if (!match) { setNotice(`생존 중인 ${guessedRole}이(가) 없습니다.`); return; }
       setUsedOnce((current) => ({ ...current, leadership: true }));
-      setNotice(`리더쉽 결과 · ${guessedRole}은(는) ${match.id}번 ${match.name}입니다.`);
+      const message = match ? `${guessedRole}은(는) ${match.id}번 ${match.name}입니다.` : `생존한 ${guessedRole}은(는) 없습니다.`;
+      setNotice(`리더쉽 결과 · ${message}`); showVerdict("리더십 서치", Boolean(match), message);
       return;
     }
 
@@ -377,12 +378,14 @@ export function GameBoard() {
     if (skill.id === "support") {
       setBotMana((current) => ({ ...current, [target.id]: Math.min(MANA_MAX, (current[target.id] ?? 20) + 30) }));
       setLogs((current) => [...current, { time: "지금", icon: "+", text: `공무원이 ${target.name}에게 마나를 지원했습니다.`, tone: "mana" }]);
-      setNotice(`${target.name}에게 마나 30을 지원했습니다.`);
+      const message = `${target.name}에게 마나 30을 지원했습니다.`;
+      setNotice(message); showVerdict("지원 완료", true, message);
       return;
     }
 
     if (skill.id === "successor") {
       setUsedOnce((current) => ({ ...current, successor: true }));
+      const hit = target.role === "마피아후계자";
       if (target.role === "마피아후계자") {
         setSuccessorId(target.id);
         setNotice(`후계자 지정 성공 · ${target.id}번 ${target.name}이 후계자로 등록되었습니다.`);
@@ -391,11 +394,13 @@ export function GameBoard() {
         setNotice(`후계자 지정 실패 · ${target.name}은(는) 마피아후계자가 아닙니다.`);
         setLogs((current) => [...current, { time: "지금", icon: "!", text: "마피아대부의 후계자 지정이 실패했습니다.", tone: "danger" }]);
       }
+      showVerdict("후계자 지정", hit, hit ? `${target.id}번 ${target.name}이 후계자로 등록되었습니다.` : `${target.name}은(는) 마피아후계자가 아닙니다.`);
       return;
     }
 
     if (skill.id === "snipe-command") {
       setUsedOnce((current) => ({ ...current, "snipe-command": true }));
+      const hit = target.role === "히트맨";
       if (target.role === "히트맨") {
         setSnipeAuthorized(true);
         setNotice(`저격명령 성공 · ${target.id}번 ${target.name}의 저격이 활성화되었습니다.`);
@@ -404,6 +409,7 @@ export function GameBoard() {
         setNotice(`저격명령 실패 · ${target.name}은(는) 히트맨이 아닙니다.`);
         setLogs((current) => [...current, { time: "지금", icon: "⚑", text: "마피아대부의 저격명령이 실패했습니다.", tone: "danger" }]);
       }
+      showVerdict("저격명령", hit, hit ? `${target.name}의 저격을 활성화했습니다.` : `${target.name}은(는) 히트맨이 아닙니다.`);
       return;
     }
 
@@ -411,17 +417,17 @@ export function GameBoard() {
       setUsedOnce((current) => ({ ...current, arrest: true }));
       if (target.role !== "마피아대부") {
         setGameResult({ winner: "mafia", reason: "경찰반장의 검거 실패" });
-        setNotice("검거 실패 · 시민 진영 패배");
+        setNotice("검거 실패 · 시민 진영 패배"); showVerdict("검거 판정", false, `${target.name}은(는) 마피아대부가 아닙니다.`);
         return;
       }
       const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
       setPlayers(nextPlayers);
       const successorAlive = successorId !== null && nextPlayers.some((player) => player.id === successorId && player.alive);
       if (successorAlive) {
-        setNotice("검거 성공 · 살아있는 후계자가 있어 게임이 계속됩니다.");
+        setNotice("검거 성공 · 살아있는 후계자가 있어 게임이 계속됩니다."); showVerdict("검거 판정", true, `${target.name} 검거 성공 · 후계자가 생존해 있습니다.`);
       } else {
         setGameResult({ winner: "citizen", reason: "마피아대부 검거 성공" });
-        setNotice("검거 성공 · 시민 진영 승리");
+        setNotice("검거 성공 · 시민 진영 승리"); showVerdict("검거 판정", true, `${target.name} 검거에 성공했습니다.`);
       }
       return;
     }
@@ -434,19 +440,22 @@ export function GameBoard() {
       setLogs((current) => [...current, { time: "지금", icon: "☠", text: `${skill.name} 발동 · ${target.name}(${target.role}) 사망`, tone: "danger" }]);
       const result = checkVictory(nextPlayers, successorId, ...remainingThreats(nextPlayers));
       if (result) setGameResult(result);
-      setNotice(`${skill.name} 성공 · ${target.name}을(를) 즉사시켰습니다.`);
+      const message = `${skill.name} 성공 · ${target.name}을(를) 즉사시켰습니다.`;
+      setNotice(message); showVerdict(`${skill.name} 완료`, true, message);
       return;
     }
 
     if (skill.id === "ally-add") {
       setAlliances((current) => [...new Set([...current, target.id])]);
-      setNotice(`${target.id}번 ${target.name}과(와) 동맹을 맺었습니다.`);
+      const message = `${target.id}번 ${target.name}과(와) 동맹을 맺었습니다.`;
+      setNotice(message); showVerdict("동맹 체결", true, message);
       return;
     }
 
     if (skill.id === "ally-remove") {
       setAlliances((current) => current.filter((id) => id !== target.id));
-      setNotice(`${target.id}번 ${target.name}과(와)의 동맹을 파기했습니다.`);
+      const message = `${target.id}번 ${target.name}과(와)의 동맹을 파기했습니다.`;
+      setNotice(message); showVerdict("동맹 파기", true, message);
       return;
     }
 
@@ -465,6 +474,7 @@ export function GameBoard() {
     setChatMessages((current) => [...current.slice(-30), { id: Date.now(), from: me.id, text: `📜 [공문] ${text}`, channel: "public" }]);
     setLogs((current) => [...current, { time: "지금", icon: "✉", text: `공무원 공문 · ${text}`, tone: "plain" }]);
     setNotice("공문을 전체 플레이어에게 발송했습니다.");
+    showVerdict("공문 발송", true, "공문을 전체 플레이어에게 발송했습니다.");
     setSkillText(""); setSelectedSkill(null); setChatChannel("public");
   }
 
@@ -507,7 +517,7 @@ export function GameBoard() {
 
       {selectedSkill?.needsText && <ProclamationModal text={skillText} setText={setSkillText} onSubmit={sendProclamation} onCancel={cancelTargeting} />}
 
-      {localVerdict && <div className={`verdict-popup ${localVerdict.success ? "success" : "failure"}`} key={localVerdict.id} role="status"><span>{localVerdict.title}</span><strong>{localVerdict.success ? "맞습니다" : "아닙니다"}</strong><p>{localVerdict.message}</p></div>}
+      {localVerdict && <div className={`verdict-popup ${localVerdict.success ? "success" : "failure"}`} key={localVerdict.id} role="status"><span>{localVerdict.title}</span><strong>{localVerdict.success ? "성공" : "실패"}</strong><p>{localVerdict.message}</p></div>}
 
       {gameResult && <GameOverModal result={gameResult} players={players} />}
     </main>

@@ -119,6 +119,9 @@ test("leadership does not unlock snipe but a correct one-use snipe command does"
   const victim = room.join({ nickname: "victim", socket: {} });
   room.start(boss.id); boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.mana = 200; hitman.role = "히트맨"; victim.role = "자경단원";
   room.act(boss.id, { skillId: "leadership", role: "히트맨" });
+  assert.equal(room.snapshotFor(boss).verdict.title, "리더십 서치");
+  assert.equal(room.snapshotFor(boss).verdict.success, true);
+  assert.match(room.snapshotFor(boss).verdict.message, /hitman/);
   assert.equal(hitman.snipeAuthorized, false);
   assert.equal(room.logs.some((log) => /저격명령/.test(log.text)), false);
   assert.throws(() => room.act(hitman.id, { skillId: "snipe", targetId: victim.id }), /저격명령/);
