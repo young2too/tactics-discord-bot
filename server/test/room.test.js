@@ -189,6 +189,24 @@ test("an unknown public report without an observed inspection does not trigger a
   assert.equal(patrol.lowAttackFails, 0);
 });
 
+test("a patrol trusts and acts on reports from a player it directly ally-checked", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const detective = room.join({ nickname: "detective", socket: {} });
+  const patrol = room.join({ nickname: "patrol", socket: {} });
+  room.start(detective.id);
+  const target = room.players.find((player) => ![detective.id, patrol.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  detective.role = "사립탐정"; detective.announced = "사립탐정"; detective.mana = 200;
+  patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.mana = 200; patrol.aiControlled = true;
+  target.role = "히트맨"; target.announced = "히트맨";
+  patrol.alliances.add(detective.id);
+  patrol.aiMemory = { knowledge: { [detective.id]: { faction: "citizen", confidence: .8, source: "공표 확인", excluded: [] } }, reports: {}, trust: {}, claims: {}, sharedWith: { [detective.id]: true }, lastPublicAt: 0, recentLines: [], inbox: [{ from: detective.id, text: `${target.id}번 히트맨 진명 확인`, channel: "public", respond: true }] };
+  runStrategicBot(room);
+  assert.match(room.chats.at(-1)?.text ?? "", /직접 아군 확인/);
+  room.result = null; runStrategicBot(room);
+  assert.equal(target.alive, false);
+});
+
 test("a lower attacker requires trusted information after one failure", () => {
   const room = new SingleRoom({ random: () => 0 });
   const reporter = room.join({ nickname: "reporter", socket: {} });
