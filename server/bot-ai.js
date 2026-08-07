@@ -74,7 +74,7 @@ function tryHumanAllianceOrder(room, actor, sender, text, target, role) {
     if (SCANS.has(skillId) && role && !allowedScanRoles(room, actor, skillId).includes(role)) throw new Error(`${role}은(는) 이 스캔으로 지정할 수 없어.`);
     room.act(actor.id, { skillId, ...payload });
     if (SCANS.has(skillId) && target && role) { if (actor.verdict?.success) remember(actor, target, { role, source: "인간 동맹 지시" }); else remember(actor, target, { source: "인간 동맹 지시", excludedRole: role }); }
-    if (CHECKS.has(skillId) && target && actor.verdict?.success) { remember(actor, target, { faction: factionOf(target.announced), confidence: .8, source: "인간 동맹 확인 지시" }); memoryOf(actor).trust[target.id] = Math.max(memoryOf(actor).trust[target.id] ?? 0, .8); }
+    if (CHECKS.has(skillId) && target && actor.verdict?.success) { remember(actor, target, { role: target.announced, confidence: .8, source: "인간 동맹 확인 지시" }); memoryOf(actor).trust[target.id] = Math.max(memoryOf(actor).trust[target.id] ?? 0, .8); }
     if (["boss-check", "detective-check"].includes(skillId) && target && actor.verdict?.success) remember(actor, target, { role: skillId === "boss-check" ? "마피아대부" : "사립탐정", source: "인간 동맹 확인 지시" });
     if (skillId === "leadership" && role) { const found = room.players.find((player) => player.alive && player.role === role); if (found) remember(actor, found, { role, source: "인간 동맹 리더십 지시" }); }
     const returnsResult = SCANS.has(skillId) || CHECKS.has(skillId) || ATTACKS.has(skillId) || ["boss-check", "detective-check", "leadership", "snipe", "revenge", "arrest", "snipe-command", "successor"].includes(skillId);
@@ -243,11 +243,12 @@ function tryBridgeAllies(room, actor) {
 }
 
 function tryPublishFinding(room, actor) {
-  if (actor.role !== "사립탐정") return false;
+  const canInvestigateEnemies = (roleSkills[actor.role] ?? []).some((skillId) => ["enemy-scan", "advanced-scan", "enemy-check"].includes(skillId));
+  if (factionOf(actor.role) !== "citizen" || !canInvestigateEnemies) return false;
   const memory = memoryOf(actor); const target = room.players.find((player) => player.alive && player.id !== actor.id && memory.knowledge[player.id]?.role && memory.knowledge[player.id].faction !== factionOf(actor.role) && (memory.knowledge[player.id].confidence ?? 0) >= .8 && !memory.publishedFindings[player.id]);
   if (!target) return false;
   const role = memory.knowledge[target.id].role; memory.publishedFindings[target.id] = true;
-  room.chat(actor.id, { text: `나는 사립탐정이야. ${target.id}번 ${role} 스캔 성공. 공격권 있는 시민은 ${role}(으)로 쳐줘.`, aiBroadcast: true }); return true;
+  room.chat(actor.id, { text: `나는 ${actor.role}이야. ${target.id}번 ${role} 조사 성공. 공격권 있는 시민은 ${role}(으)로 쳐줘.`, aiBroadcast: true }); return true;
 }
 
 function whisperIntroduction(room, actor, target) {
@@ -369,7 +370,7 @@ function tryClaimCheck(room, actor) {
   const candidates = room.players.filter((target) => target.alive && target.id !== actor.id && !memoryOf(actor).knowledge[target.id]?.role && target.announced !== "미공표" && (skillId === "ally-check") === (factionOf(target.announced) === mine));
   const target = pick(room, candidates); if (!target) return false;
   room.act(actor.id, { skillId, targetId: target.id });
-  if (actor.verdict?.success) { remember(actor, target, { faction: factionOf(target.announced), confidence: .8, source: "공표 확인" }); memoryOf(actor).trust[target.id] = Math.max(memoryOf(actor).trust[target.id] ?? 0, .8); }
+  if (actor.verdict?.success) { remember(actor, target, { role: target.announced, confidence: .8, source: "공표 확인" }); memoryOf(actor).trust[target.id] = Math.max(memoryOf(actor).trust[target.id] ?? 0, .8); }
   return true;
 }
 

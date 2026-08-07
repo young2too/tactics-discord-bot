@@ -472,9 +472,17 @@ test("an AI private detective publishes a finding that an AI vigilante acts on",
   const hitman = room.players.find((player) => ![detective.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); detective.role = "사립탐정"; detective.announced = "마피아일원"; detective.aiControlled = true; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.mana = 200; vigilante.aiControlled = true; hitman.role = "히트맨"; hitman.announced = "히트맨";
   detective.aiMemory = { knowledge: { [hitman.id]: { role: "히트맨", faction: "mafia", confidence: 1, source: "스캔", excluded: [] } }, trust: {}, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
   room.recordInspection(hitman);
-  runStrategicBot(room); assert.match(room.chats.at(-1)?.text ?? "", new RegExp(`${hitman.id}번 히트맨 스캔 성공`));
+  runStrategicBot(room); assert.match(room.chats.at(-1)?.text ?? "", new RegExp(`${hitman.id}번 히트맨 조사 성공`));
   detective.aiControlled = false; room.result = null; runStrategicBot(room); room.result = null; runStrategicBot(room);
   assert.equal(hitman.alive, false);
+});
+
+test("a citizen AI that enemy-checks mafia publishes the result for attackers", () => {
+  const room = new SingleRoom({ random: () => 0 }); const assistant = room.join({ nickname: "assistant", socket: {} }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); room.start(assistant.id);
+  const member = room.players.find((player) => ![assistant.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); assistant.role = "탐정조수"; assistant.announced = "탐정조수"; assistant.aiControlled = true; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.aiControlled = true; vigilante.mana = 200; member.role = "마피아일원"; member.announced = "마피아일원";
+  assistant.aiMemory = { knowledge: { [member.id]: { role: "마피아일원", faction: "mafia", confidence: .8, source: "공표 확인", excluded: [] } }, trust: {}, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
+  room.recordInspection(member); runStrategicBot(room); assert.match(room.chats.at(-1)?.text ?? "", /탐정조수.*마피아일원 조사 성공/);
+  assistant.aiControlled = false; room.result = null; runStrategicBot(room); room.result = null; runStrategicBot(room); assert.equal(member.alive, false);
 });
 
 test("a private detective's reports become trusted when their role is revealed on death", () => {
