@@ -82,6 +82,13 @@ function respondToMessage(room, actor) {
   if (selfRoleClaim) memory.claims[sender.id] = { ...(memory.claims[sender.id] ?? {}), role: selfRoleClaim, trust: memory.trust[sender.id] ?? .15 };
   if (reportedTarget && reportedRole && reportedTarget.id !== sender.id && /진명|확인|맞아|맞음|찾았/.test(incoming.text)) memory.reports[reportedTarget.id] = { role: reportedRole, reporterId: sender.id, source: skillClaim?.label ?? "제보", evidence: observedInspection ? .55 : .1 };
   const verified = memory.knowledge[sender.id]; let response;
+  const requestsSnipeProof = actor.role === "마피아대부" && selfRoleClaim === "히트맨" && sender.announced === "히트맨" && /저격\s*명령/.test(incoming.text);
+  if (requestsSnipeProof && ready(room, actor, "snipe-command")) {
+    room.act(actor.id, { skillId: "snipe-command", targetId: sender.id });
+    if (actor.verdict?.success) { memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: "히트맨", trust: 1, source: "저격명령 검증" }; remember(actor, sender, { role: "히트맨", confidence: 1, source: "저격명령 검증" }); }
+    if (!room.result) room.chat(actor.id, { text: `-${sender.id} 저격명령으로 확인했어. 이제 히트맨으로 확정하고 같이 움직일게.` });
+    return true;
+  }
   const trustedBoss = actor.role === "히트맨" && (commanderProof || (verified?.role === "마피아대부" && (verified.confidence ?? 0) >= .8));
   const wantsSnipe = reportedTarget && /저격|쏴|사살/.test(incoming.text);
   const wantsScan = reportedTarget && reportedRole && /스캔|살펴|확인해/.test(incoming.text);
@@ -116,12 +123,19 @@ function respondToMessage(room, actor) {
   const privateRoleProof = selfRoleClaim && skillClaim && ((actor.role === "사립탐정" && selfRoleClaim === "탐정조수" && skillClaim.id === "detective-check") || (actor.role === "마피아대부" && selfRoleClaim === "마피아후계자" && skillClaim.id === "boss-check"));
   const reciprocalClaimRole = selfRoleClaim ?? sender.announced;
   const reciprocalAllyProof = incoming.channel !== "public" && observedSelfInspection && /아확|아군\s*확인|확인.*왔|찾아왔/.test(incoming.text) && (roleSkills[reciprocalClaimRole] ?? []).includes("ally-check") && factionOf(reciprocalClaimRole) === factionOf(actor.announced);
+  const privateMafiaApproach = incoming.channel !== "public" && factionOf(actor.role) === "mafia" && selfRoleClaim && factionOf(selfRoleClaim) === "mafia" && sender.announced === selfRoleClaim;
   const privateAllyTrust = Math.max(memory.trust[sender.id] ?? memory.claims[sender.id]?.trust ?? 0, verified?.faction === factionOf(actor.role) ? verified.confidence ?? 0 : 0);
   if (asksIdentity && incoming.channel !== "public" && privateAllyTrust >= .7) {
     response = `나는 ${actor.role}이야. 내가 직접 확인한 아군이니까 정체를 공유할게.`;
+  } else if (selfRoleClaim && skillClaim && !(roleSkills[selfRoleClaim] ?? []).includes(skillClaim.id)) {
+    response = `${selfRoleClaim}(은)는 ${skillClaim.label}을 쓸 수 없는데? 그 말은 못 믿겠어.`;
+    memory.trust[sender.id] = -.5; memory.claims[sender.id] = { role: selfRoleClaim, trust: -.5, contradiction: `${skillClaim.label} 사용 불가` };
   } else if (reciprocalAllyProof) {
     memory.trust[sender.id] = .75; memory.claims[sender.id] = { role: reciprocalClaimRole, trust: .75, source: "직후 아군 확인 접촉" }; remember(actor, sender, { role: reciprocalClaimRole, confidence: .75, source: "직후 아군 확인 접촉" });
     response = `조금 전 나에게 확인 이펙트가 들어왔고 공표한 ${reciprocalClaimRole}도 아군 확인을 쓸 수 있어. 네가 찾아온 정황을 믿을게.`;
+  } else if (privateMafiaApproach) {
+    memory.trust[sender.id] = Math.max(memory.trust[sender.id] ?? 0, .7); memory.claims[sender.id] = { role: selfRoleClaim, trust: .7, source: "마피아 비공개 접촉" }; remember(actor, sender, { role: selfRoleClaim, confidence: .7, source: "마피아 비공개 접촉" });
+    response = `${selfRoleClaim} 공표 상태로 비공개 접촉한 건 확인했어. 우선 같은 진영 후보로 연대할게.`;
   } else if (privateRoleProof) {
     memory.trust[sender.id] = .85; remember(actor, sender, { role: selfRoleClaim, confidence: .85, source: skillClaim.label });
     response = `${skillClaim.label}으로 나를 찾아온 정황은 강한 증거야. ${selfRoleClaim}으로 우선 신뢰할게.`;
@@ -129,9 +143,6 @@ function respondToMessage(room, actor) {
     response = `응, 내가 직접 아군 확인한 ${sender.id}번의 제보니까 신뢰하고 움직일게.`;
   } else if (reportedTarget && reportedRole && observedInspection) {
     response = `방금 ${reportedTarget.id}번을 살핀 이펙트 직후 나온 제보라 맥락은 맞아. ${reportedRole} 후보로 우선 보겠어.`;
-  } else if (selfRoleClaim && skillClaim && !(roleSkills[selfRoleClaim] ?? []).includes(skillClaim.id)) {
-    response = `${selfRoleClaim}(은)는 ${skillClaim.label}을 쓸 수 없는데? 그 말은 못 믿겠어.`;
-    memory.trust[sender.id] = -.5; memory.claims[sender.id] = { role: selfRoleClaim, trust: -.5, contradiction: `${skillClaim.label} 사용 불가` };
   } else if (verified?.role) {
     response = roleClaim === verified.role
       ? `응, 내가 직접 확인한 정보와 일치해. ${sender.id}번 ${roleClaim}으로 믿고 움직일게.`
@@ -230,6 +241,16 @@ function tryRoleCheck(room, actor) {
   return true;
 }
 
+function tryLeadership(room, actor) {
+  if (!(roleSkills[actor.role] ?? []).includes("leadership") || !ready(room, actor, "leadership") || actor.announced !== actor.role) return false;
+  const priorities = factionOf(actor.role) === "mafia" ? ["히트맨", "마피아후계자", "마피아일원", "스파이"] : ["사립탐정", "자경단원", "순찰경찰", "탐정조수", "공무원"];
+  const role = priorities.find((candidate) => formations[room.totalPlayers].includes(candidate) && !Object.values(memoryOf(actor).knowledge).some((known) => known.role === candidate));
+  if (!role) return false;
+  room.act(actor.id, { skillId: "leadership", role });
+  const found = room.players.find((player) => player.alive && player.role === role); if (found) remember(actor, found, { role, confidence: 1, source: "리더십" });
+  return true;
+}
+
 function allowedScanRoles(room, actor, skillId) {
   let roles = formations[room.totalPlayers];
   if (skillId === "ally-scan") roles = roles.filter((role) => factionOf(role) === factionOf(actor.role));
@@ -296,7 +317,7 @@ export function runStrategicBot(room) {
       room.act(actor.id, { skillId: "announce", role: claim }); return;
     }
     if (tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor)) return;
-    if (tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
+    if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
     tryPublicChat(room, actor);
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }
 }

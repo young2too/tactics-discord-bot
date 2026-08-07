@@ -395,6 +395,30 @@ test("an allied human can order an AI leader to use leadership", () => {
   assert.equal(boss.aiMemory.knowledge[hitman.id].role, "히트맨"); assert.equal(boss.usedOnce.leadership, true);
 });
 
+test("an AI mafia boss autonomously uses leadership to find its hitman", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const boss = room.join({ nickname: "boss", socket: {} }); room.start(human.id);
+  const hitman = room.players.find((player) => ![human.id, boss.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; if (player.role === "히트맨") player.role = "자경단원"; });
+  boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.aiControlled = true; boss.mana = 200; hitman.role = "히트맨"; hitman.announced = "히트맨";
+  runStrategicBot(room);
+  assert.equal(boss.aiMemory.knowledge[hitman.id].role, "히트맨"); assert.equal(boss.usedOnce.leadership, true);
+  room.result = null; runStrategicBot(room); assert.equal(boss.alliances.has(hitman.id), true);
+});
+
+test("a human hitman can ask an unallied AI boss to verify it with snipe command", () => {
+  const room = new SingleRoom({ random: () => 0 }); const hitman = room.join({ nickname: "hitman", socket: {} }); const boss = room.join({ nickname: "boss", socket: {} }); room.start(hitman.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); hitman.role = "히트맨"; hitman.announced = "히트맨"; boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.aiControlled = true; boss.mana = 200;
+  room.chat(hitman.id, { text: `-${boss.id} 나는 히트맨이야. 저격명령으로 확인해줘.` }); runStrategicBot(room);
+  assert.equal(hitman.snipeAuthorized, true); assert.equal(boss.aiMemory.trust[hitman.id], 1);
+  room.result = null; runStrategicBot(room); assert.equal(boss.alliances.has(hitman.id), true);
+});
+
+test("a privately approaching human mafia member can form a provisional mafia alliance", () => {
+  const room = new SingleRoom({ random: () => 0 }); const member = room.join({ nickname: "member", socket: {} }); const boss = room.join({ nickname: "boss", socket: {} }); room.start(member.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); member.role = "마피아일원"; member.announced = "마피아일원"; boss.role = "마피아대부"; boss.announced = "마피아대부"; boss.aiControlled = true; boss.mana = 200;
+  room.chat(member.id, { text: `-${boss.id} 나는 마피아일원이야. 같이 움직이자.` }); runStrategicBot(room);
+  assert.equal(boss.aiMemory.trust[member.id], .7); room.result = null; runStrategicBot(room); assert.equal(boss.alliances.has(member.id), true);
+});
+
 test("both sides receive distinct alliance and shared hostility notifications", () => {
   let now = 1_000;
   const room = new SingleRoom({ now: () => now, random: () => 0.5 });
