@@ -36,8 +36,9 @@ export function MultiplayerGame({ room }: { room: RoomController }) {
     if (!selectedSkill) return [];
     let roles = formations[players.length].map((name) => ({ name, faction: factionOf(name) }));
     if (selectedSkill.id === "ally-scan" || selectedSkill.id === "leadership") roles = roles.filter((role) => role.faction === me.faction);
+    if (selectedSkill.id === "advanced-scan") roles = roles.filter((role) => role.name !== "경찰반장");
     if (selectedSkill.id === "enemy-scan") roles = roles.filter((role) => role.faction !== me.faction && role.name !== "마피아대부" && role.name !== "경찰반장");
-    else if (selectedSkill.id !== "announce" && selectedSkill.id !== "ally-scan" && selectedSkill.id !== "leadership") roles = roles.filter((role) => role.faction !== me.faction);
+    else if (selectedSkill.id !== "announce" && selectedSkill.id !== "ally-scan" && selectedSkill.id !== "advanced-scan" && selectedSkill.id !== "leadership") roles = roles.filter((role) => role.faction !== me.faction);
     const deadRoles = new Set(players.filter((player) => !player.alive).map((player) => player.role));
     return roles.filter((role) => !deadRoles.has(role.name));
   }, [selectedSkill, players, me.faction]);

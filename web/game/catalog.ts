@@ -16,6 +16,7 @@ export const skillCatalog: Record<string, Skill> = {
   "ally-check": { id: "ally-check", key: "W", name: "아군 확인", icon: "◉", cost: 5, target: true, needsRole: false, tone: "blue", cooldown: 10 },
   "enemy-check": { id: "enemy-check", key: "W", name: "적군 확인", icon: "◉", cost: 10, target: true, needsRole: false, tone: "blue", cooldown: 10 },
   "ally-scan": { id: "ally-scan", key: "E", name: "아군 스캔", icon: "⌁", cost: 15, target: true, needsRole: true, tone: "blue", cooldown: 10 },
+  "advanced-scan": { id: "advanced-scan", key: "E", name: "상급 스캔", icon: "⌁", cost: 15, target: true, needsRole: true, tone: "gold", cooldown: 10 },
   "enemy-scan": { id: "enemy-scan", key: "E", name: "적군 스캔", icon: "⌁", cost: 20, target: true, needsRole: true, tone: "blue", cooldown: 10 },
   "upper-attack": { id: "upper-attack", key: "R", name: "상급 공격", icon: "︻╦╤─", cost: 40, target: true, needsRole: true, tone: "red", cooldown: 10 },
   "lower-attack": { id: "lower-attack", key: "R", name: "하급 공격", icon: "⌐╦", cost: 30, target: true, needsRole: true, tone: "red", cooldown: 10 },
@@ -39,6 +40,7 @@ export const skillTooltips: Record<string, SkillTooltip> = {
   "ally-check": { description: "아군 진영의 이름을 공표한 대상이 진명을 말했는지 확인합니다.", condition: "아군 진영 이름을 공표한 생존자만 지정할 수 있습니다.", warning: "시민으로 위장한 스파이에게 속을 수 있습니다." },
   "enemy-check": { description: "적군 진영의 이름을 공표한 대상이 진명을 말했는지 확인합니다.", condition: "적군 진영 이름을 공표한 생존자만 지정할 수 있습니다." },
   "ally-scan": { description: "대상과 아군 직업 하나를 지목하여 실제 직업이 맞는지 판정합니다.", condition: "생존자 선택 후 현재 포메이션의 아군 직업을 지정합니다." },
+  "advanced-scan": { description: "아군과 적군을 가리지 않고 대상의 실제 직업을 추측하여 판정합니다.", condition: "생존자 선택 후 현재 포메이션의 생존 직업을 지정합니다.", warning: "적 진영 리더인 경찰반장은 스캔 목록에서 제외됩니다." },
   "enemy-scan": { description: "대상과 적군 직업 하나를 지목하여 실제 직업이 맞는지 판정합니다.", condition: "생존자 선택 후 현재 포메이션의 적군 직업을 지정합니다.", warning: "히트맨은 경찰반장, 사립탐정은 마피아대부를 지목할 수 없습니다." },
   "upper-attack": { description: "대상의 실제 직업을 정확히 지목하면 처치합니다. 실패해도 별도 패널티는 없습니다.", condition: "생존자 선택 후 적군 직업을 지정합니다." },
   "lower-attack": { description: "대상의 실제 직업을 정확히 지목하면 처치합니다.", condition: "생존자 선택 후 적군 직업을 지정합니다.", warning: "누적 2회 실패하면 자멸합니다. 순찰경찰 생존 중에는 경찰반장을 지목할 수 없습니다." },
@@ -59,7 +61,7 @@ export const skillTooltips: Record<string, SkillTooltip> = {
 
 export const roleSkillIds: Record<string, string[]> = {
   마피아대부: ["leadership", "lower-attack", "successor", "snipe-command"], 히트맨: ["enemy-scan", "snipe"], 마피아일원: ["upper-attack"],
-  마피아후계자: ["ally-scan", "boss-check"], 스파이: ["deception"], 경찰반장: ["ally-check", "leadership", "arrest"],
+  마피아후계자: ["advanced-scan", "boss-check"], 스파이: ["deception"], 경찰반장: ["ally-check", "leadership", "arrest"],
   자경단원: ["upper-attack"], 사립탐정: ["enemy-scan"], 순찰경찰: ["ally-check", "lower-attack"],
   탐정조수: ["detective-check", "enemy-check"], 남자연인: ["ally-check", "revenge"], 여자연인: ["enemy-check", "revenge"], 공무원: ["support", "proclamation"],
 };

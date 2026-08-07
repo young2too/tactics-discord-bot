@@ -45,6 +45,17 @@ test("enemy scanners cannot nominate the opposing leader", () => {
   assert.throws(() => room.act(host.id, { skillId: "enemy-scan", targetId: guest.id, role: "경찰반장" }), /리더/);
 });
 
+test("mafia successor advanced scan covers both factions but excludes the police captain", () => {
+  const room = new SingleRoom({ random: () => 0.5 });
+  const host = room.join({ nickname: "host", socket: {} });
+  const guest = room.join({ nickname: "guest", socket: {} });
+  room.start(host.id); host.role = "마피아후계자"; guest.role = "자경단원"; host.mana = 100;
+  room.act(host.id, { skillId: "advanced-scan", targetId: guest.id, role: "자경단원" });
+  assert.equal(room.snapshotFor(host).verdict.success, true);
+  host.cooldowns["advanced-scan"] = 0;
+  assert.throws(() => room.act(host.id, { skillId: "advanced-scan", targetId: guest.id, role: "경찰반장" }), /리더/);
+});
+
 test("disconnect hands the live seat to AI and token reconnect takes it back", () => {
   const room = new SingleRoom({ random: () => 0.5 }); const socket = {};
   const host = room.join({ nickname: "host", socket }); room.start(host.id); room.disconnect(socket);

@@ -30,7 +30,7 @@ export const roleGuide: { name: string; faction: Faction; summary: string; skill
   { name: "마피아대부", faction: "mafia", summary: "마피아의 리더. 지휘와 공격, 승계를 관리합니다.", skills: ["leadership", "lower-attack", "successor", "snipe-command"] },
   { name: "히트맨", faction: "mafia", summary: "적을 스캔하고 대부의 명령으로 결정적인 저격을 합니다.", skills: ["enemy-scan", "snipe"] },
   { name: "마피아일원", faction: "mafia", summary: "패널티 없는 상급공격을 사용하는 공격수입니다.", skills: ["upper-attack"] },
-  { name: "마피아후계자", faction: "mafia", summary: "대부의 뒤를 잇고 아군의 정체를 찾습니다.", skills: ["ally-scan", "boss-check"] },
+  { name: "마피아후계자", faction: "mafia", summary: "대부의 뒤를 잇고 양 진영의 정체를 폭넓게 추적합니다.", skills: ["advanced-scan", "boss-check"] },
   { name: "스파이", faction: "mafia", summary: "시민 공표로 아군 확인을 속이는 잠입자입니다.", skills: ["deception"] },
   { name: "경찰반장", faction: "citizen", summary: "시민의 리더. 검거의 성공과 실패가 즉시 승패를 결정합니다.", skills: ["ally-check", "leadership", "arrest"] },
   { name: "자경단원", faction: "citizen", summary: "패널티 없는 상급공격을 사용하는 시민 공격수입니다.", skills: ["upper-attack"] },

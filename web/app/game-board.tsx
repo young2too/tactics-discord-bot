@@ -161,6 +161,7 @@ export function GameBoard() {
     const livingRoles = new Set(players.filter((player) => player.alive).map((player) => player.role));
     const availableFormation = currentFormation.filter((item) => livingRoles.has(item.name));
     if (selectedSkill.id === "ally-scan" || selectedSkill.id === "leadership") return availableFormation.filter((item) => item.faction === me.faction);
+    if (selectedSkill.id === "advanced-scan") return availableFormation.filter((item) => item.name !== "경찰반장");
     if (selectedSkill.id === "enemy-scan") return availableFormation.filter((item) => item.faction !== me.faction && item.name !== "마피아대부" && item.name !== "경찰반장");
     return availableFormation.filter((item) => item.faction !== me.faction);
   }, [selectedSkill, players, me.faction]);
@@ -312,12 +313,12 @@ export function GameBoard() {
     }
 
     if (!target) return;
-    const inspectSkills = ["ally-scan", "enemy-scan", "ally-check", "enemy-check", "boss-check", "detective-check"];
+    const inspectSkills = ["ally-scan", "advanced-scan", "enemy-scan", "ally-check", "enemy-check", "boss-check", "detective-check"];
     const attackSkills = ["upper-attack", "lower-attack", "snipe", "revenge", "arrest"];
     const publicEffectType = inspectSkills.includes(skill.id) ? "inspect" : attackSkills.includes(skill.id) ? "attack" : null;
     if (publicEffectType) { setEffectTarget({ id: target.id, type: publicEffectType }); window.setTimeout(() => setEffectTarget(null), 1400); }
 
-    if (skill.id === "ally-scan" || skill.id === "enemy-scan") {
+    if (skill.id === "ally-scan" || skill.id === "advanced-scan" || skill.id === "enemy-scan") {
       const hit = guessedRole === target.role;
       setLogs((current) => [...current, { time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }]);
       setNotice(hit ? `스캔 성공 · ${target.name}은(는) ${target.role}입니다.` : `스캔 실패 · ${target.name}은(는) ${guessedRole}이(가) 아닙니다.`);

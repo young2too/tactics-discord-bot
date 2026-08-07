@@ -11,13 +11,13 @@ export const botNames = ["AI 준서", "AI 민지", "AI 하림", "AI 태윤", "AI
 export const factionOf = (role) => ["마피아대부", "히트맨", "마피아일원", "마피아후계자", "스파이"].includes(role) ? "mafia" : "citizen";
 export const roleSkills = {
   마피아대부: ["leadership", "lower-attack", "successor", "snipe-command"], 히트맨: ["enemy-scan", "snipe"], 마피아일원: ["upper-attack"],
-  마피아후계자: ["ally-scan", "boss-check"], 스파이: ["deception"], 경찰반장: ["ally-check", "leadership", "arrest"],
+  마피아후계자: ["advanced-scan", "boss-check"], 스파이: ["deception"], 경찰반장: ["ally-check", "leadership", "arrest"],
   자경단원: ["upper-attack"], 사립탐정: ["enemy-scan"], 순찰경찰: ["ally-check", "lower-attack"],
   탐정조수: ["detective-check", "enemy-check"], 남자연인: ["ally-check", "revenge"], 여자연인: ["enemy-check", "revenge"], 공무원: ["support", "proclamation"],
 };
 export const skills = {
   announce: { cost: 0, cooldown: 90, role: true }, "ally-check": { cost: 5, cooldown: 10, target: true },
-  "enemy-check": { cost: 10, cooldown: 10, target: true }, "ally-scan": { cost: 15, cooldown: 10, target: true, role: true },
+  "enemy-check": { cost: 10, cooldown: 10, target: true }, "ally-scan": { cost: 15, cooldown: 10, target: true, role: true }, "advanced-scan": { cost: 15, cooldown: 10, target: true, role: true },
   "enemy-scan": { cost: 20, cooldown: 10, target: true, role: true }, "upper-attack": { cost: 40, cooldown: 10, target: true, role: true },
   "lower-attack": { cost: 30, cooldown: 10, target: true, role: true }, "boss-check": { cost: 10, cooldown: 10, target: true },
   "detective-check": { cost: 10, cooldown: 10, target: true }, support: { cost: 20, cooldown: 10, target: true },

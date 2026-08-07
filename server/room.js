@@ -64,6 +64,7 @@ export class SingleRoom {
     const guessedRole = payload.role ? String(payload.role) : null;
     if (skill.role && !formations[this.totalPlayers].includes(guessedRole)) throw new Error("유효한 직업을 선택하세요.");
     if (skillId === "enemy-scan" && ((factionOf(actor.role) === "mafia" && guessedRole === "경찰반장") || (factionOf(actor.role) === "citizen" && guessedRole === "마피아대부"))) throw new Error("적군 스캔으로 상대 진영 리더를 지정할 수 없습니다.");
+    if (skillId === "advanced-scan" && guessedRole === "경찰반장") throw new Error("상급 스캔으로 적 진영 리더인 경찰반장을 지정할 수 없습니다.");
     if (skill.text && !String(payload.text ?? "").trim()) throw new Error("내용을 입력하세요.");
     this.validateSpecial(actor, skillId, target);
     if (["upper-attack", "lower-attack"].includes(skillId) && guessedRole === "경찰반장" && this.players.some((player) => player.alive && player.role === "순찰경찰")) {
@@ -101,7 +102,7 @@ export class SingleRoom {
       this.notify(actor, adding ? "동맹 체결" : "동맹 파기", actorMessage, adding ? "alliance" : "hostile");
       this.notify(target, adding ? "동맹 요청 수신" : "동맹 파기", targetMessage, adding ? "alliance" : "hostile"); return;
     }
-    if (["ally-scan", "enemy-scan"].includes(skillId)) { this.effect = { id: target.id, type: "inspect", until: this.now() + 1500 }; const hit = guessedRole === target.role; const message = hit ? `${target.nickname}은(는) ${target.role}입니다.` : `${target.nickname}은(는) ${guessedRole}이(가) 아닙니다.`; this.addLog("🔎", `누군가가 ${target.nickname}을(를) 살피고 있습니다.`, "scan"); this.private(actor, `스캔 ${hit ? "성공" : "실패"} · ${message}`); this.verdict(actor, "스캔 판정", hit, message); return; }
+    if (["ally-scan", "enemy-scan", "advanced-scan"].includes(skillId)) { this.effect = { id: target.id, type: "inspect", until: this.now() + 1500 }; const hit = guessedRole === target.role; const message = hit ? `${target.nickname}은(는) ${target.role}입니다.` : `${target.nickname}은(는) ${guessedRole}이(가) 아닙니다.`; this.addLog("🔎", `누군가가 ${target.nickname}을(를) 살피고 있습니다.`, "scan"); this.private(actor, `스캔 ${hit ? "성공" : "실패"} · ${message}`); this.verdict(actor, "스캔 판정", hit, message); return; }
     if (["ally-check", "enemy-check"].includes(skillId)) { this.effect = { id: target.id, type: "inspect", until: this.now() + 1500 }; const fooled = skillId === "ally-check" && target.role === "스파이" && factionOf(target.announced) === "citizen" && factionOf(actor.role) === "citizen"; const hit = fooled || target.announced === target.role; const message = `${target.nickname}의 ${target.announced} 공표는 ${hit ? "진명" : "가명"}입니다.`; this.addLog("🔎", `누군가가 ${target.nickname}을(를) 살피고 있습니다.`, "scan"); this.private(actor, message); this.verdict(actor, "공표 확인", hit, message); return; }
     if (skillId === "boss-check" || skillId === "detective-check") { this.effect = { id: target.id, type: "inspect", until: this.now() + 1500 }; const role = skillId === "boss-check" ? "마피아대부" : "사립탐정"; const hit = target.role === role; const message = `${target.nickname}은(는) ${role}${hit ? "이 맞습니다" : "이 아닙니다"}.`; this.private(actor, message); this.verdict(actor, "직업 확인", hit, message); return; }
     if (skillId === "support") { target.mana = Math.min(MANA_MAX, target.mana + 30); this.addLog("+", `공무원이 ${target.nickname}에게 마나를 지원합니다.`, "mana"); this.private(actor, `${target.nickname}에게 마나 30을 지원했습니다.`); this.private(target, "공무원에게서 마나 30을 지원받았습니다."); return; }
