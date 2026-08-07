@@ -7,7 +7,7 @@ const ORDER_LABELS = { "snipe-command": "저격명령", successor: "후계자 �
 
 function memoryOf(actor) {
   actor.aiMemory ??= {};
-  actor.aiMemory.knowledge ??= {}; actor.aiMemory.sharedWith ??= {}; actor.aiMemory.bridged ??= {}; actor.aiMemory.lastPublicAt ??= 0; actor.aiMemory.recentLines ??= []; actor.aiMemory.inbox ??= []; actor.aiMemory.claims ??= {}; actor.aiMemory.trust ??= {}; actor.aiMemory.reports ??= {};
+  actor.aiMemory.knowledge ??= {}; actor.aiMemory.sharedWith ??= {}; actor.aiMemory.bridged ??= {}; actor.aiMemory.publishedFindings ??= {}; actor.aiMemory.lastPublicAt ??= 0; actor.aiMemory.recentLines ??= []; actor.aiMemory.inbox ??= []; actor.aiMemory.claims ??= {}; actor.aiMemory.trust ??= {}; actor.aiMemory.reports ??= {};
   return actor.aiMemory;
 }
 
@@ -82,7 +82,7 @@ function respondToMessage(room, actor) {
   if (commanderProof) { memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: "마피아대부", trust: 1, source: "저격명령" }; remember(actor, sender, { role: "마피아대부", confidence: 1, source: "저격명령" }); }
   if (selfRoleClaim) memory.claims[sender.id] = { ...(memory.claims[sender.id] ?? {}), role: selfRoleClaim, trust: memory.trust[sender.id] ?? .15 };
   const publicInvestigationOrder = incoming.channel === "public" && observedInspection && selfRoleClaim && (roleSkills[selfRoleClaim] ?? []).some((id) => SCANS.has(id)) && /공격|쳐|때려|잡아/.test(incoming.text);
-  if (reportedTarget && reportedRole && reportedTarget.id !== sender.id && (/진명|확인|맞아|맞음|찾았/.test(incoming.text) || publicInvestigationOrder)) memory.reports[reportedTarget.id] = { role: reportedRole, reporterId: sender.id, source: publicInvestigationOrder ? "공개 합동수사" : skillClaim?.label ?? "제보", evidence: observedInspection ? .55 : .1 };
+  if (reportedTarget && reportedRole && reportedTarget.id !== sender.id && (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || publicInvestigationOrder)) memory.reports[reportedTarget.id] = { role: reportedRole, reporterId: sender.id, source: publicInvestigationOrder ? "공개 합동수사" : skillClaim?.label ?? "제보", evidence: observedInspection ? .55 : .1 };
   const verified = memory.knowledge[sender.id]; let response;
   const requestsSnipeProof = actor.role === "마피아대부" && selfRoleClaim === "히트맨" && /저격\s*명령/.test(incoming.text);
   if (requestsSnipeProof && ready(room, actor, "snipe-command")) {
@@ -218,6 +218,14 @@ function tryBridgeAllies(room, actor) {
   return false;
 }
 
+function tryPublishFinding(room, actor) {
+  if (actor.role !== "사립탐정") return false;
+  const memory = memoryOf(actor); const target = room.players.find((player) => player.alive && player.id !== actor.id && memory.knowledge[player.id]?.role && memory.knowledge[player.id].faction !== factionOf(actor.role) && (memory.knowledge[player.id].confidence ?? 0) >= .8 && !memory.publishedFindings[player.id]);
+  if (!target) return false;
+  const role = memory.knowledge[target.id].role; memory.publishedFindings[target.id] = true;
+  room.chat(actor.id, { text: `나는 사립탐정이야. ${target.id}번 ${role} 스캔 성공. 공격권 있는 시민은 ${role}(으)로 쳐줘.`, aiBroadcast: true }); return true;
+}
+
 function whisperIntroduction(room, actor, target) {
   const known = memoryOf(actor).knowledge[target.id];
   const source = known?.source ?? "조사";
@@ -344,7 +352,7 @@ export function runStrategicBot(room) {
       const roles = formations[room.totalPlayers]; const claim = room.random() < .68 ? actor.role : pick(room, roles);
       room.act(actor.id, { skillId: "announce", role: claim }); return;
     }
-    if (tryBridgeAllies(room, actor) || tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor)) return;
+    if (tryPublishFinding(room, actor) || tryBridgeAllies(room, actor) || tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor)) return;
     if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
     tryPublicChat(room, actor);
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }
