@@ -301,18 +301,18 @@ html,body { background:#142029; }
   .mobile-panel-chat .event-panel,.mobile-panel-skills .command-deck { opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0); }
   .mobile-panel-shade { position:fixed;z-index:70;inset:58px 0 0;border:0;background:#06101773;opacity:0;pointer-events:none;transition:opacity .18s; }
   .mobile-panel-shade.open { display:block;opacity:1;pointer-events:auto; }
-  .mobile-panel-dock { position:fixed;z-index:100;left:50%;bottom:max(9px,env(safe-area-inset-bottom));transform:translateX(-50%);display:grid;grid-template-columns:repeat(2,92px);gap:7px;padding:6px;border:1px solid #526873;border-radius:16px;background:#142129eb;box-shadow:0 8px 28px #000d;backdrop-filter:blur(10px); }
-  .mobile-panel-dock button { height:45px;border:1px solid #536975;border-radius:11px;background:#263943;color:#c7d4da;display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;font-weight:800; }
-  .mobile-panel-dock button span { color:#e3bf61;font-size:18px; }
+  .mobile-panel-dock { position:fixed;z-index:100;left:50%;bottom:max(9px,env(safe-area-inset-bottom));transform:translateX(-50%);display:grid;grid-template-columns:repeat(2,50px);gap:9px;padding:6px;border:1px solid #526873;border-radius:32px;background:#142129eb;box-shadow:0 8px 28px #000d;backdrop-filter:blur(10px); }
+  .mobile-panel-dock button { width:50px;height:50px;padding:3px;border:1px solid #536975;border-radius:50%;background:#263943;color:#c7d4da;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;font-size:9px;line-height:11px;font-weight:800; }
+  .mobile-panel-dock button span { color:#e3bf61;font-size:17px;line-height:20px; }
   .mobile-panel-dock button.active { border-color:#d1ad52;background:#57481f;color:#fff0bd;box-shadow:0 0 16px #d3aa4144; }
   .skill-button { box-sizing:border-box;overflow:hidden; }
-  .skill-button .skill-icon { max-width:90%;font-size:22px;line-height:27px; }
-  .skill-upper-attack .skill-icon { font-size:14px;letter-spacing:-3px;transform:translateX(-1px); }
-  .skill-lower-attack .skill-icon { font-size:17px;letter-spacing:-2px; }
-  .skill-snipe-command .skill-icon { font-size:12px;letter-spacing:-3px;transform:translateX(-1px); }
-  .skill-snipe .skill-icon { font-size:29px;line-height:29px; }
-  .skill-leadership .skill-icon { font-size:27px;line-height:29px; }
-  .skill-ally-add .skill-icon,.skill-ally-remove .skill-icon,.skill-announce .skill-icon { font-size:22px; }
-  .skill-ally-remove .skill-icon::after { right:-5px;top:-5px;width:14px;height:14px;border-width:1px;font-size:14px;line-height:12px; }
+  .skill-button .skill-icon { max-width:78%;font-size:19px;line-height:24px; }
+  .skill-upper-attack .skill-icon { font-size:11px;letter-spacing:-3px;transform:none; }
+  .skill-lower-attack .skill-icon { font-size:14px;letter-spacing:-2px; }
+  .skill-snipe-command .skill-icon { font-size:10px;letter-spacing:-3px;transform:none; }
+  .skill-snipe .skill-icon { font-size:24px;line-height:25px; }
+  .skill-leadership .skill-icon { font-size:23px;line-height:25px; }
+  .skill-ally-add .skill-icon,.skill-ally-remove .skill-icon,.skill-announce .skill-icon { font-size:19px; }
+  .skill-ally-remove .skill-icon::after { right:-4px;top:-4px;width:12px;height:12px;border-width:1px;font-size:12px;line-height:10px; }
   .skill-tooltip { bottom:258px; }
 }
