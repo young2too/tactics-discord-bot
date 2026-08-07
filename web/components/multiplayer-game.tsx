@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { formations, roleSkillIds, skillCatalog } from "../game/catalog";
 import { factionOf, portraitStyle } from "../game/rules";
 import type { ChatMessage, Player, Skill } from "../game/types";
@@ -35,6 +35,11 @@ export function MultiplayerGame({ room }: { room: RoomController }) {
   const skills = useMemo(() => [skillCatalog.announce, ...(roleSkillIds[state.yourRole ?? ""] ?? []).map((id) => skillCatalog[id]), skillCatalog["ally-add"], skillCatalog["ally-remove"]].map((skill, index) => ({ ...skill, cost: skill.id === "leadership" ? 40 : skill.id === "enemy-check" ? 10 : skill.cost, key: ["Q", "W", "E", "R", "T", "Y"][index] ?? String(index + 1) })), [state.yourRole]);
   const notice = room.error || state.privateLogs?.at(-1)?.text || "스킬을 선택하거나 채팅으로 정보를 교환하세요.";
   const manaTick = `${String(Math.floor((state.nextManaIn ?? 0) / 60)).padStart(2, "0")}:${String((state.nextManaIn ?? 0) % 60).padStart(2, "0")}`;
+  useEffect(() => {
+    if (!room.actionError) return;
+    const timer = window.setTimeout(room.dismissActionError, 3200);
+    return () => window.clearTimeout(timer);
+  }, [room.actionError?.id]);
   const modalRoles = useMemo(() => {
     if (!selectedSkill) return [];
     let roles = formations[players.length].map((name) => ({ name, faction: factionOf(name) }));
@@ -83,6 +88,7 @@ export function MultiplayerGame({ room }: { room: RoomController }) {
     <MobilePanelDock open={mobilePanel} setOpen={setMobilePanel}/>
     {selectedSkill?.needsRole && (selectedTarget || !selectedSkill.target) && <RoleChoiceModal skill={selectedSkill} target={selectedTarget} roles={modalRoles} onResolve={resolveRole} onCancel={cancel} />}
     {selectedSkill?.needsText && <ProclamationModal text={skillText} setText={setSkillText} onSubmit={sendProclamation} onCancel={cancel} />}
+    {room.actionError && <div className="verdict-popup failure" key={room.actionError.id} role="button" tabIndex={0} onClick={room.dismissActionError} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") room.dismissActionError(); }}><span>{room.actionError.message.includes("마나 부족") ? "마나 부족" : "사용 불가"}</span><strong>실패</strong><p>{room.actionError.message}</p></div>}
     {state.verdict && state.verdict.id !== dismissedVerdictId && <div className={`verdict-popup ${state.verdict.success ? "success" : "failure"}`} key={state.verdict.id} role="button" tabIndex={0} onClick={() => setDismissedVerdictId(state.verdict!.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setDismissedVerdictId(state.verdict!.id); }}><span>{state.verdict.title}</span><strong>{state.verdict.success ? "성공" : "실패"}</strong><p>{state.verdict.message}</p></div>}
     {state.notification && state.notification.id !== dismissedNotificationId && <div className={`alliance-popup ${state.notification.tone}`} key={state.notification.id} role="button" tabIndex={0} onClick={() => setDismissedNotificationId(state.notification!.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setDismissedNotificationId(state.notification!.id); }}><span>{state.notification.title}</span><strong>{state.notification.tone === "alliance" ? "동맹" : "적대"}</strong><p>{state.notification.message}</p></div>}
     {state.result && <div className="game-over-backdrop"><section className={`game-over-panel ${state.result.winner}`}><span className="result-kicker">GAME OVER</span><h1>{state.result.winner === "mafia" ? "마피아 진영 승리" : "시민 진영 승리"}</h1><p>{state.result.reason}</p><div className="final-roster">{players.map((player) => <div className={player.faction} key={player.id}><span>{player.alive ? "생존" : "사망"}</span><strong>{player.name}</strong><b>{player.role}</b><small>공표 · {player.announced}</small></div>)}</div>{state.hostId === state.yourSeatId ? <button onClick={room.restart}>다음 게임 로비 열기</button> : <button disabled>방장이 다음 게임을 준비하는 중</button>}</section></div>}

@@ -67,7 +67,7 @@ export class SingleRoom {
     if (skillId !== "announce" && ![...(roleSkills[actor.role] ?? []), "ally-add", "ally-remove"].includes(skillId)) throw new Error("현재 직업이 사용할 수 없는 스킬입니다.");
     const current = this.now(); if ((actor.cooldowns[skillId] ?? 0) > current) throw new Error("아직 쿨타임입니다.");
     if (skill.once && actor.usedOnce[skillId]) throw new Error("게임 중 한 번만 사용할 수 있습니다.");
-    if (actor.mana < skill.cost) throw new Error(`마나가 ${skill.cost} 필요합니다.`);
+    if (actor.mana < skill.cost) throw new Error(`마나 부족 · 필요 ${skill.cost} / 현재 ${actor.mana}`);
     const target = skill.target ? this.player(Number(payload.targetId)) : null;
     if (target && (!target.alive || target.id === actor.id)) throw new Error("대상을 선택할 수 없습니다.");
     const guessedRole = payload.role ? String(payload.role) : null;

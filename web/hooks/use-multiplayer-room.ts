@@ -44,6 +44,7 @@ export function useMultiplayerRoom() {
   const [state, setState] = useState<RoomState | null>(null);
   const [status, setStatus] = useState<"idle" | "connecting" | "connected" | "disconnected">("idle");
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState<{ id: number; message: string } | null>(null);
 
   const open = useCallback((nickname: string, reconnect = false) => {
     const sameOriginUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
@@ -64,7 +65,10 @@ export function useMultiplayerRoom() {
         localStorage.setItem("tactics-reconnect-token", message.token);
         credentialsRef.current = { nickname, token: message.token };
       } else if (message.type === "state") setState(message.state);
-      else if (message.type === "error") setError(message.message);
+      else if (message.type === "error") {
+        setError(message.message);
+        setActionError({ id: Date.now() + Math.random(), message: message.message });
+      }
       else if (message.type === "server_restart") socket.close();
     };
     socket.onclose = () => {
@@ -96,6 +100,8 @@ export function useMultiplayerRoom() {
     state,
     status,
     error,
+    actionError,
+    dismissActionError: () => setActionError(null),
     connect: (nickname: string) => open(nickname),
     setTotal: (total: number) => send({ type: "set_total", total }),
     start: () => send({ type: "start" }),
