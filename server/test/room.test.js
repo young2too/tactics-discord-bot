@@ -207,6 +207,24 @@ test("a patrol trusts and acts on reports from a player it directly ally-checked
   assert.equal(target.alive, false);
 });
 
+test("an AI trusts a valid ally-check claimant who whispers immediately after inspecting it", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const patrol = room.join({ nickname: "patrol", socket: {} });
+  const detective = room.join({ nickname: "detective", socket: {} });
+  room.start(patrol.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.mana = 200;
+  detective.role = "사립탐정"; detective.announced = "사립탐정"; detective.mana = 200; detective.aiControlled = true;
+  room.act(patrol.id, { skillId: "ally-check", targetId: detective.id });
+  room.result = null;
+  room.chat(patrol.id, { text: `-${detective.id} 나는 순찰경찰이고 방금 너를 아군 확인하고 왔어.` });
+  runStrategicBot(room);
+  assert.equal(detective.aiMemory.trust[patrol.id], .75);
+  assert.match(detective.whisper?.text ?? "", /강한 아군 후보/);
+  room.result = null; runStrategicBot(room);
+  assert.equal(detective.alliances.has(patrol.id), true);
+});
+
 test("a lower attacker requires trusted information after one failure", () => {
   const room = new SingleRoom({ random: () => 0 });
   const reporter = room.join({ nickname: "reporter", socket: {} });
