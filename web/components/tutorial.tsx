@@ -89,6 +89,11 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
     else if ([2, 5].includes(step) || (step === 3 && chatInput.startsWith("-3 "))) setMobilePanel("chat");
     else setMobilePanel(null);
   }, [step, selectedSkill, chatInput]);
+  useEffect(() => {
+    if (!whisper) return;
+    const timer = window.setTimeout(() => setWhisper(null), 5500);
+    return () => window.clearTimeout(timer);
+  }, [whisper]);
 
   function record(text: string, icon = "◆", tone = "plain") { setLogs((current) => [...current, { time: "지금", icon, text, tone }]); setPrivateLogs((current) => [...current, { time: "지금", text }]); }
   function next() { setSelectedSkill(null); setSelectedTarget(null); if (step === basicSteps.length - 1) onComplete(); else setStep((current) => current + 1); }
