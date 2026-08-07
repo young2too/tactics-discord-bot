@@ -108,7 +108,8 @@ function respondToMessage(room, actor) {
     if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || incoming.channel === "public") memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : skillClaim?.label ?? "공개 제보", evidence: pairObserved ? .55 : incoming.channel === "public" ? .45 : .1 };
   }
   const verified = memory.knowledge[sender.id]; let response;
-  const requestsSnipeProof = actor.role === "마피아대부" && selfRoleClaim === "히트맨" && /저격\s*명령/.test(incoming.text);
+  const knownHitman = verified?.role === "히트맨" && (verified.confidence ?? 0) >= .8;
+  const requestsSnipeProof = actor.role === "마피아대부" && (selfRoleClaim === "히트맨" || knownHitman) && /저격\s*명령/.test(incoming.text);
   if (requestsSnipeProof && ready(room, actor, "snipe-command")) {
     room.act(actor.id, { skillId: "snipe-command", targetId: sender.id });
     if (actor.verdict?.success) { memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: "히트맨", trust: 1, source: "저격명령 검증" }; remember(actor, sender, { role: "히트맨", confidence: 1, source: "저격명령 검증" }); }
