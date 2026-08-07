@@ -10,12 +10,15 @@ export function Battlefield({ players, mySeatIndex, selectedSkill, notice, effec
   const pressOrigin = useRef({ x: 0, y: 0 });
   const longPressTriggered = useRef(false);
   const clearLongPress = () => { if (longPressTimer.current !== null) window.clearTimeout(longPressTimer.current); longPressTimer.current = null; };
+  const focusWhisperInput = () => window.setTimeout(() => {
+    const input = document.querySelector<HTMLInputElement>(".event-panel .chat-form input");
+    input?.focus(); input?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 60);
   const beginLongPress = (event: ReactPointerEvent<HTMLButtonElement>, player: Player) => {
     if (event.pointerType !== "touch" || selectedSkill || player.isMe || !player.alive || !onWhisperPrefill) return;
     clearLongPress(); longPressTriggered.current = false; pressOrigin.current = { x: event.clientX, y: event.clientY };
     longPressTimer.current = window.setTimeout(() => {
       longPressTriggered.current = true; onWhisperPrefill(player); navigator.vibrate?.(25);
-      window.requestAnimationFrame(() => { const input = document.querySelector<HTMLInputElement>(".event-panel .chat-form input"); input?.scrollIntoView({ behavior: "smooth", block: "center" }); input?.focus({ preventScroll: true }); });
     }, 480);
   };
   const moveLongPress = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -39,7 +42,7 @@ export function Battlefield({ players, mySeatIndex, selectedSkill, notice, effec
         const selectable = Boolean(selectedSkill?.target && isTargetable(player, selectedSkill));
         const untargetable = Boolean(selectedSkill?.target && !selectable);
         const roleVisible = player.role !== "비공개";
-        return <button className={`player-seat ${player.alive ? "alive" : "dead"} ${player.isMe ? "me" : ""} ${selectable ? "selectable" : ""} ${untargetable ? "untargetable" : ""} ${effectTarget?.id === player.id ? `${effectTarget.type}-effect` : ""}`} style={{ left: `${50 + Math.cos(angle) * 43}%`, top: `${47 + Math.sin(angle) * 42}%` }} key={player.id} onPointerDown={(event) => beginLongPress(event, player)} onPointerMove={moveLongPress} onPointerUp={clearLongPress} onPointerCancel={() => { clearLongPress(); longPressTriggered.current = false; }} onContextMenu={(event) => { if (longPressTriggered.current) event.preventDefault(); }} onClick={(event) => { if (longPressTriggered.current) { event.preventDefault(); longPressTriggered.current = false; return; } onTarget(player); }} disabled={Boolean(selectedSkill?.target) && !selectable}>
+        return <button className={`player-seat ${player.alive ? "alive" : "dead"} ${player.isMe ? "me" : ""} ${selectable ? "selectable" : ""} ${untargetable ? "untargetable" : ""} ${effectTarget?.id === player.id ? `${effectTarget.type}-effect` : ""}`} style={{ left: `${50 + Math.cos(angle) * 43}%`, top: `${47 + Math.sin(angle) * 42}%` }} key={player.id} onPointerDown={(event) => beginLongPress(event, player)} onPointerMove={moveLongPress} onPointerUp={() => { clearLongPress(); if (longPressTriggered.current) focusWhisperInput(); }} onPointerCancel={() => { clearLongPress(); longPressTriggered.current = false; }} onContextMenu={(event) => { if (longPressTriggered.current) event.preventDefault(); }} onClick={(event) => { if (longPressTriggered.current) { event.preventDefault(); focusWhisperInput(); longPressTriggered.current = false; return; } onTarget(player); }} disabled={Boolean(selectedSkill?.target) && !selectable}>
           <span className="seat-pointer"/><span className="seat-number">{player.id}</span>{effectTarget?.id === player.id && effectTarget.type !== "attack" && <span className="public-action-effect" aria-label="살피는 중"><b>🔎</b><i/><i/></span>}
           <span className="portrait"><span className="portrait-art" style={portraitStyle(roleVisible ? player.role : player.announced)}/>{!player.alive && <b>☠</b>}</span>
           <span className="player-copy"><strong>{player.name}{player.isMe && <em>YOU</em>}</strong><small>공표 · <b className={`${factionOf(player.announced)}-text`}>{player.announced}</b></small>{roleVisible && <small className={`revealed-role ${factionOf(player.role)}-text`}>실제 · {player.role}</small>}</span>
