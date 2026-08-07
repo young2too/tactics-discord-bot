@@ -125,7 +125,7 @@ function tryKnownAttack(room, actor) {
 
 function tryReportedAttack(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => ATTACKS.has(id) && ready(room, actor, id)); if (!skillId) return false;
-  const threshold = skillId === "upper-attack" ? .1 : .7; const memory = memoryOf(actor);
+  const threshold = skillId === "upper-attack" ? .1 : actor.lowAttackFails === 0 ? .15 : .7; const memory = memoryOf(actor);
   const entry = Object.entries(memory.reports).find(([targetId, report]) => { const target = room.players.find((player) => player.id === Number(targetId)); return target?.alive && factionOf(report.role) !== factionOf(actor.role) && (memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15) >= threshold; });
   if (!entry) return false; const [targetId, report] = entry; const target = room.player(Number(targetId));
   room.act(actor.id, { skillId, targetId: target.id, role: report.role }); return true;

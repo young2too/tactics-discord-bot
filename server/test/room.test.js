@@ -155,6 +155,36 @@ test("a verified public report can trigger a safe attack and build a citizen all
   assert.equal(detective.alliances.has(assistant.id), true);
 });
 
+test("a lower attacker may spend its first safe failure on an unverified report", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const reporter = room.join({ nickname: "reporter", socket: {} });
+  const patrol = room.join({ nickname: "patrol", socket: {} });
+  room.start(reporter.id);
+  const target = room.players.find((player) => ![reporter.id, patrol.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.mana = 200; patrol.aiControlled = true;
+  target.role = "마피아일원"; target.announced = "마피아일원";
+  patrol.aiMemory = { reports: { [target.id]: { role: "마피아일원", reporterId: reporter.id, source: "제보" } }, trust: {}, claims: {}, knowledge: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
+  runStrategicBot(room);
+  assert.equal(target.alive, false);
+  assert.equal(patrol.lowAttackFails, 0);
+});
+
+test("a lower attacker requires trusted information after one failure", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const reporter = room.join({ nickname: "reporter", socket: {} });
+  const patrol = room.join({ nickname: "patrol", socket: {} });
+  room.start(reporter.id);
+  const target = room.players.find((player) => ![reporter.id, patrol.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.mana = 200; patrol.lowAttackFails = 1; patrol.aiControlled = true;
+  target.role = "마피아일원"; target.announced = "마피아일원";
+  patrol.aiMemory = { reports: { [target.id]: { role: "마피아일원", reporterId: reporter.id, source: "제보" } }, trust: {}, claims: {}, knowledge: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
+  runStrategicBot(room);
+  assert.equal(target.alive, true);
+  assert.equal(patrol.lowAttackFails, 1);
+});
+
 test("disconnect hands the live seat to AI and token reconnect takes it back", () => {
   const room = new SingleRoom({ random: () => 0.5 }); const socket = {};
   const host = room.join({ nickname: "host", socket }); room.start(host.id); room.disconnect(socket);
