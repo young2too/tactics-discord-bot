@@ -98,6 +98,14 @@ test("strategic bots use contextual public chat without an LLM", () => {
   assert.match(room.chats.at(-1).text, /대부 이름|리더십/);
 });
 
+test("AI players announce again whenever the announcement cooldown expires", () => {
+  let now = 1_000; const room = new SingleRoom({ now: () => now, random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); room.start(human.id);
+  const bot = room.players.find((player) => player.isBot); room.players.forEach((player) => { player.aiControlled = false; }); bot.aiControlled = true; bot.mana = 0;
+  runStrategicBot(room); const firstCooldown = bot.cooldowns.announce; assert.ok(firstCooldown > now); const firstMana = bot.mana;
+  now = firstCooldown; bot.mana = 0; room.result = null; runStrategicBot(room);
+  assert.ok(bot.cooldowns.announce > firstCooldown); assert.ok(bot.mana > 0); assert.ok(firstMana > 0);
+});
+
 test("strategic bots answer human whispers but treat private skill claims as unverified", () => {
   const room = new SingleRoom({ random: () => 0 });
   const human = room.join({ nickname: "human", socket: {} });

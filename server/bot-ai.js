@@ -276,6 +276,17 @@ function tryPublishFinding(room, actor) {
   room.chat(actor.id, { text: `나는 ${actor.role}이야. ${target.id}번 ${role} 조사 성공. 공격권 있는 시민은 ${role}(으)로 쳐줘.`, aiBroadcast: true }); return true;
 }
 
+function tryAnnounce(room, actor) {
+  const hasAnnouncedBefore = Object.hasOwn(actor.cooldowns, "announce");
+  if (actor.announced !== "미공표" && !hasAnnouncedBefore) return false;
+  if (!ready(room, actor, "announce")) return false;
+  const roles = formations[room.totalPlayers];
+  const needsTrueLeadershipClaim = (roleSkills[actor.role] ?? []).includes("leadership") && !actor.usedOnce.leadership;
+  const alternatives = roles.filter((role) => role !== actor.announced);
+  const claim = needsTrueLeadershipClaim || room.random() < .45 ? actor.role : pick(room, alternatives.length ? alternatives : roles);
+  room.act(actor.id, { skillId: "announce", role: claim }); return true;
+}
+
 function tryAuthorizeHitman(room, actor) {
   if (actor.role !== "마피아대부" || !ready(room, actor, "snipe-command")) return false;
   const hitman = room.players.find((player) => player.alive && memoryOf(actor).knowledge[player.id]?.role === "히트맨" && (memoryOf(actor).knowledge[player.id]?.confidence ?? 0) >= .8);
@@ -434,10 +445,7 @@ export function runStrategicBot(room) {
   const waiting = bots.filter((player) => memoryOf(player).inbox.length); const actor = pick(room, waiting.length ? waiting : bots); memoryOf(actor);
   try {
     if (respondToMessage(room, actor)) return;
-    if (actor.announced === "미공표") {
-      const roles = formations[room.totalPlayers]; const claim = room.random() < .68 ? actor.role : pick(room, roles);
-      room.act(actor.id, { skillId: "announce", role: claim }); return;
-    }
+    if (tryAnnounce(room, actor)) return;
     if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryShareFinding(room, actor)) return;
     if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
     tryPublicChat(room, actor);
