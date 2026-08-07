@@ -477,6 +477,15 @@ test("a private detective's reports become trusted when their role is revealed o
   assert.equal(vigilante.aiMemory.trust[detective.id], 1); assert.equal(hitman.alive, false);
 });
 
+test("AI allies share investigation findings through alliance chat", () => {
+  const room = new SingleRoom({ random: () => 0 }); const detective = room.join({ nickname: "detective", socket: {} }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); room.start(detective.id);
+  const hitman = room.players.find((player) => ![detective.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); detective.role = "사립탐정"; detective.announced = "사립탐정"; detective.aiControlled = true; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.aiControlled = true; vigilante.mana = 200; hitman.role = "히트맨"; hitman.announced = "히트맨";
+  detective.alliances.add(vigilante.id); vigilante.alliances.add(detective.id); detective.aiMemory = { knowledge: { [hitman.id]: { role: "히트맨", faction: "mafia", confidence: 1, source: "적군 스캔", excluded: [] } }, publishedFindings: { [hitman.id]: true }, sharedWith: { [vigilante.id]: true }, trust: { [vigilante.id]: .8 }, claims: {}, reports: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
+  runStrategicBot(room);
+  assert.match(room.chats.at(-1)?.text ?? "", new RegExp(`${hitman.id}번은 히트맨`)); assert.equal(room.chats.at(-1)?.channel, "alliance"); assert.equal(vigilante.aiMemory.knowledge[hitman.id].role, "히트맨");
+  detective.aiControlled = false; room.result = null; runStrategicBot(room); assert.equal(hitman.alive, false);
+});
+
 test("both sides receive distinct alliance and shared hostility notifications", () => {
   let now = 1_000;
   const room = new SingleRoom({ now: () => now, random: () => 0.5 });

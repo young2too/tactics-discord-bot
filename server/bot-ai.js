@@ -7,7 +7,7 @@ const ORDER_LABELS = { "snipe-command": "저격명령", successor: "후계자 �
 
 function memoryOf(actor) {
   actor.aiMemory ??= {};
-  actor.aiMemory.knowledge ??= {}; actor.aiMemory.sharedWith ??= {}; actor.aiMemory.bridged ??= {}; actor.aiMemory.publishedFindings ??= {}; actor.aiMemory.lastPublicAt ??= 0; actor.aiMemory.recentLines ??= []; actor.aiMemory.inbox ??= []; actor.aiMemory.claims ??= {}; actor.aiMemory.trust ??= {}; actor.aiMemory.reports ??= {};
+  actor.aiMemory.knowledge ??= {}; actor.aiMemory.sharedWith ??= {}; actor.aiMemory.sharedFindings ??= {}; actor.aiMemory.bridged ??= {}; actor.aiMemory.publishedFindings ??= {}; actor.aiMemory.lastPublicAt ??= 0; actor.aiMemory.recentLines ??= []; actor.aiMemory.inbox ??= []; actor.aiMemory.claims ??= {}; actor.aiMemory.trust ??= {}; actor.aiMemory.reports ??= {};
   return actor.aiMemory;
 }
 
@@ -248,6 +248,33 @@ function tryShare(room, actor) {
   whisperIntroduction(room, actor, target); return true;
 }
 
+function tryShareFinding(room, actor) {
+  if (!actor.alliances.size) return false;
+  const memory = memoryOf(actor);
+  const finding = Object.entries(memory.knowledge).find(([targetId, known]) => {
+    const target = room.players.find((player) => player.id === Number(targetId));
+    if (!target || target.id === actor.id || (!known.role && !known.faction && !known.excluded?.length)) return false;
+    const signature = `${known.role ?? ""}|${known.faction ?? ""}|${(known.excluded ?? []).join(",")}`;
+    return [...actor.alliances].some((allyId) => !memory.sharedFindings[`${allyId}:${target.id}:${signature}`]);
+  });
+  if (!finding) return false;
+  const [targetId, known] = finding; const target = room.player(Number(targetId));
+  const detail = known.role ? `${target.id}번은 ${known.role}` : known.faction ? `${target.id}번은 ${known.faction === "mafia" ? "마피아" : "시민"} 진영` : `${target.id}번은 ${(known.excluded ?? []).join(", ")} 아님`;
+  room.chat(actor.id, { text: `${known.source ?? "조사"} 결과 공유: ${detail}.`, channel: "alliance" });
+  for (const allyId of actor.alliances) {
+    const ally = room.players.find((player) => player.id === allyId); if (!ally?.alive) continue;
+    const signature = `${known.role ?? ""}|${known.faction ?? ""}|${(known.excluded ?? []).join(",")}`; memory.sharedFindings[`${ally.id}:${target.id}:${signature}`] = true;
+    if (!ally.aiControlled) continue;
+    const confidence = Math.min(known.confidence ?? .8, .8);
+    memoryOf(ally).sharedFindings[`${actor.id}:${target.id}:${signature}`] = true;
+    if (known.role) remember(ally, target, { role: known.role, confidence, source: `${actor.nickname}의 동맹 조사 공유` });
+    else if (known.faction) remember(ally, target, { faction: known.faction, confidence, source: `${actor.nickname}의 동맹 조사 공유` });
+    for (const excludedRole of known.excluded ?? []) remember(ally, target, { confidence, source: `${actor.nickname}의 동맹 조사 공유`, excludedRole });
+    if (known.role && factionOf(known.role) !== factionOf(ally.role)) memoryOf(ally).reports[target.id] = { role: known.role, reporterId: actor.id, source: "동맹 조사 공유", evidence: .7 };
+  }
+  return true;
+}
+
 function tryKnownAttack(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => ATTACKS.has(id) && ready(room, actor, id));
   if (!skillId) return false;
@@ -352,7 +379,7 @@ export function runStrategicBot(room) {
       const roles = formations[room.totalPlayers]; const claim = room.random() < .68 ? actor.role : pick(room, roles);
       room.act(actor.id, { skillId: "announce", role: claim }); return;
     }
-    if (tryPublishFinding(room, actor) || tryBridgeAllies(room, actor) || tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor)) return;
+    if (tryPublishFinding(room, actor) || tryBridgeAllies(room, actor) || tryShare(room, actor) || tryAlliance(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryShareFinding(room, actor)) return;
     if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
     tryPublicChat(room, actor);
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }
