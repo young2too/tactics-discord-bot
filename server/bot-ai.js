@@ -80,7 +80,8 @@ function respondToMessage(room, actor) {
   const commanderProof = actor.role === "히트맨" && actor.snipeAuthorized && actor.snipeCommanderId === sender.id;
   if (commanderProof) { memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: "마피아대부", trust: 1, source: "저격명령" }; remember(actor, sender, { role: "마피아대부", confidence: 1, source: "저격명령" }); }
   if (selfRoleClaim) memory.claims[sender.id] = { ...(memory.claims[sender.id] ?? {}), role: selfRoleClaim, trust: memory.trust[sender.id] ?? .15 };
-  if (reportedTarget && reportedRole && reportedTarget.id !== sender.id && /진명|확인|맞아|맞음|찾았/.test(incoming.text)) memory.reports[reportedTarget.id] = { role: reportedRole, reporterId: sender.id, source: skillClaim?.label ?? "제보", evidence: observedInspection ? .55 : .1 };
+  const publicInvestigationOrder = incoming.channel === "public" && observedInspection && selfRoleClaim && (roleSkills[selfRoleClaim] ?? []).some((id) => SCANS.has(id)) && /공격|쳐|때려|잡아/.test(incoming.text);
+  if (reportedTarget && reportedRole && reportedTarget.id !== sender.id && (/진명|확인|맞아|맞음|찾았/.test(incoming.text) || publicInvestigationOrder)) memory.reports[reportedTarget.id] = { role: reportedRole, reporterId: sender.id, source: publicInvestigationOrder ? "공개 합동수사" : skillClaim?.label ?? "제보", evidence: observedInspection ? .55 : .1 };
   const verified = memory.knowledge[sender.id]; let response;
   const requestsSnipeProof = actor.role === "마피아대부" && selfRoleClaim === "히트맨" && sender.announced === "히트맨" && /저격\s*명령/.test(incoming.text);
   if (requestsSnipeProof && ready(room, actor, "snipe-command")) {
@@ -328,5 +329,6 @@ export function recordPublicDeath(room, target) {
     const delta = report.role === target.role ? .55 : -.45;
     memory.trust[report.reporterId] = Math.max(-1, Math.min(1, (memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15) + delta));
     if (memory.claims[report.reporterId]) memory.claims[report.reporterId].trust = memory.trust[report.reporterId];
+    const claim = memory.claims[report.reporterId]; if (delta > 0 && claim?.role && memory.trust[report.reporterId] >= .7) remember(observer, room.player(report.reporterId), { role: claim.role, confidence: memory.trust[report.reporterId], source: "검증된 공개 제보" });
   }
 }

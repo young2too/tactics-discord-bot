@@ -419,6 +419,16 @@ test("a privately approaching human mafia member can form a provisional mafia al
   assert.equal(boss.aiMemory.trust[member.id], .7); room.result = null; runStrategicBot(room); assert.equal(boss.alliances.has(member.id), true);
 });
 
+test("a mafia member validates a hitman's public investigation and then allies with it", () => {
+  const room = new SingleRoom({ random: () => 0 }); const hitman = room.join({ nickname: "hitman", socket: {} }); const member = room.join({ nickname: "member", socket: {} }); room.start(hitman.id);
+  const patrol = room.players.find((player) => ![hitman.id, member.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  hitman.role = "히트맨"; hitman.announced = "히트맨"; hitman.mana = 200; member.role = "마피아일원"; member.announced = "마피아일원"; member.aiControlled = true; member.mana = 200; patrol.role = "순찰경찰"; patrol.announced = "순찰경찰";
+  room.act(hitman.id, { skillId: "enemy-scan", targetId: patrol.id, role: "순찰경찰" }); room.result = null;
+  room.chat(hitman.id, { text: `나는 히트맨인데 ${patrol.id}번 순찰경찰로 때려줘` }); runStrategicBot(room); room.result = null; runStrategicBot(room);
+  assert.equal(patrol.alive, false); assert.ok(member.aiMemory.trust[hitman.id] >= .7);
+  room.result = null; runStrategicBot(room); assert.equal(member.alliances.has(hitman.id), true); assert.match(hitman.whisper?.text ?? "", /공개 합동수사|히트맨/);
+});
+
 test("both sides receive distinct alliance and shared hostility notifications", () => {
   let now = 1_000;
   const room = new SingleRoom({ now: () => now, random: () => 0.5 });
