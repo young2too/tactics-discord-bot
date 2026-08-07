@@ -98,6 +98,34 @@ test("strategic bots use contextual public chat without an LLM", () => {
   assert.match(room.chats.at(-1).text, /대부 이름|리더십/);
 });
 
+test("strategic bots answer human whispers but treat private skill claims as unverified", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const human = room.join({ nickname: "human", socket: {} });
+  const bot = room.join({ nickname: "listener", socket: {} });
+  room.start(human.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  human.role = "순찰경찰"; human.announced = "순찰경찰"; bot.role = "자경단원"; bot.announced = "자경단원"; bot.aiControlled = true;
+  room.chat(human.id, { text: `-${bot.id} 나 순찰경찰이라 아확 찍고 붙었어.` });
+  runStrategicBot(room);
+  assert.equal(bot.whisper.from, bot.id);
+  assert.match(bot.whisper.text, /개인 정보|주장으로만/);
+  assert.equal(bot.aiMemory.claims[human.id].trust, .2);
+  assert.equal(bot.aiMemory.knowledge[human.id], undefined);
+});
+
+test("strategic bots challenge impossible role and skill claims", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const human = room.join({ nickname: "human", socket: {} });
+  const bot = room.join({ nickname: "listener", socket: {} });
+  room.start(human.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  bot.aiControlled = true;
+  room.chat(human.id, { text: `-${bot.id} 나 마피아대부라서 아군 확인 찍고 왔어.` });
+  runStrategicBot(room);
+  assert.match(bot.whisper.text, /쓸 수 없|못 믿/);
+  assert.equal(bot.aiMemory.claims[human.id].trust, -.5);
+});
+
 test("disconnect hands the live seat to AI and token reconnect takes it back", () => {
   const room = new SingleRoom({ random: () => 0.5 }); const socket = {};
   const host = room.join({ nickname: "host", socket }); room.start(host.id); room.disconnect(socket);

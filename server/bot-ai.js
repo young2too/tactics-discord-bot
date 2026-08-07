@@ -5,8 +5,55 @@ const SCANS = new Set(["ally-scan", "advanced-scan", "enemy-scan"]);
 const CHECKS = new Set(["ally-check", "enemy-check"]);
 
 function memoryOf(actor) {
-  actor.aiMemory ??= { knowledge: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [] };
+  actor.aiMemory ??= {};
+  actor.aiMemory.knowledge ??= {}; actor.aiMemory.sharedWith ??= {}; actor.aiMemory.lastPublicAt ??= 0; actor.aiMemory.recentLines ??= []; actor.aiMemory.inbox ??= []; actor.aiMemory.claims ??= {};
   return actor.aiMemory;
+}
+
+const SKILL_CLAIMS = [
+  { words: ["아확", "아군 확인"], id: "ally-check", label: "아군 확인" },
+  { words: ["적확", "적군 확인"], id: "enemy-check", label: "적군 확인" },
+  { words: ["보스 확인", "보확"], id: "boss-check", label: "보스 확인" },
+  { words: ["탐정 확인", "탐확"], id: "detective-check", label: "탐정 확인" },
+  { words: ["상급 스캔", "상스"], id: "advanced-scan", label: "상급 스캔" },
+  { words: ["스캔"], id: "enemy-scan", label: "스캔" },
+];
+
+function claimedRole(room, text) {
+  return formations[room.totalPlayers].find((role) => text.includes(role)) ?? null;
+}
+
+function claimedSkill(text) {
+  return SKILL_CLAIMS.find((entry) => entry.words.some((word) => text.includes(word))) ?? null;
+}
+
+function respondToMessage(room, actor) {
+  const memory = memoryOf(actor); const incoming = memory.inbox.shift(); if (!incoming) return false;
+  const sender = room.player(incoming.from); if (!sender.alive) return true;
+  const roleClaim = claimedRole(room, incoming.text); const skillClaim = claimedSkill(incoming.text);
+  const verified = memory.knowledge[sender.id]; let response;
+  if (roleClaim && skillClaim && !(roleSkills[roleClaim] ?? []).includes(skillClaim.id)) {
+    response = `${roleClaim}(은)는 ${skillClaim.label}을 쓸 수 없는데? 그 말은 못 믿겠어.`;
+    memory.claims[sender.id] = { role: roleClaim, trust: -.5, contradiction: `${skillClaim.label} 사용 불가` };
+  } else if (verified?.role) {
+    response = roleClaim === verified.role
+      ? `응, 내가 직접 확인한 정보와 일치해. ${sender.id}번 ${roleClaim}으로 믿고 움직일게.`
+      : `내가 직접 확인한 결과와 다른데? ${sender.id}번은 ${roleClaim} 주장을 믿을 수 없어.`;
+  } else if (actor.role === "히트맨" && roleClaim === "마피아대부") {
+    response = "진짜 대부면 나한테 저격명령으로 증명해줘. 말만으로는 못 믿어.";
+    memory.claims[sender.id] = { role: roleClaim, trust: .2, requestedProof: "snipe-command" };
+  } else if (roleClaim && skillClaim) {
+    response = `${roleClaim}이 ${skillClaim.label}을 쓸 수 있는 건 맞지만 결과는 네 개인 정보잖아. 일단 주장으로만 기록할게.`;
+    memory.claims[sender.id] = { role: roleClaim, trust: actor.alliances.has(sender.id) ? .4 : .2, source: skillClaim.label };
+  } else if (roleClaim) {
+    response = `${roleClaim} 주장 확인했어. 아직 증거는 없으니 바로 확정하진 않을게.`;
+    memory.claims[sender.id] = { role: roleClaim, trust: actor.alliances.has(sender.id) ? .35 : .15 };
+  } else if (incoming.channel === "public" && /확인|스캔|조사/.test(incoming.text)) {
+    response = "몇 번을 어떤 직업으로 확인했는지 말해줘. 근거가 있어야 판단할 수 있어.";
+  } else if (actor.alliances.has(sender.id)) response = "동맹 메시지 확인했어. 직접 확인된 정보와 맞춰보면서 움직일게.";
+  else response = "말은 들었어. 아직 확인된 정보는 아니라서 참고만 할게.";
+  room.chat(actor.id, incoming.channel === "public" ? { text: response, channel: "public" } : { text: `-${sender.id} ${response}` });
+  return true;
 }
 
 function ready(room, actor, skillId) {
@@ -136,8 +183,9 @@ function tryPublicChat(room, actor) {
 
 export function runStrategicBot(room) {
   const bots = room.players.filter((player) => player.alive && player.aiControlled); if (!bots.length) return;
-  const actor = pick(room, bots); memoryOf(actor);
+  const waiting = bots.filter((player) => memoryOf(player).inbox.length); const actor = pick(room, waiting.length ? waiting : bots); memoryOf(actor);
   try {
+    if (respondToMessage(room, actor)) return;
     if (actor.announced === "미공표") {
       const roles = formations[room.totalPlayers]; const claim = room.random() < .68 ? actor.role : pick(room, roles);
       room.act(actor.id, { skillId: "announce", role: claim }); return;
