@@ -114,6 +114,7 @@ function respondToMessage(room, actor) {
   }
   if (tryHumanAllianceOrder(room, actor, sender, incoming.text, reportedTarget, reportedRole ?? roleClaim)) return true;
   const reportAt = incoming.at ?? room.now();
+  const senderIntelTrust = Math.max(memory.trust[sender.id] ?? memory.claims[sender.id]?.trust ?? 0, memory.knowledge[sender.id]?.faction === factionOf(actor.role) ? memory.knowledge[sender.id]?.confidence ?? 0 : 0, actor.alliances.has(sender.id) && !sender.aiControlled ? .7 : 0);
   const observedInspection = Boolean(reportedTarget && room.publicInspections?.some((entry) => entry.targetId === reportedTarget.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
   const observedSelfInspection = Boolean(room.publicInspections?.some((entry) => entry.targetId === actor.id && reportAt >= entry.at && reportAt - entry.at <= 20_000));
   const leadershipDiscovery = room.leadershipDiscoveries?.find((entry) => entry.leaderId === sender.id && entry.targetId === actor.id && entry.role === actor.role && reportAt >= entry.at && reportAt - entry.at <= 30_000);
@@ -124,7 +125,7 @@ function respondToMessage(room, actor) {
   for (const { target, role } of reportedPairs(room, incoming.text)) {
     if (target.id === sender.id) continue;
     const pairObserved = Boolean(room.publicInspections?.some((entry) => entry.targetId === target.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
-    if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || incoming.channel === "public") memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : skillClaim?.label ?? "공개 제보", evidence: pairObserved ? .55 : incoming.channel === "public" ? .45 : .1 };
+    if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || incoming.channel === "public" || senderIntelTrust >= .7) memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : senderIntelTrust >= .7 ? "신뢰 동맹 제보" : skillClaim?.label ?? "공개 제보", evidence: pairObserved ? .55 : senderIntelTrust >= .7 ? .7 : incoming.channel === "public" ? .45 : .1 };
   }
   const publicCitizenInvestigator = incoming.channel === "public" && selfRoleClaim && factionOf(selfRoleClaim) === "citizen" && (roleSkills[selfRoleClaim] ?? []).some((skillId) => ["enemy-scan", "enemy-check"].includes(skillId));
   if (factionOf(actor.role) === "mafia" && publicCitizenInvestigator && reportedPairs(room, incoming.text).length) {

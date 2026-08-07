@@ -232,6 +232,13 @@ test("a patrol trusts and acts on reports from a player it directly ally-checked
   assert.equal(target.alive, false);
 });
 
+test("a patrol attacks from a terse human ally report without an action verb", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const patrol = room.join({ nickname: "patrol", socket: {} }); room.start(human.id);
+  const target = room.players.find((player) => ![human.id, patrol.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); human.role = "사립탐정"; patrol.role = "순찰경찰"; patrol.announced = "순찰경찰"; patrol.aiControlled = true; patrol.mana = 200; target.role = "마피아일원"; target.announced = "마피아일원"; human.alliances.add(patrol.id); patrol.alliances.add(human.id);
+  room.chat(human.id, { text: `-${patrol.id} ${target.id}번 마피아일원이야` }); runStrategicBot(room);
+  assert.equal(patrol.aiMemory.reports[target.id].role, "마피아일원"); room.result = null; runStrategicBot(room); assert.equal(target.alive, false);
+});
+
 test("an AI trusts a valid ally-check claimant who whispers immediately after inspecting it", () => {
   const room = new SingleRoom({ random: () => 0 });
   const patrol = room.join({ nickname: "patrol", socket: {} });
