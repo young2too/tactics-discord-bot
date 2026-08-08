@@ -103,7 +103,7 @@ function replyPrivately(room, actor, recipient, text) {
 }
 
 function tryHumanAllianceOrder(room, actor, sender, text, target, role) {
-  if (sender.isBot || sender.aiControlled || !actor.alliances.has(sender.id)) return false;
+  if (sender.isBot || sender.aiControlled || (!actor.alliances.has(sender.id) && trustScore(actor, sender) < .7)) return false;
   if (actor.role === "히트맨" && actor.snipeAuthorized && actor.snipeCommanderId === sender.id) { memoryOf(actor).trust[sender.id] = 1; memoryOf(actor).claims[sender.id] = { role: "마피아대부", trust: 1, source: "저격명령" }; remember(actor, sender, { role: "마피아대부", confidence: 1, source: "저격명령" }); }
   const available = roleSkills[actor.role] ?? []; let skillId = null; const payload = {};
   if (/저격\s*명령/.test(text) && available.includes("snipe-command") && target) skillId = "snipe-command";
@@ -222,7 +222,7 @@ function respondToMessage(room, actor) {
   const proofClaimRole = skillClaim?.id === "detective-check" ? "탐정조수" : skillClaim?.id === "boss-check" ? "마피아후계자" : selfRoleClaim;
   const privateRoleProof = incoming.channel !== "public" && observedSelfInspection && ((actor.role === "사립탐정" && skillClaim?.id === "detective-check") || (actor.role === "마피아대부" && skillClaim?.id === "boss-check"));
   const reciprocalClaimRole = selfRoleClaim && (roleSkills[selfRoleClaim] ?? []).includes("ally-check") ? selfRoleClaim : null;
-  const recipientTrueRoleClaim = claimsRecipientTrueRole(incoming.text);
+  const recipientTrueRoleClaim = claimsRecipientTrueRole(incoming.originalText ?? incoming.text);
   const recipientTrueRoleProof = recipientTrueRoleClaim && room.publicInspections?.some((entry) => entry.targetId === actor.id && entry.actorId === sender.id && entry.skillId === "ally-check" && entry.announced === actor.role && entry.success === true && reportAt >= entry.at && reportAt - entry.at <= 20_000);
   const reciprocalAllyProof = incoming.channel !== "public" && ((!recipientTrueRoleClaim && observedSelfInspection && /아확|아군\s*확인|확인.*왔|찾아왔/.test(incoming.text)) || recipientTrueRoleProof) && (!selfRoleClaim || Boolean(reciprocalClaimRole));
   const privateMafiaApproach = incoming.channel !== "public" && factionOf(actor.role) === "mafia" && selfRoleClaim && factionOf(selfRoleClaim) === "mafia";

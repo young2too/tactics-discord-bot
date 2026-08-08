@@ -157,7 +157,7 @@ export class SingleRoom {
     this.llmDirector.interpret({ text: originalText, channel: messages[0].channel, senderId: sender.id, recipientIds: listeners.map((listener) => listener.id), visiblePlayers: this.players.map((player) => ({ id: player.id, nickname: player.nickname, alive: player.alive, announced: player.announced })) }).then((interpretation) => {
       for (const message of messages) message.llmPending = false;
       if (interpretation && interpretation.confidence >= .55) {
-        for (const message of messages) { message.originalText = message.text; message.text = interpretation.canonicalText || message.text; message.llm = interpretation; }
+        for (const message of messages) { message.originalText = message.text; message.text = interpretation.canonicalText ? `${message.text}\n${interpretation.canonicalText}` : message.text; message.llm = interpretation; }
         for (const listener of listeners) { listener.aiMemory ??= {}; listener.aiMemory.llmPlan = { goal: interpretation.strategicIntent, confidence: interpretation.confidence, at: this.now(), sourceMessageId: messages[0].id }; }
       }
       this.nextBotAt = Math.min(this.nextBotAt ?? Infinity, this.now() + 100); this.onAsyncChange?.();
