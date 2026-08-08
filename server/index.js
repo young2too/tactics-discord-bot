@@ -4,13 +4,15 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
 import { SingleRoom } from "./room.js";
+import { LlmDirector } from "./llm-director.js";
 
 const serverDir = path.dirname(fileURLToPath(import.meta.url));
 const repoDir = path.resolve(serverDir, "..");
 const port = Number(process.env.PORT ?? 10000);
 const serveWeb = process.env.SERVE_WEB === "true";
 const webPort = Number(process.env.WEB_INTERNAL_PORT ?? 10001);
-const room = new SingleRoom();
+const llmDirector = new LlmDirector();
+const room = new SingleRoom({ llmDirector });
 let webProcess = null;
 
 function proxyToWeb(request, response) {
@@ -22,7 +24,7 @@ function proxyToWeb(request, response) {
 }
 
 const server = http.createServer((request, response) => {
-  if (request.url === "/health") { response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify({ ok: true, phase: room.phase, players: room.players.length, web: serveWeb })); return; }
+  if (request.url === "/health") { response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify({ ok: true, phase: room.phase, players: room.players.length, web: serveWeb, llm: { enabled: llmDirector.enabled, model: llmDirector.model, usage: llmDirector.usage } })); return; }
   if (serveWeb) { proxyToWeb(request, response); return; }
   response.writeHead(200, { "content-type": "text/plain; charset=utf-8" }); response.end("TACTICS realtime server");
 });
@@ -30,6 +32,7 @@ const wss = new WebSocketServer({ server, path: "/ws" });
 
 function send(socket, payload) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(payload)); }
 function broadcastState() { for (const player of room.players) if (player.socket) send(player.socket, { type: "state", state: room.snapshotFor(player) }); }
+room.onAsyncChange = broadcastState;
 
 wss.on("connection", (socket) => {
   socket.isAlive = true; socket.on("pong", () => { socket.isAlive = true; });
@@ -61,4 +64,4 @@ const heartbeat = setInterval(() => { for (const socket of wss.clients) { if (!s
 const gameClock = setInterval(() => { if (room.tick()) broadcastState(); }, 1000);
 server.on("close", () => { clearInterval(heartbeat); clearInterval(gameClock); });
 process.on("SIGTERM", () => { for (const socket of wss.clients) send(socket, { type: "server_restart" }); webProcess?.kill("SIGTERM"); server.close(() => process.exit(0)); });
-server.listen(port, "0.0.0.0", () => console.log(`TACTICS web + realtime server listening on ${port}`));
+server.listen(port, "0.0.0.0", () => console.log(`TACTICS web + realtime server listening on ${port} · LLM ${llmDirector.enabled ? llmDirector.model : "disabled"}`));

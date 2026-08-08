@@ -5,6 +5,31 @@ const SCANS = new Set(["ally-scan", "advanced-scan", "enemy-scan"]);
 const CHECKS = new Set(["ally-check", "enemy-check"]);
 const ORDER_LABELS = { "snipe-command": "저격명령", successor: "후계자 지정", leadership: "리더십", snipe: "저격", revenge: "복수", arrest: "검거", support: "마나 지원", "boss-check": "보스 확인", "detective-check": "탐정 확인", "ally-check": "아군 확인", "enemy-check": "적군 확인", "ally-scan": "아군 스캔", "advanced-scan": "상급 스캔", "enemy-scan": "적군 스캔", "upper-attack": "상급공격", "lower-attack": "하급공격", "ally-add": "동맹 추가", "ally-remove": "동맹 파기" };
 
+const ROLE_ALIASES = {
+  "마피아대부": ["마피아대부", "마피아 대부", "맢대부", "대부"],
+  "히트맨": ["히트맨", "힛맨"],
+  "마피아일원": ["마피아일원", "마피아 일원", "맢일", "맢원", "마피아"],
+  "마피아후계자": ["마피아후계자", "마피아 후계자", "맢후", "후계자"],
+  "스파이": ["스파이", "슾"],
+  "경찰반장": ["경찰반장", "경찰 반장", "경반"],
+  "자경단원": ["자경단원", "자경단", "자경"],
+  "사립탐정": ["사립탐정", "사립 탐정", "사탐", "탐정"],
+  "순찰경찰": ["순찰경찰", "순찰 경찰", "순경"],
+  "탐정조수": ["탐정조수", "탐정 조수", "탐조", "조수"],
+  "남자연인": ["남자연인", "남연"],
+  "여자연인": ["여자연인", "여연"],
+  "공무원": ["공무원", "공뭔"],
+};
+
+function roleMentions(room, text) {
+  const roles = new Set(formations[room.totalPlayers]);
+  return Object.entries(ROLE_ALIASES)
+    .filter(([role]) => roles.has(role))
+    .flatMap(([role, aliases]) => aliases.map((alias) => ({ role, alias, index: text.indexOf(alias) })))
+    .filter((mention) => mention.index >= 0)
+    .sort((left, right) => left.index - right.index || right.alias.length - left.alias.length);
+}
+
 function memoryOf(actor) {
   actor.aiMemory ??= {};
   actor.aiMemory.knowledge ??= {}; actor.aiMemory.sharedWith ??= {}; actor.aiMemory.sharedFindings ??= {}; actor.aiMemory.bridged ??= {}; actor.aiMemory.publishedFindings ??= {}; actor.aiMemory.lastPublicAt ??= 0; actor.aiMemory.recentLines ??= []; actor.aiMemory.inbox ??= []; actor.aiMemory.claims ??= {}; actor.aiMemory.trust ??= {}; actor.aiMemory.reports ??= {};
@@ -21,11 +46,19 @@ const SKILL_CLAIMS = [
 ];
 
 function claimedRole(room, text) {
-  return formations[room.totalPlayers].find((role) => text.includes(role)) ?? null;
+  return roleMentions(room, text)[0]?.role ?? null;
 }
 
 function selfClaimedRole(room, text) {
-  return formations[room.totalPlayers].find((role) => new RegExp(`(?:나는|난|저는|제가|나)\\s*${role}`).test(text)) ?? null;
+  const firstPerson = /(?:^|[\s,.!?~])(?:나는|난|저는|전|제가|내가|나)\s*/g;
+  const starts = [...text.matchAll(firstPerson)].map((match) => (match.index ?? 0) + match[0].length);
+  return roleMentions(room, text).find((mention) => starts.some((start) => mention.index >= start && mention.index - start <= 4))?.role ?? null;
+}
+
+function claimsRecipientTrueRole(text) {
+  const compact = text.replace(/[\s.,!?~·_-]+/g, "");
+  return /(?:너|넌|니가|네가|당신)(?:는|은|도)?(?:공표)?진명/.test(compact)
+    || /(?:너|넌|니가|네가|당신)(?:는|은|도)?(?:진명|진짜직업)(?:맞아|맞음|이야|임)/.test(compact);
 }
 
 function claimedSkill(text) {
@@ -110,7 +143,7 @@ function tryHumanAllianceOrder(room, actor, sender, text, target, role) {
 }
 
 function respondToMessage(room, actor) {
-  const memory = memoryOf(actor); const commandIndex = memory.inbox.findIndex((message) => /(\d+)번/.test(message.text) && /저격|쏴|사살|스캔|살펴|확인해|공격|쳐|때려|잡아|검거|지원|아확|적확|확인|동맹/.test(message.text)); const incoming = commandIndex >= 0 ? memory.inbox.splice(commandIndex, 1)[0] : memory.inbox.shift(); if (!incoming) return false;
+  const memory = memoryOf(actor); const llmWait = (room.llmDirector?.timeoutMs ?? 0) + 250; const eligible = (message) => !message.llmPending || room.now() - message.at > llmWait; const commandIndex = memory.inbox.findIndex((message) => eligible(message) && /(\d+)번/.test(message.text) && /저격|쏴|사살|스캔|살펴|확인해|공격|쳐|때려|잡아|검거|지원|아확|적확|확인|동맹/.test(message.text)); const fallbackIndex = memory.inbox.findIndex(eligible); const selectedIndex = commandIndex >= 0 ? commandIndex : fallbackIndex; const incoming = selectedIndex >= 0 ? memory.inbox.splice(selectedIndex, 1)[0] : null; if (!incoming) return false;
   const sender = room.player(incoming.from); if (!sender.alive) return true;
   const selfRoleClaim = selfClaimedRole(room, incoming.text); const roleClaim = selfRoleClaim ?? claimedRole(room, incoming.text); const skillClaim = claimedSkill(incoming.text);
   const reportMatch = incoming.text.match(/(\d+)번/); const reportedId = Number(reportMatch?.[1] ?? 0); const reportedTarget = room.players.find((player) => player.id === reportedId); const reportedRole = reportMatch ? claimedRole(room, incoming.text.slice(reportMatch.index)) : null;
@@ -189,7 +222,9 @@ function respondToMessage(room, actor) {
   const proofClaimRole = skillClaim?.id === "detective-check" ? "탐정조수" : skillClaim?.id === "boss-check" ? "마피아후계자" : selfRoleClaim;
   const privateRoleProof = incoming.channel !== "public" && observedSelfInspection && ((actor.role === "사립탐정" && skillClaim?.id === "detective-check") || (actor.role === "마피아대부" && skillClaim?.id === "boss-check"));
   const reciprocalClaimRole = selfRoleClaim && (roleSkills[selfRoleClaim] ?? []).includes("ally-check") ? selfRoleClaim : null;
-  const reciprocalAllyProof = incoming.channel !== "public" && observedSelfInspection && /아확|아군\s*확인|확인.*왔|찾아왔/.test(incoming.text) && (!selfRoleClaim || Boolean(reciprocalClaimRole));
+  const recipientTrueRoleClaim = claimsRecipientTrueRole(incoming.text);
+  const recipientTrueRoleProof = recipientTrueRoleClaim && room.publicInspections?.some((entry) => entry.targetId === actor.id && entry.actorId === sender.id && entry.skillId === "ally-check" && entry.announced === actor.role && entry.success === true && reportAt >= entry.at && reportAt - entry.at <= 20_000);
+  const reciprocalAllyProof = incoming.channel !== "public" && ((!recipientTrueRoleClaim && observedSelfInspection && /아확|아군\s*확인|확인.*왔|찾아왔/.test(incoming.text)) || recipientTrueRoleProof) && (!selfRoleClaim || Boolean(reciprocalClaimRole));
   const privateMafiaApproach = incoming.channel !== "public" && factionOf(actor.role) === "mafia" && selfRoleClaim && factionOf(selfRoleClaim) === "mafia";
   const privateAllyTrust = Math.max(memory.trust[sender.id] ?? memory.claims[sender.id]?.trust ?? 0, verified?.faction === factionOf(actor.role) ? verified.confidence ?? 0 : 0);
   if (incoming.channel !== "public" && leadershipDiscovery && /리더십|리더쉽/.test(incoming.text) && incoming.text.includes(actor.role)) {
@@ -205,7 +240,9 @@ function respondToMessage(room, actor) {
     response = `방금 나에게 확인 이펙트가 들어왔고 ${skillClaim.label}은(는) ${proofClaimRole}만 쓸 수 있어. 공표와 무관하게 찾아온 정황을 믿을게.`;
   } else if (reciprocalAllyProof) {
     memory.trust[sender.id] = .75; if (reciprocalClaimRole) memory.claims[sender.id] = { role: reciprocalClaimRole, trust: .75, source: "직후 아군 확인 접촉" }; remember(actor, sender, reciprocalClaimRole ? { role: reciprocalClaimRole, confidence: .75, source: "직후 아군 확인 접촉" } : { faction: factionOf(actor.role), confidence: .75, source: "직후 아군 확인 접촉" });
-    response = `조금 전 나에게 확인 이펙트가 들어온 직후 찾아온 정황은 믿을게. 공표와 별개로 아군 후보로 판단했어.`;
+    response = recipientTrueRoleClaim
+      ? `응, 내 공표가 진명이라는 말과 방금 들어온 확인 이펙트가 일치해. ${selfRoleClaim ? `${selfRoleClaim}(으)로 주장한 것도 기록했고 ` : ""}아군 후보로 믿을게.`
+      : `조금 전 나에게 확인 이펙트가 들어온 직후 찾아온 정황은 믿을게. 공표와 별개로 아군 후보로 판단했어.`;
   } else if (privateMafiaApproach) {
     memory.trust[sender.id] = Math.max(memory.trust[sender.id] ?? 0, .7); memory.claims[sender.id] = { role: selfRoleClaim, trust: .7, source: "마피아 비공개 접촉" }; remember(actor, sender, { role: selfRoleClaim, confidence: .7, source: "마피아 비공개 접촉" });
     response = `${selfRoleClaim} 공표 상태로 비공개 접촉한 건 확인했어. 우선 같은 진영 후보로 연대할게.`;
@@ -462,6 +499,21 @@ function tryPublicChat(room, actor) {
   memory.lastPublicAt = now; memory.recentLines = [...memory.recentLines.slice(-3), line]; return true;
 }
 
+function tryLlmStrategicIntent(room, actor) {
+  const plan = memoryOf(actor).llmPlan;
+  if (!plan || room.now() - plan.at > 30_000 || plan.confidence < .55) return false;
+  const attempts = {
+    coordinate_attack: [tryKnownAttack, tryReportedAttack],
+    coordinate_scan: [tryRoleCheck, tryScan, tryClaimCheck],
+    request_verification: [tryClaimCheck, tryRoleCheck, tryScan],
+    build_alliance: [tryBridgeAllies, tryAlliance, tryShare],
+    share_intel: [tryPublishFinding, tryShareFinding, tryShare],
+  }[plan.goal] ?? [];
+  const acted = attempts.some((attempt) => attempt(room, actor));
+  if (acted) memoryOf(actor).llmPlan = null;
+  return acted;
+}
+
 export function runStrategicBot(room) {
   const bots = room.players.filter((player) => player.alive && player.aiControlled); if (!bots.length) return;
   const waiting = bots.filter((player) => memoryOf(player).inbox.length);
@@ -470,6 +522,7 @@ export function runStrategicBot(room) {
   try {
     if (respondToMessage(room, actor)) return;
     if (tryAnnounce(room, actor)) return;
+    if (tryLlmStrategicIntent(room, actor)) return;
     if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryShare(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryAlliance(room, actor) || tryShareFinding(room, actor)) return;
     if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
     tryPublicChat(room, actor);

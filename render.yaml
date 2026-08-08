@@ -13,3 +13,9 @@ services:
         value: "true"
       - key: WEB_INTERNAL_PORT
         value: "10001"
+      - key: OPENAI_AI_ENABLED
+        value: "true"
+      - key: OPENAI_MODEL_DIALOGUE
+        value: "gpt-5.6-luna"
+      - key: OPENAI_TIMEOUT_MS
+        value: "3500"

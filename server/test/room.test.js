@@ -135,6 +135,57 @@ test("strategic bots answer human whispers but treat private skill claims as unv
   assert.equal(bot.aiMemory.knowledge[human.id], undefined);
 });
 
+test("strategic bots understand terse role aliases and second-person true-role reports", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const captain = room.join({ nickname: "captain", socket: {} });
+  const bot = room.join({ nickname: "listener", socket: {} });
+  room.start(captain.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  captain.role = "경찰반장"; captain.announced = "경찰반장"; captain.mana = 200;
+  bot.role = "자경단원"; bot.announced = "자경단원"; bot.aiControlled = true;
+  room.act(captain.id, { skillId: "ally-check", targetId: bot.id });
+  room.result = null;
+  bot.announced = "순찰경찰"; // The proof must use the announcement snapshot from inspection time.
+  room.chat(captain.id, { text: `-${bot.id} 나 경반이야 너 진명` });
+  runStrategicBot(room);
+  assert.equal(bot.aiMemory.claims[captain.id].role, "경찰반장");
+  assert.equal(bot.aiMemory.trust[captain.id], .75);
+  assert.equal(bot.aiMemory.knowledge[captain.id].role, "경찰반장");
+  assert.match(bot.whisper?.text ?? "", /내 공표가 진명/);
+});
+
+test("a later true announcement cannot turn an earlier false check into proof", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const captain = room.join({ nickname: "captain", socket: {} });
+  const bot = room.join({ nickname: "listener", socket: {} });
+  room.start(captain.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  captain.role = "경찰반장"; captain.announced = "경찰반장"; captain.mana = 200;
+  bot.role = "자경단원"; bot.announced = "순찰경찰"; bot.aiControlled = true;
+  room.act(captain.id, { skillId: "ally-check", targetId: bot.id });
+  room.result = null;
+  bot.announced = "자경단원";
+  room.chat(captain.id, { text: `-${bot.id} 나 경반이야 너 진명` });
+  runStrategicBot(room);
+  assert.equal(bot.aiMemory.claims[captain.id].trust, .15);
+  assert.equal(bot.aiMemory.knowledge[captain.id], undefined);
+});
+
+test("strategic bots do not trust a terse true-role claim without a matching inspection effect", () => {
+  const room = new SingleRoom({ random: () => 0 });
+  const captain = room.join({ nickname: "captain", socket: {} });
+  const bot = room.join({ nickname: "listener", socket: {} });
+  room.start(captain.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  captain.role = "경찰반장"; captain.announced = "경찰반장";
+  bot.role = "자경단원"; bot.announced = "자경단원"; bot.aiControlled = true;
+  room.chat(captain.id, { text: `-${bot.id} 나 경반이야 너 진명` });
+  runStrategicBot(room);
+  assert.equal(bot.aiMemory.claims[captain.id].role, "경찰반장");
+  assert.equal(bot.aiMemory.claims[captain.id].trust, .15);
+  assert.equal(bot.aiMemory.knowledge[captain.id], undefined);
+});
+
 test("strategic bots challenge impossible role and skill claims", () => {
   const room = new SingleRoom({ random: () => 0 });
   const human = room.join({ nickname: "human", socket: {} });
