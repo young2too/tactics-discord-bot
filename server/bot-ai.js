@@ -612,11 +612,13 @@ function hasReadyInvestigation(room, actor) {
   return false;
 }
 
-export function runStrategicBot(room) {
+export function runStrategicBot(room, { fair = false } = {}) {
   const bots = room.players.filter((player) => player.alive && player.aiControlled); if (!bots.length) return;
   const waiting = bots.filter((player) => memoryOf(player).inbox.length);
   const isolatedCheckers = bots.filter((player) => !player.alliances.size && knownAllies(room, player).length === 0 && claimCheckPlan(room, player));
-  const actor = pick(room, waiting.length ? waiting : isolatedCheckers.length ? isolatedCheckers : bots); memoryOf(actor);
+  const candidates = waiting.length ? waiting : isolatedCheckers.length ? isolatedCheckers : bots;
+  const actor = fair ? candidates[room.botRuleCursor % candidates.length] : pick(room, candidates);
+  if (fair) room.botRuleCursor += 1; memoryOf(actor);
   try {
     if (respondToMessage(room, actor)) return;
     if (tryAnnounce(room, actor)) return;
@@ -627,9 +629,11 @@ export function runStrategicBot(room) {
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }
 }
 
-export function runInvestigationBot(room) {
+export function runInvestigationBot(room, { fair = false } = {}) {
   const investigators = room.players.filter((player) => player.alive && player.aiControlled && !memoryOf(player).inbox.length && hasReadyInvestigation(room, player));
-  const actor = pick(room, investigators); if (!actor) return false;
+  if (!investigators.length) return false;
+  const actor = fair ? investigators[room.botInvestigationCursor % investigators.length] : pick(room, investigators);
+  if (fair) room.botInvestigationCursor += 1;
   try { return tryClaimCheck(room, actor) || tryScan(room, actor) || tryRoleCheck(room, actor) || tryLeadership(room, actor); }
   catch { return false; }
 }

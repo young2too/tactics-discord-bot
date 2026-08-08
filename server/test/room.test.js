@@ -770,6 +770,13 @@ test("a confirmed AI ally reciprocates a human-initiated alliance for the human 
   runStrategicBot(room); assert.equal(human.incomingAlliances.has(detective.id), true); assert.match(room.chats.at(-1)?.text ?? "", /맞동맹/);
 });
 
+test("rule-based all-AI games cannot starve bots and eventually reach a winner", () => {
+  let now = 0; const room = new SingleRoom({ now: () => now, random: () => .37 }); const host = room.join({ nickname: "host", socket: {} }); room.start(host.id);
+  room.players.forEach((player) => { player.aiControlled = true; player.isBot = true; });
+  for (let step = 0; step < 1_200 && !room.result; step += 1) { now += 1_000; room.tick(); }
+  assert.ok(room.result, "all-AI game should reach a victory condition");
+});
+
 test("a living captain always prevents an attacker-extinction victory", () => {
   const players = [
     { role: "마피아대부", alive: true }, { role: "마피아일원", alive: true },
