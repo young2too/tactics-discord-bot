@@ -135,6 +135,31 @@ test("strategic bots answer human whispers but treat private skill claims as unv
   assert.equal(bot.aiMemory.knowledge[human.id], undefined);
 });
 
+test("a ready enemy-check takes priority over announcements and non-investigator bots", () => {
+  const room = new SingleRoom({ random: () => 0 }); const idle = room.join({ nickname: "idle", socket: {} }); const checker = room.join({ nickname: "checker", socket: {} }); room.start(idle.id);
+  const enemy = room.players.find((player) => ![idle.id, checker.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  idle.role = "자경단원"; idle.announced = "자경단원"; idle.aiControlled = true; idle.mana = 200;
+  checker.role = "탐정조수"; checker.announced = "탐정조수"; checker.aiControlled = true; checker.mana = 200;
+  enemy.role = "히트맨"; enemy.announced = "히트맨";
+  room.runBot();
+  assert.ok(checker.cooldowns["enemy-check"] > room.now());
+  assert.equal(checker.cooldowns.announce, undefined);
+  assert.equal(checker.verdict.title, "공표 확인");
+});
+
+test("an allied checker still spends a ready check instead of waiting for an order", () => {
+  const room = new SingleRoom({ random: () => 0 }); const checker = room.join({ nickname: "checker", socket: {} }); const ally = room.join({ nickname: "ally", socket: {} }); room.start(checker.id);
+  const enemy = room.players.find((player) => ![checker.id, ally.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  checker.role = "탐정조수"; checker.announced = "탐정조수"; checker.aiControlled = true; checker.mana = 200;
+  ally.role = "자경단원"; ally.announced = "자경단원"; checker.alliances.add(ally.id); ally.alliances.add(checker.id);
+  enemy.role = "마피아일원"; enemy.announced = "마피아일원";
+  room.runBot();
+  assert.ok(checker.cooldowns["enemy-check"] > room.now());
+  assert.equal(checker.verdict.title, "공표 확인");
+});
+
 test("strategic bots understand terse role aliases and second-person true-role reports", () => {
   const room = new SingleRoom({ random: () => 0 });
   const captain = room.join({ nickname: "captain", socket: {} });

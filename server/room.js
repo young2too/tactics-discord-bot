@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { botNames, factionOf, formations, MANA_INTERVAL, MANA_MAX, MANA_TICK, roleSkills, shuffle, skills } from "./game-config.js";
-import { recordPublicDeath, runStrategicBot } from "./bot-ai.js";
+import { recordPublicDeath, runInvestigationBot, runStrategicBot } from "./bot-ai.js";
 import { checkVictory } from "./game-rules.js";
 
 const nowLabel = () => new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -171,7 +171,7 @@ export class SingleRoom {
     return true;
   }
   runBot() {
-    runStrategicBot(this);
+    if (!runInvestigationBot(this)) runStrategicBot(this);
   }
   snapshotFor(viewer) {
     const current = this.now(); return {

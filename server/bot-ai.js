@@ -514,6 +514,21 @@ function tryLlmStrategicIntent(room, actor) {
   return acted;
 }
 
+function hasReadyInvestigation(room, actor) {
+  const available = roleSkills[actor.role] ?? [];
+  const hasReadySkill = available.some((skillId) => (SCANS.has(skillId) || CHECKS.has(skillId) || ["boss-check", "detective-check", "leadership"].includes(skillId)) && ready(room, actor, skillId));
+  if (!hasReadySkill) return false;
+  if (claimCheckPlan(room, actor)) return true;
+  if (available.some((skillId) => SCANS.has(skillId) && ready(room, actor, skillId))) {
+    return room.players.some((target) => { const known = memoryOf(actor).knowledge[target.id]; return target.alive && target.id !== actor.id && !known?.role && !actor.alliances.has(target.id); });
+  }
+  if (available.some((skillId) => ["boss-check", "detective-check"].includes(skillId) && ready(room, actor, skillId))) {
+    return room.players.some((target) => target.alive && target.id !== actor.id && !memoryOf(actor).knowledge[target.id]?.role);
+  }
+  if (available.includes("leadership") && ready(room, actor, "leadership") && actor.announced === actor.role) return true;
+  return false;
+}
+
 export function runStrategicBot(room) {
   const bots = room.players.filter((player) => player.alive && player.aiControlled); if (!bots.length) return;
   const waiting = bots.filter((player) => memoryOf(player).inbox.length);
@@ -527,6 +542,13 @@ export function runStrategicBot(room) {
     if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
     tryPublicChat(room, actor);
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }
+}
+
+export function runInvestigationBot(room) {
+  const investigators = room.players.filter((player) => player.alive && player.aiControlled && !memoryOf(player).inbox.length && hasReadyInvestigation(room, player));
+  const actor = pick(room, investigators); if (!actor) return false;
+  try { return tryClaimCheck(room, actor) || tryScan(room, actor) || tryRoleCheck(room, actor) || tryLeadership(room, actor); }
+  catch { return false; }
 }
 
 export function recordPublicDeath(room, target) {
