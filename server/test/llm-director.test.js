@@ -25,6 +25,14 @@ test("central LLM interpreter safely falls back on API failure", async () => {
   assert.equal(director.usage.failures, 1);
 });
 
+test("OPENAI_AI_ENABLED=false prevents every API request even when a key exists", async () => {
+  const previous = process.env.OPENAI_AI_ENABLED; process.env.OPENAI_AI_ENABLED = "false"; let calls = 0;
+  try {
+    const director = new LlmDirector({ apiKey: "configured-key", fetchImpl: async () => { calls += 1; throw new Error("must not call"); } });
+    assert.equal(director.enabled, false); assert.equal(await director.interpret({ text: "hello", channel: "public", senderId: 1, recipientIds: [], visiblePlayers: [] }), null); assert.equal(calls, 0);
+  } finally { if (previous === undefined) delete process.env.OPENAI_AI_ENABLED; else process.env.OPENAI_AI_ENABLED = previous; }
+});
+
 test("private strategy planner uses Terra and can only select a supplied action id", async () => {
   let requestBody;
   const director = new LlmDirector({ apiKey: "test-key", fetchImpl: async (_url, options) => { requestBody = JSON.parse(options.body); return { ok: true, json: async () => ({ output_text: JSON.stringify({ actionId: "share:::5:", reason: "직접 확인 정보 공유", nextGoal: "공동 공격", confidence: .9 }) }) }; } });

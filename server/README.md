@@ -18,7 +18,7 @@ Render에서 저장소의 `render.yaml` Blueprint를 생성하면 웹 화면과 
 
 ## LLM 대화 해석
 
-`OPENAI_API_KEY`가 있으면 인간의 메시지를 중앙에서 한 번만 GPT로 해석한 뒤 모든 AI 수신자에게 구조화된 의미를 공유합니다. LLM의 작전 의도는 공격, 조사, 검증, 동맹, 정보 공유의 우선순위를 바꾸지만 실제 행동은 항상 서버의 마나·쿨다운·신뢰도·대상 제한을 통과해야 합니다. 키가 없거나 API가 실패하면 기존 규칙형 해석기로 자동 폴백합니다.
+운영 기본값은 비용이 발생하지 않는 규칙형 AI입니다. `OPENAI_API_KEY`가 있고 `OPENAI_AI_ENABLED=true`를 명시한 경우에만 인간의 메시지를 GPT로 해석하고 전략 계획을 요청합니다. 키가 없거나 기능이 꺼져 있거나 API가 실패하면 규칙형 AI만 사용합니다.
 
 - `OPENAI_AI_ENABLED`: `false`로 설정하면 LLM 비활성화
 - `OPENAI_MODEL_DIALOGUE`: 기본값 `gpt-5.6-luna`
