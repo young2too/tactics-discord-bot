@@ -28,7 +28,7 @@ export class SingleRoom {
   disconnect(socket) {
     const player = this.players.find((entry) => entry.socket === socket); if (!player) return;
     player.socket = null; player.connected = false;
-    if (this.phase === "game" && !player.isBot && player.alive) player.aiControlled = true;
+    if (this.phase === "game" && !player.isBot && player.alive) { player.aiControlled = true; this.finishIfOnlyAi(); }
     if (this.phase === "lobby") { this.players = this.players.filter((entry) => entry !== player); if (this.hostId === player.id) this.hostId = this.players.find((entry) => !entry.isBot)?.id ?? null; }
   }
   setTotal(playerId, total) {
@@ -83,7 +83,7 @@ export class SingleRoom {
     actor.mana -= skill.cost; if (!skill.once) actor.cooldowns[skillId] = current + skill.cooldown * 1000; if (skill.once) actor.usedOnce[skillId] = true;
     this.resolve(actor, skillId, target, guessedRole, String(payload.text ?? "").trim().slice(0, 200));
     if (!this.result) this.result = checkVictory(this.players, this.successorId);
-    if (this.result) this.addLog("🏁", `게임 종료 · ${this.result.winner === "mafia" ? "마피아" : "시민"} 진영 승리`, "danger");
+    if (this.result) { const label = this.result.winner === "mafia" ? "마피아 진영 승리" : this.result.winner === "citizen" ? "시민 진영 승리" : "무승부"; if (this.logs.at(-1)?.text !== `게임 종료 · ${label}`) this.addLog("🏁", `게임 종료 · ${label}`, "danger"); }
   }
   validateSpecial(actor, skillId, target) {
     if (["ally-check", "enemy-check"].includes(skillId)) {
@@ -143,7 +143,7 @@ export class SingleRoom {
       }
     }
   }
-  kill(target, cause) { if (!target.alive) return; target.alive = false; this.addLog("☠", `${target.nickname}이(가) ${cause}(으)로 사망했습니다. 직업은 ${target.role}입니다.`, "danger"); recordPublicDeath(this, target); }
+  kill(target, cause) { if (!target.alive) return; target.alive = false; this.addLog("☠", `${target.nickname}이(가) ${cause}(으)로 사망했습니다. 직업은 ${target.role}입니다.`, "danger"); recordPublicDeath(this, target); this.finishIfOnlyAi(); }
   chat(playerId, payload) {
     this.assertGame(); const actor = this.player(playerId); const text = String(payload.text ?? "").trim().slice(0, 160); if (!text) return;
     const whisper = text.match(/^-(\d+)\s+(.+)$/s);
@@ -167,7 +167,9 @@ export class SingleRoom {
     });
   }
   tick() {
-    if (this.phase !== "game" || this.result) return false; const current = this.now(); let changed = false;
+    if (this.phase !== "game" || this.result) return false;
+    if (this.finishIfOnlyAi()) return true;
+    const current = this.now(); let changed = false;
     if (current >= this.nextManaAt) {
       for (const player of this.players) player.mana = Math.min(MANA_MAX, player.mana + MANA_TICK + player.incomingAlliances.size * 10);
       this.nextManaAt = current + MANA_INTERVAL; this.addLog("+", `마나 보급 · 기본 +${MANA_TICK}, 받은 동맹당 +10`, "mana"); changed = true;
@@ -197,6 +199,14 @@ export class SingleRoom {
       catch { acted = false; }
       if (!acted) runStrategicBot(this, { fair: true });
     }).finally(() => { this.botPlanInFlight = false; this.nextBotAt = this.now() + 800; this.onAsyncChange?.(); });
+  }
+  finishIfOnlyAi() {
+    if (this.phase !== "game" || this.result) return Boolean(this.result);
+    const living = this.players.filter((player) => player.alive);
+    if (!living.length || !living.every((player) => player.aiControlled)) return false;
+    this.result = checkVictory(this.players, this.successorId) ?? { winner: "draw", reason: "생존한 인간 플레이어가 없어 자동 종료" };
+    const label = this.result.winner === "mafia" ? "마피아 진영 승리" : this.result.winner === "citizen" ? "시민 진영 승리" : "무승부";
+    this.addLog("🏁", `게임 종료 · ${label}`, "danger"); return true;
   }
   snapshotFor(viewer) {
     const current = this.now(); return {

@@ -22,7 +22,7 @@ export type RoomState = {
   whisper?: { from: number; to: number; text: string } | null;
   verdict?: { id: number; title: string; success: boolean; message: string } | null;
   notification?: { id: number; title: string; message: string; tone: "alliance" | "hostile" } | null;
-  result?: { winner: "mafia" | "citizen"; reason: string } | null;
+  result?: { winner: "mafia" | "citizen" | "draw"; reason: string } | null;
   players: {
     id: number;
     nickname: string;

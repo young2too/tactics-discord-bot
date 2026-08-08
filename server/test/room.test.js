@@ -770,11 +770,11 @@ test("a confirmed AI ally reciprocates a human-initiated alliance for the human 
   runStrategicBot(room); assert.equal(human.incomingAlliances.has(detective.id), true); assert.match(room.chats.at(-1)?.text ?? "", /맞동맹/);
 });
 
-test("rule-based all-AI games cannot starve bots and eventually reach a winner", () => {
+test("a game ends immediately when only AI-controlled survivors remain", () => {
   let now = 0; const room = new SingleRoom({ now: () => now, random: () => .37 }); const host = room.join({ nickname: "host", socket: {} }); room.start(host.id);
   room.players.forEach((player) => { player.aiControlled = true; player.isBot = true; });
-  for (let step = 0; step < 1_200 && !room.result; step += 1) { now += 1_000; room.tick(); }
-  assert.ok(room.result, "all-AI game should reach a victory condition");
+  now += 1_000; room.tick();
+  assert.deepEqual(room.result, { winner: "draw", reason: "생존한 인간 플레이어가 없어 자동 종료" }); assert.equal(room.strategyCallsThisGame, 0);
 });
 
 test("a living captain always prevents an attacker-extinction victory", () => {
