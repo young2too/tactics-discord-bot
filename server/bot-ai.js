@@ -185,6 +185,14 @@ function respondToMessage(room, actor) {
   if (factionOf(actor.role) === "mafia" && publicCitizenInvestigator && reportedPairs(room, incoming.text).length) {
     memory.reports[sender.id] = { role: selfRoleClaim, reporterId: sender.id, source: "공개수사 신원 노출", evidence: observedInspection ? .8 : .55 };
     remember(actor, sender, { role: selfRoleClaim, confidence: observedInspection ? .8 : .55, source: "공개수사 신원 노출" });
+    for (const { target, role } of reportedPairs(room, incoming.text)) {
+      if (target.id === sender.id || factionOf(role) !== "mafia") continue;
+      const pairObserved = Boolean(room.publicInspections?.some((entry) => entry.targetId === target.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
+      if (!pairObserved) continue;
+      memory.trust[target.id] = Math.max(memory.trust[target.id] ?? 0, .8);
+      memory.claims[target.id] = { role, trust: .8, source: `${selfRoleClaim}의 공개 적발` };
+      remember(actor, target, { role, confidence: .8, source: `적 ${selfRoleClaim}의 공개 조사 적발` });
+    }
   }
   const verified = memory.knowledge[sender.id]; let response;
   const knownHitman = verified?.role === "히트맨" && (verified.confidence ?? 0) >= .8;

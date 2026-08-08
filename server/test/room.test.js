@@ -666,6 +666,17 @@ test("mafia attackers retaliate against a citizen investigator who reveals thems
   room.result = null; runStrategicBot(room); assert.equal(detective.alive, false);
 });
 
+test("mafia AI turns a public investigator reveal into ally proof and trusts the exposed ally's information dump", () => {
+  const room = new SingleRoom({ random: () => 0 }); const detective = room.join({ nickname: "detective", socket: {} }); const hitman = room.join({ nickname: "hitman", socket: {} }); const member = room.join({ nickname: "member", socket: {} }); room.start(detective.id);
+  const assistant = room.players.find((player) => ![detective.id, hitman.id, member.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  detective.role = "사립탐정"; detective.announced = "사립탐정"; hitman.role = "히트맨"; hitman.announced = "자경단원"; member.role = "마피아일원"; member.announced = "마피아일원"; member.aiControlled = true; member.mana = 200; assistant.role = "탐정조수"; assistant.announced = "탐정조수";
+  room.recordInspection(hitman); room.chat(detective.id, { text: `나는 사립탐정이야. ${hitman.id} 히트맨 조사 성공. 공격권 있는 시민은 히트맨으로 쳐줘.` }); runStrategicBot(room);
+  assert.equal(member.aiMemory.knowledge[hitman.id].role, "히트맨"); assert.equal(member.aiMemory.trust[hitman.id], .8); assert.equal(member.aiMemory.reports[detective.id].role, "사립탐정");
+  room.result = null; room.chat(hitman.id, { text: `${assistant.id} 탐정조수` }); runStrategicBot(room);
+  assert.equal(member.aiMemory.reports[assistant.id].role, "탐정조수"); assert.ok(member.aiMemory.reports[assistant.id].evidence >= .7);
+});
+
 test("a private detective's reports become trusted when their role is revealed on death", () => {
   const room = new SingleRoom({ random: () => 0 }); const detective = room.join({ nickname: "detective", socket: {} }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); room.start(detective.id);
   const hitman = room.players.find((player) => ![detective.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); detective.role = "사립탐정"; detective.announced = "마피아일원"; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.mana = 200; vigilante.aiControlled = true; hitman.role = "히트맨"; hitman.announced = "히트맨";
