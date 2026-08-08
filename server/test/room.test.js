@@ -529,6 +529,15 @@ test("an AI vigilante attacks a concrete role target requested by a confirmed al
   assert.equal(target.alive, false); assert.match(human.whisper?.text ?? "", /공격 성공.*공격 명중/);
 });
 
+test("an AI accepts a bare seat number in a whispered attack order", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); room.start(human.id);
+  const target = room.players.find((player) => ![human.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  human.role = "탐정조수"; human.announced = "탐정조수"; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.aiControlled = true; vigilante.mana = 200; target.role = "마피아일원"; target.announced = "마피아일원";
+  human.alliances.add(vigilante.id); vigilante.alliances.add(human.id); vigilante.aiMemory = { knowledge: { [human.id]: { role: "탐정조수", faction: "citizen", confidence: .9, source: "아군 확인", excluded: [] } }, trust: { [human.id]: .9 }, claims: {}, reports: {}, inbox: [] };
+  room.chat(human.id, { text: `-${vigilante.id} ${target.id} 마피아일원 쳐` }); runStrategicBot(room);
+  assert.equal(target.alive, false); assert.match(vigilante.whisper?.text ?? "", /공격 성공/);
+});
+
 test("an AI private detective scans a concrete target requested by a confirmed ally", () => {
   const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const detective = room.join({ nickname: "detective", socket: {} }); room.start(human.id);
   const target = room.players.find((player) => ![human.id, detective.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });

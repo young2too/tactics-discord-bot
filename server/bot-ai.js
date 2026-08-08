@@ -72,17 +72,23 @@ function requestsSnipeAuthorization(text) {
 }
 
 function reportedPairs(room, text) {
-  const matches = [...text.matchAll(/(\d+)번/g)];
+  const matches = playerMentions(room, text);
   return matches.map((match, index) => {
-    const target = room.players.find((player) => player.id === Number(match[1]));
+    const target = room.players.find((player) => player.id === match.id);
     const segment = text.slice(match.index, matches[index + 1]?.index ?? text.length);
-    const role = formations[room.totalPlayers].find((candidate) => segment.includes(candidate));
+    const role = claimedRole(room, segment);
     return target && role ? { target, role } : null;
   }).filter(Boolean);
 }
 
+function playerMentions(room, text) {
+  return [...text.matchAll(/(?:^|[^\d])(\d{1,2})(?:번|(?=\s|$))/g)]
+    .map((match) => ({ id: Number(match[1]), index: (match.index ?? 0) + match[0].indexOf(match[1]) }))
+    .filter((mention) => room.players.some((player) => player.id === mention.id));
+}
+
 function attributedSource(room, text) {
-  const match = text.match(/(\d+)번([^\d]{0,24}?)(?:알려|말해|제보|전달|들었|출처|정보)/);
+  const match = text.match(/(\d{1,2})(?:번)?([^\d]{0,24}?)(?:알려|말해|제보|전달|들었|출처|정보)/);
   if (!match) return null;
   const player = room.players.find((entry) => entry.id === Number(match[1])); if (!player) return null;
   const role = formations[room.totalPlayers].find((candidate) => match[2].includes(candidate)) ?? null;
@@ -143,11 +149,11 @@ function tryHumanAllianceOrder(room, actor, sender, text, target, role) {
 }
 
 function respondToMessage(room, actor) {
-  const memory = memoryOf(actor); const llmWait = (room.llmDirector?.timeoutMs ?? 0) + 250; const eligible = (message) => !message.llmPending || room.now() - message.at > llmWait; const commandIndex = memory.inbox.findIndex((message) => eligible(message) && /(\d+)번/.test(message.text) && /저격|쏴|사살|스캔|살펴|확인해|공격|쳐|때려|잡아|검거|지원|아확|적확|확인|동맹/.test(message.text)); const fallbackIndex = memory.inbox.findIndex(eligible); const selectedIndex = commandIndex >= 0 ? commandIndex : fallbackIndex; const incoming = selectedIndex >= 0 ? memory.inbox.splice(selectedIndex, 1)[0] : null; if (!incoming) return false;
+  const memory = memoryOf(actor); const llmWait = (room.llmDirector?.timeoutMs ?? 0) + 250; const eligible = (message) => !message.llmPending || room.now() - message.at > llmWait; const commandIndex = memory.inbox.findIndex((message) => eligible(message) && playerMentions(room, message.text).length && /저격|쏴|사살|스캔|살펴|확인해|공격|쳐|때려|잡아|검거|지원|아확|적확|확인|동맹/.test(message.text)); const fallbackIndex = memory.inbox.findIndex(eligible); const selectedIndex = commandIndex >= 0 ? commandIndex : fallbackIndex; const incoming = selectedIndex >= 0 ? memory.inbox.splice(selectedIndex, 1)[0] : null; if (!incoming) return false;
   const sender = room.player(incoming.from); if (!sender.alive) return true;
   memory.conversation = [...memory.conversation.slice(-11), { from: sender.id, channel: incoming.channel, text: incoming.originalText ?? incoming.text, interpretedAs: incoming.llm?.canonicalText ?? null, speechActs: incoming.llm?.speechActs ?? [], at: incoming.at }];
   const selfRoleClaim = selfClaimedRole(room, incoming.text); const roleClaim = selfRoleClaim ?? claimedRole(room, incoming.text); const skillClaim = claimedSkill(incoming.text);
-  const reportMatch = incoming.text.match(/(\d+)번/); const reportedId = Number(reportMatch?.[1] ?? 0); const reportedTarget = room.players.find((player) => player.id === reportedId); const reportedRole = reportMatch ? claimedRole(room, incoming.text.slice(reportMatch.index)) : null;
+  const reportMention = playerMentions(room, incoming.text)[0]; const reportedTarget = room.players.find((player) => player.id === reportMention?.id); const reportedRole = reportMention ? claimedRole(room, incoming.text.slice(reportMention.index)) : null;
   const introducedAlly = introducedAllies(room, actor, sender, incoming);
   if (introducedAlly) {
     memory.trust[introducedAlly.id] = Math.max(memory.trust[introducedAlly.id] ?? 0, .7);
