@@ -160,6 +160,27 @@ test("an allied checker still spends a ready check instead of waiting for an ord
   assert.equal(checker.verdict.title, "공표 확인");
 });
 
+test("ally-check never targets a player already in the alliance line", () => {
+  const room = new SingleRoom({ random: () => 0 }); const checker = room.join({ nickname: "checker", socket: {} }); const detective = room.join({ nickname: "detective", socket: {} }); room.start(checker.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = "히트맨"; });
+  checker.role = "순찰경찰"; checker.announced = "순찰경찰"; checker.aiControlled = true; checker.mana = 200;
+  detective.role = "사립탐정"; detective.announced = "사립탐정"; checker.alliances.add(detective.id); detective.alliances.add(checker.id);
+  room.runBot();
+  assert.equal(checker.cooldowns["ally-check"], undefined);
+  assert.equal(checker.verdict, null);
+});
+
+test("checks and scans skip a trusted ally even before a formal alliance", () => {
+  const room = new SingleRoom({ random: () => 0 }); const checker = room.join({ nickname: "checker", socket: {} }); const trusted = room.join({ nickname: "trusted", socket: {} }); room.start(checker.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = "히트맨"; });
+  checker.role = "탐정조수"; checker.announced = "탐정조수"; checker.aiControlled = true; checker.mana = 200;
+  trusted.role = "사립탐정"; trusted.announced = "탐정조수";
+  checker.aiMemory = { knowledge: {}, claims: { [trusted.id]: { role: "탐정조수", trust: .8 } }, trust: { [trusted.id]: .8 }, reports: {}, inbox: [] };
+  room.runBot();
+  assert.equal(checker.cooldowns["ally-check"], undefined);
+  assert.notEqual(checker.verdict?.message?.includes(trusted.nickname), true);
+});
+
 test("strategic bots understand terse role aliases and second-person true-role reports", () => {
   const room = new SingleRoom({ random: () => 0 });
   const captain = room.join({ nickname: "captain", socket: {} });

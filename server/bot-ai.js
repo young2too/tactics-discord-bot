@@ -293,6 +293,10 @@ function knownAllies(room, actor) {
   return room.players.filter((target) => { const memory = memoryOf(actor); const direct = memory.knowledge[target.id]; const trustedClaim = memory.claims[target.id]; const directRoleProof = direct?.role && direct.faction === factionOf(actor.role) && (direct.confidence ?? 0) >= .8; const contextualFactionProof = direct?.faction === factionOf(actor.role) && (direct?.confidence ?? 0) >= .7 && (memory.trust[target.id] ?? 0) >= .7; return target.alive && target.id !== actor.id && (directRoleProof || contextualFactionProof || (trustedClaim?.role && factionOf(trustedClaim.role) === factionOf(actor.role) && (memory.trust[target.id] ?? trustedClaim.trust ?? 0) >= .7)); });
 }
 
+function isConfirmedAlly(room, actor, target) {
+  return actor.alliances.has(target.id) || knownAllies(room, actor).some((ally) => ally.id === target.id);
+}
+
 function knownEnemies(room, actor) {
   return room.players.filter((target) => target.alive && target.id !== actor.id && memoryOf(actor).knowledge[target.id]?.faction && memoryOf(actor).knowledge[target.id].faction !== factionOf(actor.role) && (memoryOf(actor).knowledge[target.id]?.confidence ?? 0) >= .8);
 }
@@ -447,7 +451,7 @@ function allowedScanRoles(room, actor, skillId) {
 function tryScan(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => SCANS.has(id) && ready(room, actor, id));
   if (!skillId) return false;
-  const candidates = room.players.filter((target) => { const known = memoryOf(actor).knowledge[target.id]; const confirmedAlly = actor.alliances.has(target.id) || (known?.faction === factionOf(actor.role) && (known.confidence ?? 0) >= .7); return target.alive && target.id !== actor.id && !known?.role && !confirmedAlly; });
+  const candidates = room.players.filter((target) => { const known = memoryOf(actor).knowledge[target.id]; return target.alive && target.id !== actor.id && !known?.role && !isConfirmedAlly(room, actor, target); });
   const target = pick(room, candidates); if (!target) return false;
   const roles = allowedScanRoles(room, actor, skillId);
   const publicGuess = roles.includes(target.announced) ? target.announced : null;
@@ -474,7 +478,7 @@ function claimCheckPlan(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => CHECKS.has(id) && ready(room, actor, id));
   if (!skillId) return null;
   const mine = factionOf(actor.role);
-  const candidates = room.players.filter((target) => { const known = memoryOf(actor).knowledge[target.id]; return target.alive && target.id !== actor.id && !actor.alliances.has(target.id) && !known?.role && !known?.excluded?.includes(target.announced) && target.announced !== "미공표" && (skillId === "ally-check") === (factionOf(target.announced) === mine); });
+  const candidates = room.players.filter((target) => { const known = memoryOf(actor).knowledge[target.id]; return target.alive && target.id !== actor.id && !isConfirmedAlly(room, actor, target) && !known?.role && !known?.excluded?.includes(target.announced) && target.announced !== "미공표" && (skillId === "ally-check") === (factionOf(target.announced) === mine); });
   return candidates.length ? { skillId, candidates } : null;
 }
 
