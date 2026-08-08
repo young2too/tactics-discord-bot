@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { botNames, factionOf, formations, MANA_INTERVAL, MANA_MAX, MANA_TICK, roleSkills, shuffle, skills } from "./game-config.js";
-import { recordPublicDeath, runInvestigationBot, runStrategicBot } from "./bot-ai.js";
+import { buildBotPlanningTurn, executeBotPlannedAction, recordPublicDeath, runInvestigationBot, runStrategicBot } from "./bot-ai.js";
 import { checkVictory } from "./game-rules.js";
 
 const nowLabel = () => new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -9,7 +9,7 @@ export class SingleRoom {
   constructor({ random = Math.random, now = () => Date.now(), llmDirector = null, onAsyncChange = null } = {}) { this.random = random; this.now = now; this.llmDirector = llmDirector; this.onAsyncChange = onAsyncChange; this.reset(); }
   reset() {
     this.phase = "lobby"; this.totalPlayers = 8; this.players = []; this.hostId = null; this.logs = [];
-    this.chats = []; this.result = null; this.successorId = null; this.effect = null; this.publicInspections = []; this.leadershipDiscoveries = []; this.nextManaAt = null; this.nextBotAt = null;
+    this.chats = []; this.result = null; this.successorId = null; this.effect = null; this.publicInspections = []; this.leadershipDiscoveries = []; this.nextManaAt = null; this.nextBotAt = null; this.botPlanInFlight = false; this.botPlannerCursor = 0;
   }
   join({ nickname, token, socket }) {
     const cleanName = String(nickname ?? "").trim().slice(0, 16);
@@ -171,7 +171,22 @@ export class SingleRoom {
     return true;
   }
   runBot() {
-    if (!runInvestigationBot(this)) runStrategicBot(this);
+    const waiting = this.players.some((player) => player.alive && player.aiControlled && player.aiMemory?.inbox?.length);
+    if (waiting) { runStrategicBot(this); return; }
+    if (!this.llmDirector?.enabled) { if (!runInvestigationBot(this)) runStrategicBot(this); return; }
+    if (this.botPlanInFlight) return;
+    const bots = this.players.filter((player) => player.alive && player.aiControlled);
+    const turns = bots.map((actor) => ({ actor, turn: buildBotPlanningTurn(this, actor) })).filter(({ turn }) => turn.actions.length);
+    if (!turns.length) { runStrategicBot(this); return; }
+    const selected = turns[this.botPlannerCursor % turns.length]; this.botPlannerCursor += 1; this.botPlanInFlight = true;
+    this.llmDirector.planTurn(selected.turn).then((plan) => {
+      if (this.phase !== "game" || this.result || !this.players.includes(selected.actor) || !selected.actor.alive || !selected.actor.aiControlled) return;
+      const action = plan?.confidence >= .5 ? selected.turn.actions.find((candidate) => candidate.id === plan.actionId) : null;
+      let acted = false;
+      try { acted = executeBotPlannedAction(this, selected.actor, action); if (plan && selected.actor.aiMemory) selected.actor.aiMemory.llmPlan = { goal: plan.nextGoal, reason: plan.reason, confidence: plan.confidence, at: this.now() }; }
+      catch { acted = false; }
+      if (!acted && !runInvestigationBot(this)) runStrategicBot(this);
+    }).finally(() => { this.botPlanInFlight = false; this.nextBotAt = this.now() + 800; this.onAsyncChange?.(); });
   }
   snapshotFor(viewer) {
     const current = this.now(); return {

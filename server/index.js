@@ -24,7 +24,7 @@ function proxyToWeb(request, response) {
 }
 
 const server = http.createServer((request, response) => {
-  if (request.url === "/health") { response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify({ ok: true, phase: room.phase, players: room.players.length, web: serveWeb, llm: { enabled: llmDirector.enabled, model: llmDirector.model, usage: llmDirector.usage } })); return; }
+  if (request.url === "/health") { response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify({ ok: true, phase: room.phase, players: room.players.length, web: serveWeb, llm: { enabled: llmDirector.enabled, dialogueModel: llmDirector.model, strategyModel: llmDirector.strategyModel, usage: llmDirector.usage } })); return; }
   if (serveWeb) { proxyToWeb(request, response); return; }
   response.writeHead(200, { "content-type": "text/plain; charset=utf-8" }); response.end("TACTICS realtime server");
 });

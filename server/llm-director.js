@@ -27,14 +27,25 @@ const INTERPRETATION_SCHEMA = {
   },
 };
 
+const PLAN_SCHEMA = {
+  type: "object", additionalProperties: false,
+  required: ["actionId", "reason", "nextGoal", "confidence"],
+  properties: {
+    actionId: { type: ["string", "null"] },
+    reason: { type: "string", maxLength: 240 },
+    nextGoal: { type: "string", maxLength: 120 },
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+  },
+};
+
 function outputText(payload) {
   if (typeof payload.output_text === "string") return payload.output_text;
   return (payload.output ?? []).flatMap((item) => item.content ?? []).find((item) => item.type === "output_text")?.text ?? null;
 }
 
 export class LlmDirector {
-  constructor({ apiKey = process.env.OPENAI_API_KEY, model = process.env.OPENAI_MODEL_DIALOGUE ?? "gpt-5.6-luna", fetchImpl = globalThis.fetch, timeoutMs = Number(process.env.OPENAI_TIMEOUT_MS ?? 3500) } = {}) {
-    this.apiKey = apiKey; this.model = model; this.fetch = fetchImpl; this.timeoutMs = timeoutMs;
+  constructor({ apiKey = process.env.OPENAI_API_KEY, model = process.env.OPENAI_MODEL_DIALOGUE ?? "gpt-5.6-luna", strategyModel = process.env.OPENAI_MODEL_STRATEGY ?? "gpt-5.6-terra", fetchImpl = globalThis.fetch, timeoutMs = Number(process.env.OPENAI_TIMEOUT_MS ?? 3500) } = {}) {
+    this.apiKey = apiKey; this.model = model; this.strategyModel = strategyModel; this.fetch = fetchImpl; this.timeoutMs = timeoutMs;
     this.enabled = Boolean(apiKey && fetchImpl && process.env.OPENAI_AI_ENABLED !== "false");
     this.inFlight = new Map(); this.usage = { calls: 0, inputTokens: 0, outputTokens: 0, failures: 0 };
   }
@@ -47,22 +58,39 @@ export class LlmDirector {
     this.inFlight.set(key, request); return request;
   }
 
+  async planTurn({ context, actions }) {
+    if (!this.enabled || !actions.length) return null;
+    return this.#structuredRequest({
+      model: this.strategyModel, schema: PLAN_SCHEMA, schemaName: "tactics_plan", maxOutputTokens: 350,
+      developer: "너는 마피아 전술 게임의 개별 AI 플레이어다. 제공된 self와 facts만 알고 있으며 숨은 실제 직업을 추측해서 사실처럼 사용하면 안 된다. 반드시 legalActions의 id 중 하나만 선택한다. 직접 확인한 사실을 주장보다 우선하고, 확정 아군을 재조사하지 말고, 마나가 허용하면 준비된 확인/스캔으로 미확인 대상을 적극 조사한다. 새로 얻은 중요한 정보는 검증된 아군에게 공유한다. 공격은 직접 확인 또는 신뢰 가능한 출처가 있을 때만 한다. 각 fact의 source, confidence, trust, evidence를 구분하라.",
+      user: { state: context, legalActions: actions },
+    });
+  }
+
   async #request(context) {
+    return this.#structuredRequest({
+      model: this.model, schema: INTERPRETATION_SCHEMA, schemaName: "tactics_message", maxOutputTokens: 500,
+      developer: "너는 한국어 마피아 전술 게임의 중앙 대화 해석기다. 원문에 없는 사실을 만들지 말고, 지칭과 축약어만 문맥에 맞게 풀어라. '나'는 sender, 귓말의 '너'는 recipient다. '너 진명'은 recipient가 검사 당시 공표한 직업이 진짜였다는 주장이지, 현재 실제 직업을 새로 알아낸 것이 아니다. canonicalText는 기존 규칙 엔진이 이해하도록 좌석 번호와 정식 직업명을 사용해 짧게 다시 쓴다. 애매하면 confidence를 낮추고 단정하지 마라.",
+      user: context,
+    });
+  }
+
+  async #structuredRequest({ model, schema, schemaName, maxOutputTokens, developer, user }) {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const response = await this.fetch("https://api.openai.com/v1/responses", {
         method: "POST", signal: controller.signal,
         headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
         body: JSON.stringify({
-          model: this.model,
+          model,
           reasoning: { effort: "low" },
-          max_output_tokens: 500,
+          max_output_tokens: maxOutputTokens,
           store: false,
           input: [
-            { role: "developer", content: "너는 한국어 마피아 전술 게임의 중앙 대화 해석기다. 원문에 없는 사실을 만들지 말고, 지칭과 축약어만 문맥에 맞게 풀어라. '나'는 sender, 귓말의 '너'는 recipient다. '너 진명'은 recipient가 검사 당시 공표한 직업이 진짜였다는 주장이지, 현재 실제 직업을 새로 알아낸 것이 아니다. canonicalText는 기존 규칙 엔진이 이해하도록 좌석 번호와 정식 직업명을 사용해 짧게 다시 쓴다. 애매하면 confidence를 낮추고 단정하지 마라." },
-            { role: "user", content: JSON.stringify(context) },
+            { role: "developer", content: developer },
+            { role: "user", content: JSON.stringify(user) },
           ],
-          text: { format: { type: "json_schema", name: "tactics_message", strict: true, schema: INTERPRETATION_SCHEMA } },
+          text: { format: { type: "json_schema", name: schemaName, strict: true, schema } },
         }),
       });
       if (!response.ok) throw new Error(`OpenAI ${response.status}`);

@@ -17,5 +17,7 @@ services:
         value: "true"
       - key: OPENAI_MODEL_DIALOGUE
         value: "gpt-5.6-luna"
+      - key: OPENAI_MODEL_STRATEGY
+        value: "gpt-5.6-terra"
       - key: OPENAI_TIMEOUT_MS
         value: "3500"

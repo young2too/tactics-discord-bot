@@ -22,6 +22,7 @@ Render에서 저장소의 `render.yaml` Blueprint를 생성하면 웹 화면과 
 
 - `OPENAI_AI_ENABLED`: `false`로 설정하면 LLM 비활성화
 - `OPENAI_MODEL_DIALOGUE`: 기본값 `gpt-5.6-luna`
+- `OPENAI_MODEL_STRATEGY`: AI별 주관적 사실과 합법 행동 후보를 판단하는 모델, 기본값 `gpt-5.6-terra`
 - `OPENAI_TIMEOUT_MS`: 기본값 `3500`
 
 API 키는 Render Secret 환경변수로만 설정하고 저장소에 커밋하지 마세요.
