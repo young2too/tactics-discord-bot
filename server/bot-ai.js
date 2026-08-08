@@ -394,7 +394,7 @@ function tryShareFinding(room, actor) {
   const memory = memoryOf(actor);
   const finding = Object.entries(memory.knowledge).find(([targetId, known]) => {
     const target = room.players.find((player) => player.id === Number(targetId));
-    if (!target || target.id === actor.id || (!known.role && !known.faction && !known.excluded?.length)) return false;
+    if (!target || target.id === actor.id || known.source === "사후 직업 공개" || (!known.role && !known.faction && !known.excluded?.length)) return false;
     const signature = `${known.role ?? ""}|${known.faction ?? ""}|${(known.excluded ?? []).join(",")}`;
     return [...actor.alliances].some((allyId) => !memory.sharedFindings[`${allyId}:${target.id}:${signature}`]);
   });
@@ -430,6 +430,38 @@ function tryReportedAttack(room, actor) {
   const entry = Object.entries(memory.reports).find(([targetId, report]) => { const target = room.players.find((player) => player.id === Number(targetId)); const verifiedReporter = memory.knowledge[report.reporterId]; const directTrust = verifiedReporter?.faction === factionOf(actor.role) ? verifiedReporter.confidence ?? 0 : 0; const trust = Math.max(memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15, directTrust); return target?.alive && factionOf(report.role) !== factionOf(actor.role) && Math.max(trust, report.evidence ?? .1) >= threshold; });
   if (!entry) return false; const [targetId, report] = entry; const target = room.player(Number(targetId));
   room.act(actor.id, { skillId, targetId: target.id, role: report.role }); gradeAttackReport(room, actor, target, report); return true;
+}
+
+export function syncAllianceIntel(room, actor, ally) {
+  if (!actor?.aiControlled || !ally?.alive || !actor.alliances.has(ally.id)) return false;
+  const memory = memoryOf(actor);
+  const findings = Object.entries(memory.knowledge).flatMap(([targetId, known]) => {
+    const target = room.players.find((player) => player.id === Number(targetId));
+    if (!target || target.id === actor.id || target.id === ally.id || known.source === "사후 직업 공개" || (!known.role && !known.faction && !known.excluded?.length)) return [];
+    const signature = `${known.role ?? ""}|${known.faction ?? ""}|${(known.excluded ?? []).join(",")}`;
+    if (memory.sharedFindings[`${ally.id}:${target.id}:${signature}`]) return [];
+    return [{ target, known, signature }];
+  });
+  if (!findings.length) return false;
+
+  const details = findings.map(({ target, known }) => known.role
+    ? `${target.id}번 ${known.role}`
+    : known.faction
+      ? `${target.id}번 ${known.faction === "mafia" ? "마피아" : "시민"} 진영`
+      : `${target.id}번 ${(known.excluded ?? []).join(", ")} 아님`);
+  room.chat(actor.id, { text: `지금까지 조사 결과 공유: ${details.join(" / ")}.`, channel: "alliance" });
+
+  for (const { target, known, signature } of findings) {
+    memory.sharedFindings[`${ally.id}:${target.id}:${signature}`] = true;
+    if (!ally.aiControlled) continue;
+    const confidence = Math.min(known.confidence ?? .8, .8);
+    memoryOf(ally).sharedFindings[`${actor.id}:${target.id}:${signature}`] = true;
+    if (known.role) remember(ally, target, { role: known.role, confidence, source: `${actor.nickname}의 동맹 조사 공유` });
+    else if (known.faction) remember(ally, target, { faction: known.faction, confidence, source: `${actor.nickname}의 동맹 조사 공유` });
+    for (const excludedRole of known.excluded ?? []) remember(ally, target, { confidence, source: `${actor.nickname}의 동맹 조사 공유`, excludedRole });
+    if (known.role && factionOf(known.role) !== factionOf(ally.role)) memoryOf(ally).reports[target.id] = { role: known.role, reporterId: actor.id, source: "동맹 조사 공유", evidence: .7 };
+  }
+  return true;
 }
 
 function gradeAttackReport(room, actor, target, report) {

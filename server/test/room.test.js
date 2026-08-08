@@ -714,6 +714,25 @@ test("AI allies share investigation findings through alliance chat", () => {
   detective.aiControlled = false; room.result = null; runStrategicBot(room); assert.equal(hitman.alive, false);
 });
 
+test("an AI detective immediately dumps accumulated scan results to a newly connected ally", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const detective = room.join({ nickname: "detective", socket: {} }); room.start(human.id);
+  const hitman = room.players.find((player) => ![human.id, detective.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  human.role = "탐정조수"; detective.role = "사립탐정"; detective.aiControlled = true; detective.mana = 200; hitman.role = "히트맨";
+  detective.aiMemory = { knowledge: { [hitman.id]: { role: "히트맨", faction: "mafia", confidence: 1, source: "적군 스캔", excluded: [] } }, trust: { [human.id]: .8 }, claims: {}, reports: {}, sharedFindings: {}, inbox: [] };
+  room.act(human.id, { skillId: "ally-add", targetId: detective.id });
+  assert.match(room.chats.at(-1)?.text ?? "", new RegExp(`지금까지 조사 결과 공유: ${hitman.id}번 히트맨`));
+  assert.equal(room.chats.at(-1)?.channel, "alliance");
+});
+
+test("alliance intel sync does not repeat publicly revealed death roles", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const detective = room.join({ nickname: "detective", socket: {} }); room.start(human.id);
+  const dead = room.players.find((player) => ![human.id, detective.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  human.role = "탐정조수"; detective.role = "사립탐정"; detective.aiControlled = true; dead.alive = false;
+  detective.aiMemory = { knowledge: { [dead.id]: { role: dead.role, faction: "mafia", confidence: 1, source: "사후 직업 공개", excluded: [] } }, trust: { [human.id]: .8 }, claims: {}, reports: {}, sharedFindings: {}, inbox: [] };
+  const chatCount = room.chats.length; room.act(human.id, { skillId: "ally-add", targetId: detective.id });
+  assert.equal(room.chats.length, chatCount);
+});
+
 test("both sides receive distinct alliance and shared hostility notifications", () => {
   let now = 1_000;
   const room = new SingleRoom({ now: () => now, random: () => 0.5 });

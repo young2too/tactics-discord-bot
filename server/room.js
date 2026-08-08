@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { botNames, factionOf, formations, MANA_INTERVAL, MANA_MAX, MANA_TICK, roleSkills, shuffle, skills } from "./game-config.js";
-import { buildBotPlanningTurn, executeBotPlannedAction, processPendingBotMessages, recordPublicDeath, runInvestigationBot, runStrategicBot, runUrgentAttackBot } from "./bot-ai.js";
+import { buildBotPlanningTurn, executeBotPlannedAction, processPendingBotMessages, recordPublicDeath, runInvestigationBot, runStrategicBot, runUrgentAttackBot, syncAllianceIntel } from "./bot-ai.js";
 import { checkVictory } from "./game-rules.js";
 
 const nowLabel = () => new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -109,7 +109,9 @@ export class SingleRoom {
       const targetMessage = adding ? `${actor.id}번 ${actor.nickname}에게 동맹을 받았습니다.` : `${actor.id}번 ${actor.nickname}와 적대관계가 되었습니다.`;
       this.private(actor, actorMessage); this.private(target, targetMessage);
       this.notify(actor, adding ? "동맹 체결" : "동맹 파기", actorMessage, adding ? "alliance" : "hostile");
-      this.notify(target, adding ? "동맹 요청 수신" : "동맹 파기", targetMessage, adding ? "alliance" : "hostile"); return;
+      this.notify(target, adding ? "동맹 요청 수신" : "동맹 파기", targetMessage, adding ? "alliance" : "hostile");
+      if (adding) { syncAllianceIntel(this, actor, target); syncAllianceIntel(this, target, actor); }
+      return;
     }
     if (["ally-scan", "enemy-scan", "advanced-scan"].includes(skillId)) { this.effect = { id: target.id, type: "inspect", until: this.now() + 1500 }; const hit = guessedRole === target.role; this.recordInspection(target, { actor, skillId, announced: target.announced, success: hit }); const message = hit ? `${target.nickname}은(는) ${target.role}입니다.` : `${target.nickname}은(는) ${guessedRole}이(가) 아닙니다.`; this.addLog("🔎", `누군가가 ${target.nickname}을(를) 살피고 있습니다.`, "scan"); this.private(actor, `스캔 ${hit ? "성공" : "실패"} · ${message}`); this.verdict(actor, "스캔 판정", hit, message); return; }
     if (["ally-check", "enemy-check"].includes(skillId)) { this.effect = { id: target.id, type: "inspect", until: this.now() + 1500 }; const announced = target.announced; const fooled = skillId === "ally-check" && target.role === "스파이" && factionOf(announced) === "citizen" && factionOf(actor.role) === "citizen"; const hit = fooled || announced === target.role; this.recordInspection(target, { actor, skillId, announced, success: hit }); const message = `${target.nickname}의 ${announced} 공표는 ${hit ? "진명" : "가명"}입니다.`; this.addLog("🔎", `누군가가 ${target.nickname}을(를) 살피고 있습니다.`, "scan"); this.private(actor, message); this.verdict(actor, "공표 확인", hit, message); return; }
