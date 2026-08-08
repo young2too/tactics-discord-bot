@@ -762,6 +762,14 @@ test("mana ticks reward only alliances initiated toward the receiving player", (
   assert.equal(receiver.mana, 20);
 });
 
+test("a confirmed AI ally reciprocates a human-initiated alliance for the human mana bonus", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const detective = room.join({ nickname: "detective", socket: {} }); room.start(human.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); human.role = "탐정조수"; detective.role = "사립탐정"; detective.aiControlled = true;
+  detective.aiMemory = { knowledge: { [human.id]: { role: "탐정조수", faction: "citizen", confidence: .8, source: "아군 확인", excluded: [] } }, trust: { [human.id]: .8 }, claims: {}, reports: {}, sharedFindings: {}, inbox: [] };
+  room.act(human.id, { skillId: "ally-add", targetId: detective.id }); assert.equal(human.incomingAlliances.has(detective.id), false);
+  runStrategicBot(room); assert.equal(human.incomingAlliances.has(detective.id), true); assert.match(room.chats.at(-1)?.text ?? "", /맞동맹/);
+});
+
 test("a living captain always prevents an attacker-extinction victory", () => {
   const players = [
     { role: "마피아대부", alive: true }, { role: "마피아일원", alive: true },

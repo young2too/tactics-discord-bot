@@ -432,6 +432,16 @@ function tryReportedAttack(room, actor) {
   room.act(actor.id, { skillId, targetId: target.id, role: report.role }); gradeAttackReport(room, actor, target, report); return true;
 }
 
+function tryReciprocateAlliance(room, actor) {
+  const target = knownAllies(room, actor).find((candidate) => actor.alliances.has(candidate.id) && !candidate.incomingAlliances.has(actor.id));
+  if (!target) return false;
+  target.incomingAlliances.add(actor.id);
+  const message = `${actor.id}번 ${actor.nickname}이(가) 맞동맹을 걸었습니다.`;
+  room.private(target, message); room.notify(target, "맞동맹 수신", message, "alliance");
+  room.chat(actor.id, { text: `${target.id}번 아군 확인. 나도 맞동맹 걸었어.`, channel: "alliance" });
+  return true;
+}
+
 export function syncAllianceIntel(room, actor, ally) {
   if (!actor?.aiControlled || !ally?.alive || !actor.alliances.has(ally.id)) return false;
   const memory = memoryOf(actor);
@@ -611,7 +621,7 @@ export function runStrategicBot(room) {
     if (respondToMessage(room, actor)) return;
     if (tryAnnounce(room, actor)) return;
     if (tryLlmStrategicIntent(room, actor)) return;
-    if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryShare(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryAlliance(room, actor) || tryShareFinding(room, actor)) return;
+    if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryReciprocateAlliance(room, actor) || tryShare(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryAlliance(room, actor) || tryShareFinding(room, actor)) return;
     if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
     tryPublicChat(room, actor);
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }
