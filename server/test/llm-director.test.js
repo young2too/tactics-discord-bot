@@ -78,3 +78,12 @@ test("private planner can share a verified finding with allies and propagate its
   room.runBot(); await new Promise((resolve) => setImmediate(resolve));
   assert.equal(ally.aiMemory.knowledge[enemy.id].role, "히트맨"); assert.match(ally.aiMemory.knowledge[enemy.id].source, /동맹 조사 공유/); assert.equal(room.chats.at(-1).channel, "alliance");
 });
+
+test("room rate-limits and caps strategy planning while rule bots keep running", async () => {
+  let calls = 0; let now = 10_000;
+  const llmDirector = { enabled: true, planTurn: async () => { calls += 1; return null; } };
+  const room = new SingleRoom({ now: () => now, random: () => 0, llmDirector, strategyMinIntervalMs: 30_000, strategyMaxCallsPerGame: 1 }); const actor = room.join({ nickname: "actor", socket: {} }); room.start(actor.id);
+  room.players.forEach((player) => { player.aiControlled = false; }); actor.aiControlled = true; actor.role = "공무원"; actor.announced = "공무원"; actor.mana = 200;
+  room.runBot(); await new Promise((resolve) => setImmediate(resolve)); now += 31_000; room.runBot(); await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls, 1); assert.equal(room.strategyCallsThisGame, 1);
+});

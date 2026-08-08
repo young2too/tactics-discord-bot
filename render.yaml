@@ -21,3 +21,7 @@ services:
         value: "gpt-5.6-terra"
       - key: OPENAI_TIMEOUT_MS
         value: "3500"
+      - key: OPENAI_STRATEGY_MIN_INTERVAL_MS
+        value: "30000"
+      - key: OPENAI_STRATEGY_MAX_CALLS_PER_GAME
+        value: "12"
