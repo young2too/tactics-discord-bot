@@ -529,6 +529,25 @@ test("an AI vigilante attacks a concrete role target requested by a confirmed al
   assert.equal(target.alive, false); assert.match(human.whisper?.text ?? "", /공격 성공.*공격 명중/);
 });
 
+test("a citizen attacker immediately prioritizes a directly verified hitman over investigation and planning", () => {
+  const llmDirector = { enabled: true, planTurn: async () => { throw new Error("urgent attack must not wait for planning"); } };
+  const room = new SingleRoom({ random: () => 0, llmDirector }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); const hitman = room.join({ nickname: "hitman", socket: {} }); room.start(vigilante.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.aiControlled = true; vigilante.mana = 200; hitman.role = "히트맨"; hitman.announced = "히트맨";
+  vigilante.aiMemory = { knowledge: { [hitman.id]: { role: "히트맨", faction: "mafia", confidence: 1, source: "적군 확인", excluded: [] } }, trust: {}, claims: {}, reports: {}, inbox: [] };
+  room.runBot();
+  assert.equal(hitman.alive, false); assert.equal(room.botPlanInFlight, false);
+});
+
+test("a failed trusted attack report marks its reporter as a likely enemy and discredits the report", () => {
+  const room = new SingleRoom({ random: () => 0 }); const reporter = room.join({ nickname: "reporter", socket: {} }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); const target = room.join({ nickname: "target", socket: {} }); room.start(reporter.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  reporter.role = "마피아일원"; reporter.announced = "탐정조수"; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.aiControlled = true; vigilante.mana = 200; target.role = "순찰경찰"; target.announced = "히트맨";
+  vigilante.aiMemory = { knowledge: {}, trust: { [reporter.id]: .8 }, claims: { [reporter.id]: { role: "탐정조수", trust: .8 } }, reports: { [target.id]: { role: "히트맨", reporterId: reporter.id, evidence: .8, source: "신뢰 동맹 제보" } }, inbox: [] };
+  room.runBot();
+  assert.equal(vigilante.verdict.success, false); assert.equal(vigilante.aiMemory.trust[reporter.id], -.8); assert.equal(vigilante.aiMemory.knowledge[reporter.id].faction, "mafia"); assert.equal(vigilante.aiMemory.reports[target.id].discredited, true);
+});
+
 test("an AI accepts a bare seat number in a whispered attack order", () => {
   const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); room.start(human.id);
   const target = room.players.find((player) => ![human.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { botNames, factionOf, formations, MANA_INTERVAL, MANA_MAX, MANA_TICK, roleSkills, shuffle, skills } from "./game-config.js";
-import { buildBotPlanningTurn, executeBotPlannedAction, recordPublicDeath, runInvestigationBot, runStrategicBot } from "./bot-ai.js";
+import { buildBotPlanningTurn, executeBotPlannedAction, processPendingBotMessages, recordPublicDeath, runInvestigationBot, runStrategicBot, runUrgentAttackBot } from "./bot-ai.js";
 import { checkVictory } from "./game-rules.js";
 
 const nowLabel = () => new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -172,7 +172,8 @@ export class SingleRoom {
   }
   runBot() {
     const waiting = this.players.some((player) => player.alive && player.aiControlled && player.aiMemory?.inbox?.length);
-    if (waiting) { runStrategicBot(this); return; }
+    if (waiting) { processPendingBotMessages(this); if (runUrgentAttackBot(this)) return; }
+    if (runUrgentAttackBot(this)) return;
     if (!this.llmDirector?.enabled) { if (!runInvestigationBot(this)) runStrategicBot(this); return; }
     if (this.botPlanInFlight) return;
     const bots = this.players.filter((player) => player.alive && player.aiControlled);

@@ -419,7 +419,7 @@ function tryShareFinding(room, actor) {
 function tryKnownAttack(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => ATTACKS.has(id) && ready(room, actor, id));
   if (!skillId) return false;
-  const target = pick(room, knownEnemies(room, actor).filter((candidate) => memoryOf(actor).knowledge[candidate.id]?.role));
+  const target = knownEnemies(room, actor).filter((candidate) => memoryOf(actor).knowledge[candidate.id]?.role).sort((left, right) => enemyThreatScore(actor, right) - enemyThreatScore(actor, left))[0];
   if (!target) return false;
   room.act(actor.id, { skillId, targetId: target.id, role: memoryOf(actor).knowledge[target.id].role }); return true;
 }
@@ -429,7 +429,21 @@ function tryReportedAttack(room, actor) {
   const threshold = skillId === "upper-attack" ? .3 : actor.lowAttackFails === 0 ? .45 : .7; const memory = memoryOf(actor);
   const entry = Object.entries(memory.reports).find(([targetId, report]) => { const target = room.players.find((player) => player.id === Number(targetId)); const verifiedReporter = memory.knowledge[report.reporterId]; const directTrust = verifiedReporter?.faction === factionOf(actor.role) ? verifiedReporter.confidence ?? 0 : 0; const trust = Math.max(memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15, directTrust); return target?.alive && factionOf(report.role) !== factionOf(actor.role) && Math.max(trust, report.evidence ?? .1) >= threshold; });
   if (!entry) return false; const [targetId, report] = entry; const target = room.player(Number(targetId));
-  room.act(actor.id, { skillId, targetId: target.id, role: report.role }); return true;
+  room.act(actor.id, { skillId, targetId: target.id, role: report.role }); gradeAttackReport(room, actor, target, report); return true;
+}
+
+function gradeAttackReport(room, actor, target, report) {
+  if (!report?.reporterId || report.reporterId === actor.id) return;
+  const memory = memoryOf(actor); const reporter = room.players.find((player) => player.id === report.reporterId); if (!reporter) return;
+  if (actor.verdict?.success) {
+    memory.trust[reporter.id] = Math.min(1, Math.max(memory.trust[reporter.id] ?? 0, report.evidence ?? 0) + .2);
+    report.evidence = Math.max(report.evidence ?? 0, .9); report.source = `${report.source ?? "제보"} · 공격으로 검증됨`; return;
+  }
+  memory.trust[reporter.id] = Math.min(memory.trust[reporter.id] ?? 0, -.8);
+  const hostileFaction = factionOf(actor.role) === "citizen" ? "mafia" : "citizen";
+  remember(actor, reporter, { faction: hostileFaction, confidence: .75, source: `${target.id}번 거짓 공격 제보` });
+  memory.claims[reporter.id] = { ...(memory.claims[reporter.id] ?? {}), trust: -.8, contradiction: `${target.id}번 ${report.role} 거짓 제보` };
+  report.evidence = 0; report.discredited = true; report.source = `${report.source ?? "제보"} · 공격 실패로 반증됨`;
 }
 
 function tryRoleCheck(room, actor) {
@@ -518,6 +532,14 @@ function tryPublicChat(room, actor) {
   memory.lastPublicAt = now; memory.recentLines = [...memory.recentLines.slice(-3), line]; return true;
 }
 
+function enemyThreatScore(actor, target) {
+  const role = memoryOf(actor).knowledge[target.id]?.role ?? memoryOf(actor).reports[target.id]?.role;
+  const priorities = factionOf(actor.role) === "citizen"
+    ? { "히트맨": 100, "마피아대부": 95, "마피아일원": 85, "마피아후계자": 70, "스파이": 55 }
+    : { "경찰반장": 100, "자경단원": 95, "순찰경찰": 90, "사립탐정": 85, "탐정조수": 80, "남자연인": 55, "여자연인": 55, "공무원": 45 };
+  return priorities[role] ?? 0;
+}
+
 function tryLlmStrategicIntent(room, actor) {
   const plan = memoryOf(actor).llmPlan;
   if (!plan || room.now() - plan.at > 30_000 || plan.confidence < .55) return false;
@@ -570,6 +592,25 @@ export function runInvestigationBot(room) {
   catch { return false; }
 }
 
+export function processPendingBotMessages(room) {
+  let processed = false;
+  for (const actor of room.players.filter((player) => player.alive && player.aiControlled && memoryOf(player).inbox.length)) {
+    try { if (respondToMessage(room, actor)) processed = true; } catch { /* stale message */ }
+  }
+  return processed;
+}
+
+export function runUrgentAttackBot(room) {
+  const attackers = room.players.filter((actor) => actor.alive && actor.aiControlled && (roleSkills[actor.role] ?? []).some((skillId) => ATTACKS.has(skillId) && ready(room, actor, skillId)));
+  const ranked = attackers.flatMap((actor) => knownEnemies(room, actor).filter((target) => memoryOf(actor).knowledge[target.id]?.role).map((target) => ({ actor, target, score: enemyThreatScore(actor, target) })) ).sort((left, right) => right.score - left.score);
+  for (const { actor } of ranked) { try { if (tryKnownAttack(room, actor)) return true; } catch { /* stale target */ } }
+  for (const actor of attackers) {
+    const memory = memoryOf(actor); const trustedReport = Object.entries(memory.reports).some(([targetId, report]) => { const target = room.players.find((player) => player.id === Number(targetId)); const reporter = room.players.find((player) => player.id === report.reporterId); return target?.alive && reporter && factionOf(report.role) !== factionOf(actor.role) && Math.max(report.evidence ?? 0, trustScore(actor, reporter)) >= .7; });
+    if (trustedReport) { try { if (tryReportedAttack(room, actor)) return true; } catch { /* stale target */ } }
+  }
+  return false;
+}
+
 export function buildBotPlanningTurn(room, actor) {
   const memory = memoryOf(actor); const faction = factionOf(actor.role); const actions = [];
   const add = (action) => actions.push({ ...action, id: `${action.type}:${action.skillId ?? ""}:${action.targetId ?? ""}:${action.role ?? ""}` });
@@ -597,7 +638,7 @@ export function buildBotPlanningTurn(room, actor) {
   }
   for (const skillId of available.filter((id) => ATTACKS.has(id) && ready(room, actor, id))) {
     for (const target of knownEnemies(room, actor)) if (memory.knowledge[target.id]?.role) add({ type: "skill", skillId, targetId: target.id, role: memory.knowledge[target.id].role, label: `${target.id}번 ${memory.knowledge[target.id].role} 공격`, purpose: "eliminate_enemy" });
-    for (const [targetId, report] of Object.entries(memory.reports)) { const target = room.players.find((player) => player.id === Number(targetId)); if (target?.alive && factionOf(report.role) !== faction) add({ type: "skill", skillId, targetId: target.id, role: report.role, label: `${target.id}번 ${report.role} 제보 기반 공격`, purpose: "act_on_intel" }); }
+    for (const [targetId, report] of Object.entries(memory.reports)) { const target = room.players.find((player) => player.id === Number(targetId)); if (target?.alive && !report.discredited && factionOf(report.role) !== faction) add({ type: "skill", skillId, targetId: target.id, role: report.role, reporterId: report.reporterId, label: `${target.id}번 ${report.role} 제보 기반 공격`, purpose: "act_on_intel" }); }
   }
   if (available.includes("leadership") && ready(room, actor, "leadership") && actor.announced === actor.role) {
     for (const role of formations[room.totalPlayers].filter((candidate) => factionOf(candidate) === faction && candidate !== actor.role && !Object.values(memory.knowledge).some((known) => known.role === candidate))) add({ type: "skill", skillId: "leadership", role, label: `리더십으로 ${role} 탐색`, purpose: "find_key_ally" });
@@ -629,6 +670,7 @@ export function executeBotPlannedAction(room, actor, action) {
   room.act(actor.id, { skillId: action.skillId, targetId: action.targetId, role: action.role });
   if (target && CHECKS.has(action.skillId)) { if (actor.verdict?.success) { remember(actor, target, { role: target.announced, confidence: .8, source: "LLM 계획 공표 확인" }); memory.trust[target.id] = Math.max(memory.trust[target.id] ?? 0, .8); } else remember(actor, target, { confidence: .8, source: "LLM 계획 공표 확인 실패", excludedRole: target.announced }); }
   if (target && SCANS.has(action.skillId) && action.role) { if (actor.verdict?.success) remember(actor, target, { role: action.role, confidence: 1, source: "LLM 계획 스캔" }); else remember(actor, target, { source: "LLM 계획 스캔 실패", excludedRole: action.role }); }
+  if (target && ATTACKS.has(action.skillId) && action.reporterId) gradeAttackReport(room, actor, target, memory.reports[target.id]);
   if (target && ["boss-check", "detective-check"].includes(action.skillId)) { const role = action.skillId === "boss-check" ? "마피아대부" : "사립탐정"; if (actor.verdict?.success) remember(actor, target, { role, confidence: 1, source: "LLM 계획 특수 확인" }); else remember(actor, target, { source: "LLM 계획 특수 확인 실패", excludedRole: role }); }
   if (action.skillId === "leadership" && actor.verdict?.success) { const found = room.players.find((player) => player.alive && player.role === action.role); if (found) remember(actor, found, { role: action.role, confidence: 1, source: "LLM 계획 리더십" }); }
   return true;
