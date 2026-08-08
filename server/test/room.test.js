@@ -753,6 +753,15 @@ test("both sides receive distinct alliance and shared hostility notifications", 
   assert.equal(room.snapshotFor(target).notification.tone, "hostile");
 });
 
+test("mana ticks reward only alliances initiated toward the receiving player", () => {
+  let now = 1_000; const room = new SingleRoom({ now: () => now, random: () => .5 }); const initiator = room.join({ nickname: "initiator", socket: {} }); const receiver = room.join({ nickname: "receiver", socket: {} }); room.start(initiator.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.mana = 0; }); room.act(initiator.id, { skillId: "ally-add", targetId: receiver.id });
+  room.nextBotAt = Infinity; now = room.nextManaAt; room.tick();
+  assert.equal(initiator.mana, 20); assert.equal(receiver.mana, 30);
+  room.act(receiver.id, { skillId: "ally-remove", targetId: initiator.id }); receiver.mana = 0; now = room.nextManaAt; room.tick();
+  assert.equal(receiver.mana, 20);
+});
+
 test("a living captain always prevents an attacker-extinction victory", () => {
   const players = [
     { role: "마피아대부", alive: true }, { role: "마피아일원", alive: true },

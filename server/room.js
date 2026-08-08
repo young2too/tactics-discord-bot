@@ -23,7 +23,7 @@ export class SingleRoom {
     this.players.push(player); if (this.hostId === null) this.hostId = player.id; this.totalPlayers = Math.max(this.totalPlayers, this.players.length); return player;
   }
   createPlayer(id, nickname, isBot, socket = null, ownerToken = null) {
-    return { id, nickname, ownerToken, socket, connected: true, isBot, aiControlled: isBot, alive: true, role: null, announced: "미공표", mana: 20, cooldowns: {}, usedOnce: {}, alliances: new Set(), privateLogs: [], lowAttackFails: 0, whisper: null, verdict: null, notification: null, snipeAuthorized: false, snipeCommanderId: null };
+    return { id, nickname, ownerToken, socket, connected: true, isBot, aiControlled: isBot, alive: true, role: null, announced: "미공표", mana: 20, cooldowns: {}, usedOnce: {}, alliances: new Set(), incomingAlliances: new Set(), privateLogs: [], lowAttackFails: 0, whisper: null, verdict: null, notification: null, snipeAuthorized: false, snipeCommanderId: null };
   }
   disconnect(socket) {
     const player = this.players.find((entry) => entry.socket === socket); if (!player) return;
@@ -104,7 +104,8 @@ export class SingleRoom {
     if (skillId === "proclamation") { if (!text) throw new Error("공문 내용을 입력하세요."); const message = "공문을 전체 플레이어에게 발송했습니다."; this.chats.push({ id: this.now(), from: actor.id, text: `[공문] ${text}`, channel: "public" }); this.addLog("📢", `공무원 공문 · ${text}`, "plain"); this.private(actor, message); this.verdict(actor, "공문 발송", true, message); return; }
     if (skillId === "ally-add" || skillId === "ally-remove") {
       const adding = skillId === "ally-add";
-      if (adding) { actor.alliances.add(target.id); target.alliances.add(actor.id); } else { actor.alliances.delete(target.id); target.alliances.delete(actor.id); }
+      if (adding) { actor.alliances.add(target.id); target.alliances.add(actor.id); target.incomingAlliances.add(actor.id); }
+      else { actor.alliances.delete(target.id); target.alliances.delete(actor.id); target.incomingAlliances.delete(actor.id); actor.incomingAlliances.delete(target.id); }
       const actorMessage = adding ? `${target.id}번 ${target.nickname}와 동맹이 되었습니다.` : `${target.id}번 ${target.nickname}와 적대관계가 되었습니다.`;
       const targetMessage = adding ? `${actor.id}번 ${actor.nickname}에게 동맹을 받았습니다.` : `${actor.id}번 ${actor.nickname}와 적대관계가 되었습니다.`;
       this.private(actor, actorMessage); this.private(target, targetMessage);
@@ -167,7 +168,10 @@ export class SingleRoom {
   }
   tick() {
     if (this.phase !== "game" || this.result) return false; const current = this.now(); let changed = false;
-    if (current >= this.nextManaAt) { for (const player of this.players) player.mana = Math.min(MANA_MAX, player.mana + MANA_TICK); this.nextManaAt = current + MANA_INTERVAL; this.addLog("+", `마나 보급 · 모든 플레이어 +${MANA_TICK}`, "mana"); changed = true; }
+    if (current >= this.nextManaAt) {
+      for (const player of this.players) player.mana = Math.min(MANA_MAX, player.mana + MANA_TICK + player.incomingAlliances.size * 10);
+      this.nextManaAt = current + MANA_INTERVAL; this.addLog("+", `마나 보급 · 기본 +${MANA_TICK}, 받은 동맹당 +10`, "mana"); changed = true;
+    }
     if (current >= this.nextBotAt) { this.runBot(); this.nextBotAt = current + 2500 + Math.floor(this.random() * 2500); changed = true; }
     if (this.effect && current >= this.effect.until) { this.effect = null; changed = true; }
     return true;
