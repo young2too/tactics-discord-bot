@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { botNames, factionOf, formations, MANA_INTERVAL, MANA_MAX, MANA_TICK, roleSkills, shuffle, skills } from "./game-config.js";
-import { buildBotPlanningTurn, executeBotPlannedAction, processPendingBotMessages, recordPublicDeath, runInvestigationBot, runStrategicBot, runUrgentAttackBot, syncAllianceIntel } from "./bot-ai.js";
+import { buildBotPlanningTurn, executeBotPlannedAction, recordPublicDeath, runInvestigationBot, runStrategicBot, runUrgentAttackBot, syncAllianceIntel } from "./bot-ai.js";
 import { checkVictory } from "./game-rules.js";
 
 const nowLabel = () => new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -9,7 +9,7 @@ export class SingleRoom {
   constructor({ random = Math.random, now = () => Date.now(), llmDirector = null, onAsyncChange = null, strategyMinIntervalMs = Number(process.env.OPENAI_STRATEGY_MIN_INTERVAL_MS ?? 30_000), strategyMaxCallsPerGame = Number(process.env.OPENAI_STRATEGY_MAX_CALLS_PER_GAME ?? 12) } = {}) { this.random = random; this.now = now; this.llmDirector = llmDirector; this.onAsyncChange = onAsyncChange; this.strategyMinIntervalMs = strategyMinIntervalMs; this.strategyMaxCallsPerGame = strategyMaxCallsPerGame; this.reset(); }
   reset() {
     this.phase = "lobby"; this.totalPlayers = 8; this.players = []; this.hostId = null; this.logs = [];
-    this.chats = []; this.result = null; this.successorId = null; this.effect = null; this.publicInspections = []; this.leadershipDiscoveries = []; this.nextManaAt = null; this.nextBotAt = null; this.botPlanInFlight = false; this.botPlannerCursor = 0; this.botRuleCursor = 0; this.botInvestigationCursor = 0; this.botTurnsSinceInvestigation = 0; this.strategyCallsThisGame = 0; this.lastStrategyAt = -Infinity;
+    this.chats = []; this.result = null; this.successorId = null; this.effect = null; this.publicInspections = []; this.leadershipDiscoveries = []; this.nextManaAt = null; this.botPlanInFlight = false; this.botPlannerCursor = 0; this.botRuleCursor = 0; this.botInvestigationCursor = 0; this.botTurnsSinceInvestigation = 0; this.strategyCallsThisGame = 0; this.lastStrategyAt = -Infinity;
   }
   join({ nickname, token, socket }) {
     const cleanName = String(nickname ?? "").trim().slice(0, 16);
@@ -23,12 +23,12 @@ export class SingleRoom {
     this.players.push(player); if (this.hostId === null) this.hostId = player.id; this.totalPlayers = Math.max(this.totalPlayers, this.players.length); return player;
   }
   createPlayer(id, nickname, isBot, socket = null, ownerToken = null) {
-    return { id, nickname, ownerToken, socket, connected: true, isBot, aiControlled: isBot, alive: true, role: null, announced: "미공표", mana: 20, cooldowns: {}, usedOnce: {}, alliances: new Set(), incomingAlliances: new Set(), privateLogs: [], lowAttackFails: 0, whisper: null, verdict: null, notification: null, snipeAuthorized: false, snipeCommanderId: null };
+    return { id, nickname, ownerToken, socket, connected: true, isBot, aiControlled: isBot, nextAiActionAt: null, alive: true, role: null, announced: "미공표", mana: 20, cooldowns: {}, usedOnce: {}, alliances: new Set(), incomingAlliances: new Set(), privateLogs: [], lowAttackFails: 0, whisper: null, verdict: null, notification: null, snipeAuthorized: false, snipeCommanderId: null };
   }
   disconnect(socket) {
     const player = this.players.find((entry) => entry.socket === socket); if (!player) return;
     player.socket = null; player.connected = false;
-    if (this.phase === "game" && !player.isBot && player.alive) { player.aiControlled = true; this.finishIfOnlyAi(); }
+    if (this.phase === "game" && !player.isBot && player.alive) { player.aiControlled = true; player.nextAiActionAt = this.now() + this.aiReactionDelay(); this.finishIfOnlyAi(); }
     if (this.phase === "lobby") { this.players = this.players.filter((entry) => entry !== player); if (this.hostId === player.id) this.hostId = this.players.find((entry) => !entry.isBot)?.id ?? null; }
   }
   setTotal(playerId, total) {
@@ -52,7 +52,8 @@ export class SingleRoom {
       maleLover.aiMemory = { knowledge: { [femaleLover.id]: { role: femaleLover.role, faction: "citizen", confidence: 1, source: "연인", excluded: [] } }, sharedWith: {}, lastPublicAt: 0, recentLines: [] };
       femaleLover.aiMemory = { knowledge: { [maleLover.id]: { role: maleLover.role, faction: "citizen", confidence: 1, source: "연인", excluded: [] } }, sharedWith: {}, lastPublicAt: 0, recentLines: [] };
     }
-    this.phase = "game"; this.nextManaAt = this.now() + MANA_INTERVAL; this.nextBotAt = this.now() + 2500;
+    this.phase = "game"; this.nextManaAt = this.now() + MANA_INTERVAL;
+    for (const player of this.players.filter((entry) => entry.aiControlled)) player.nextAiActionAt = this.now() + this.aiActionDelay();
     this.addLog("⚔", `${this.totalPlayers}인 게임이 시작되었습니다.`, "plain");
   }
   restart(playerId) {
@@ -147,10 +148,10 @@ export class SingleRoom {
   chat(playerId, payload) {
     this.assertGame(); const actor = this.player(playerId); const text = String(payload.text ?? "").trim().slice(0, 160); if (!text) return;
     const whisper = text.match(/^-(\d+)\s+(.+)$/s);
-    if (whisper) { const target = this.player(Number(whisper[1])); const body = whisper[2].trim(); const sentAt = this.now(); const message = { from: actor.id, to: target.id, text: body, until: sentAt + 5500 }; actor.whisper = message; target.whisper = message; this.private(actor, `${target.id}번 ${target.nickname}에게 귓말 · ${body}`); this.private(target, `${actor.id}번 ${actor.nickname}의 귓말 · ${body}`); if (!actor.aiControlled && target.aiControlled) { target.aiMemory ??= {}; target.aiMemory.inbox ??= []; const incoming = { id: sentAt, from: actor.id, text: body, channel: "whisper", at: sentAt }; target.aiMemory.inbox.push(incoming); this.enrichAiMessage(actor, [target], incoming); this.nextBotAt = Math.min(this.nextBotAt ?? Infinity, sentAt + (this.llmDirector?.enabled ? 2200 : 650)); } return; }
+    if (whisper) { const target = this.player(Number(whisper[1])); const body = whisper[2].trim(); const sentAt = this.now(); const message = { from: actor.id, to: target.id, text: body, until: sentAt + 5500 }; actor.whisper = message; target.whisper = message; this.private(actor, `${target.id}번 ${target.nickname}에게 귓말 · ${body}`); this.private(target, `${actor.id}번 ${actor.nickname}의 귓말 · ${body}`); if (!actor.aiControlled && target.aiControlled) { target.aiMemory ??= {}; target.aiMemory.inbox ??= []; const incoming = { id: sentAt, from: actor.id, text: body, channel: "whisper", at: sentAt }; target.aiMemory.inbox.push(incoming); this.enrichAiMessage(actor, [target], incoming); this.wakeAi(target, sentAt); } return; }
     const allianceText = text.match(/^\/a\s+(.+)$/s)?.[1] ?? (payload.channel === "alliance" ? text : null);
-    if (allianceText) { if (!actor.alliances.size) throw new Error("동맹이 없습니다."); const sentAt = this.now(); this.chats.push({ id: sentAt, from: actor.id, text: allianceText, channel: "alliance", recipients: [actor.id, ...actor.alliances] }); if (!actor.aiControlled) { const listeners = this.players.filter((player) => actor.alliances.has(player.id) && player.alive && player.aiControlled); const incomingMessages = []; for (const listener of listeners) { listener.aiMemory ??= {}; listener.aiMemory.inbox ??= []; const incoming = { id: sentAt, from: actor.id, text: allianceText, channel: "alliance", at: sentAt }; listener.aiMemory.inbox.push(incoming); incomingMessages.push(incoming); } if (listeners.length) { this.enrichAiMessage(actor, listeners, incomingMessages); this.nextBotAt = Math.min(this.nextBotAt ?? Infinity, sentAt + (this.llmDirector?.enabled ? 2200 : 650)); } } }
-    else { const sentAt = this.now(); this.chats.push({ id: sentAt, from: actor.id, text, channel: "public" }); const relayToAi = !actor.aiControlled || payload.aiBroadcast === true; const listeners = relayToAi ? this.players.filter((player) => player.alive && player.aiControlled && player.id !== actor.id) : []; const incomingMessages = listeners.map((listener, index) => { listener.aiMemory ??= {}; listener.aiMemory.inbox ??= []; const incoming = { id: sentAt, from: actor.id, text, channel: "public", at: sentAt, respond: !actor.aiControlled && index === 0 }; listener.aiMemory.inbox.push(incoming); return incoming; }); if (!actor.aiControlled && listeners.length) this.enrichAiMessage(actor, listeners, incomingMessages); if (listeners.length) this.nextBotAt = Math.min(this.nextBotAt ?? Infinity, sentAt + (this.llmDirector?.enabled && !actor.aiControlled ? 2200 : 900)); }
+    if (allianceText) { if (!actor.alliances.size) throw new Error("동맹이 없습니다."); const sentAt = this.now(); this.chats.push({ id: sentAt, from: actor.id, text: allianceText, channel: "alliance", recipients: [actor.id, ...actor.alliances] }); if (!actor.aiControlled) { const listeners = this.players.filter((player) => actor.alliances.has(player.id) && player.alive && player.aiControlled); const incomingMessages = []; for (const listener of listeners) { listener.aiMemory ??= {}; listener.aiMemory.inbox ??= []; const incoming = { id: sentAt, from: actor.id, text: allianceText, channel: "alliance", at: sentAt }; listener.aiMemory.inbox.push(incoming); incomingMessages.push(incoming); this.wakeAi(listener, sentAt); } if (listeners.length) this.enrichAiMessage(actor, listeners, incomingMessages); } }
+    else { const sentAt = this.now(); this.chats.push({ id: sentAt, from: actor.id, text, channel: "public" }); const relayToAi = !actor.aiControlled || payload.aiBroadcast === true; const listeners = relayToAi ? this.players.filter((player) => player.alive && player.aiControlled && player.id !== actor.id) : []; const incomingMessages = listeners.map((listener, index) => { listener.aiMemory ??= {}; listener.aiMemory.inbox ??= []; const incoming = { id: sentAt, from: actor.id, text, channel: "public", at: sentAt, respond: !actor.aiControlled && index === 0 }; listener.aiMemory.inbox.push(incoming); this.wakeAi(listener, sentAt, 900); return incoming; }); if (!actor.aiControlled && listeners.length) this.enrichAiMessage(actor, listeners, incomingMessages); }
     this.chats = this.chats.slice(-50);
   }
   enrichAiMessage(sender, listeners, incomingOrMessages) {
@@ -163,7 +164,8 @@ export class SingleRoom {
         for (const message of messages) { message.originalText = message.text; message.text = interpretation.canonicalText ? `${message.text}\n${interpretation.canonicalText}` : message.text; message.llm = interpretation; }
         for (const listener of listeners) { listener.aiMemory ??= {}; listener.aiMemory.llmPlan = { goal: interpretation.strategicIntent, confidence: interpretation.confidence, at: this.now(), sourceMessageId: messages[0].id }; }
       }
-      this.nextBotAt = Math.min(this.nextBotAt ?? Infinity, this.now() + 100); this.onAsyncChange?.();
+      for (const listener of listeners) this.wakeAi(listener, this.now(), 100);
+      this.onAsyncChange?.();
     });
   }
   tick() {
@@ -174,22 +176,52 @@ export class SingleRoom {
       for (const player of this.players) player.mana = Math.min(MANA_MAX, player.mana + MANA_TICK + player.incomingAlliances.size * 10);
       this.nextManaAt = current + MANA_INTERVAL; this.addLog("+", `마나 보급 · 기본 +${MANA_TICK}, 받은 동맹당 +10`, "mana"); changed = true;
     }
-    if (current >= this.nextBotAt) { this.runBot(); this.nextBotAt = current + 2500 + Math.floor(this.random() * 2500); changed = true; }
+    const dueBots = this.players
+      .filter((player) => player.alive && player.aiControlled && (player.nextAiActionAt ?? Infinity) <= current)
+      .sort((left, right) => (left.nextAiActionAt - right.nextAiActionAt) || (left.id - right.id));
+    for (const actor of dueBots) {
+      if (this.result) break;
+      if (!actor.alive || !actor.aiControlled) continue;
+      this.runBot(actor);
+      actor.nextAiActionAt = current + this.aiActionDelay();
+      changed = true;
+    }
     if (this.effect && current >= this.effect.until) { this.effect = null; changed = true; }
     return true;
   }
-  runBot() {
-    const waiting = this.players.some((player) => player.alive && player.aiControlled && player.aiMemory?.inbox?.length);
-    if (waiting) { processPendingBotMessages(this); if (runUrgentAttackBot(this)) return; }
-    if (runUrgentAttackBot(this)) return;
-    if (!this.llmDirector?.enabled) { if (!runInvestigationBot(this, { fair: true })) runStrategicBot(this, { fair: true }); return; }
+  aiActionDelay() { return 2500 + Math.floor(this.random() * 2500); }
+  aiReactionDelay() { return 650 + Math.floor(this.random() * 850); }
+  wakeAi(actor, sentAt = this.now(), minimumDelay = null) {
+    if (!actor?.alive || !actor.aiControlled) return;
+    const delay = minimumDelay ?? (this.llmDirector?.enabled ? 2200 : this.aiReactionDelay());
+    actor.nextAiActionAt = Math.min(actor.nextAiActionAt ?? Infinity, sentAt + delay);
+  }
+  runBot(actor = null) {
+    if (!actor) {
+      if (this.llmDirector?.enabled) {
+        if (runUrgentAttackBot(this)) return true;
+        const candidates = this.players
+          .filter((player) => player.alive && player.aiControlled)
+          .filter((player) => buildBotPlanningTurn(this, player).actions.length);
+        if (!candidates.length) return Boolean(runStrategicBot(this, { fair: true }));
+        return this.runBot(candidates[this.botPlannerCursor % candidates.length]);
+      }
+      if (runUrgentAttackBot(this)) return true;
+      if (runInvestigationBot(this, { fair: true })) return true;
+      return Boolean(runStrategicBot(this, { fair: true }));
+    }
+    if (!actor?.alive || !actor.aiControlled) return false;
+    const waiting = Boolean(actor.aiMemory?.inbox?.length);
+    if (waiting && runStrategicBot(this, { actor })) return true;
+    if (runUrgentAttackBot(this, { actor })) return true;
+    if (!this.llmDirector?.enabled) { if (runInvestigationBot(this, { actor })) return true; return runStrategicBot(this, { actor }); }
     this.botTurnsSinceInvestigation += 1;
-    if (this.botTurnsSinceInvestigation >= 3 && runInvestigationBot(this, { fair: true })) { this.botTurnsSinceInvestigation = 0; return; }
-    if (this.strategyCallsThisGame >= this.strategyMaxCallsPerGame || this.now() - this.lastStrategyAt < this.strategyMinIntervalMs) { runStrategicBot(this, { fair: true }); return; }
-    if (this.botPlanInFlight) return;
-    const bots = this.players.filter((player) => player.alive && player.aiControlled);
-    const turns = bots.map((actor) => ({ actor, turn: buildBotPlanningTurn(this, actor) })).filter(({ turn }) => turn.actions.length);
-    if (!turns.length) { runStrategicBot(this, { fair: true }); return; }
+    if (this.botTurnsSinceInvestigation >= 3 && runInvestigationBot(this, { actor })) { this.botTurnsSinceInvestigation = 0; return true; }
+    if (this.strategyCallsThisGame >= this.strategyMaxCallsPerGame || this.now() - this.lastStrategyAt < this.strategyMinIntervalMs) return runStrategicBot(this, { actor });
+    if (this.botPlanInFlight) return false;
+    const bots = [actor];
+    const turns = bots.map((candidate) => ({ actor: candidate, turn: buildBotPlanningTurn(this, candidate) })).filter(({ turn }) => turn.actions.length);
+    if (!turns.length) return runStrategicBot(this, { actor });
     const selected = turns[this.botPlannerCursor % turns.length]; this.botPlannerCursor += 1; this.botPlanInFlight = true; this.strategyCallsThisGame += 1; this.lastStrategyAt = this.now();
     this.llmDirector.planTurn(selected.turn).then((plan) => {
       if (this.phase !== "game" || this.result || !this.players.includes(selected.actor) || !selected.actor.alive || !selected.actor.aiControlled) return;
@@ -197,8 +229,9 @@ export class SingleRoom {
       let acted = false;
       try { acted = executeBotPlannedAction(this, selected.actor, action); if (plan && selected.actor.aiMemory) selected.actor.aiMemory.llmPlan = { goal: plan.nextGoal, reason: plan.reason, confidence: plan.confidence, at: this.now() }; }
       catch { acted = false; }
-      if (!acted) runStrategicBot(this, { fair: true });
-    }).finally(() => { this.botPlanInFlight = false; this.nextBotAt = this.now() + 800; this.onAsyncChange?.(); });
+      if (!acted) runStrategicBot(this, { actor: selected.actor });
+    }).finally(() => { this.botPlanInFlight = false; selected.actor.nextAiActionAt = this.now() + 800; this.onAsyncChange?.(); });
+    return true;
   }
   finishIfOnlyAi() {
     if (this.phase !== "game" || this.result) return Boolean(this.result);

@@ -612,25 +612,27 @@ function hasReadyInvestigation(room, actor) {
   return false;
 }
 
-export function runStrategicBot(room, { fair = false } = {}) {
-  const bots = room.players.filter((player) => player.alive && player.aiControlled); if (!bots.length) return;
+export function runStrategicBot(room, { fair = false, actor: scheduledActor = null } = {}) {
+  const bots = room.players.filter((player) => player.alive && player.aiControlled); if (!bots.length) return false;
+  if (scheduledActor && (!scheduledActor.alive || !scheduledActor.aiControlled)) return false;
   const waiting = bots.filter((player) => memoryOf(player).inbox.length);
   const isolatedCheckers = bots.filter((player) => !player.alliances.size && knownAllies(room, player).length === 0 && claimCheckPlan(room, player));
-  const candidates = waiting.length ? waiting : isolatedCheckers.length ? isolatedCheckers : bots;
-  const actor = fair ? candidates[room.botRuleCursor % candidates.length] : pick(room, candidates);
+  const candidates = scheduledActor ? [scheduledActor] : waiting.length ? waiting : isolatedCheckers.length ? isolatedCheckers : bots;
+  const actor = scheduledActor ?? (fair ? candidates[room.botRuleCursor % candidates.length] : pick(room, candidates));
   if (fair) room.botRuleCursor += 1; memoryOf(actor);
   try {
-    if (respondToMessage(room, actor)) return;
-    if (tryAnnounce(room, actor)) return;
-    if (tryLlmStrategicIntent(room, actor)) return;
-    if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryReciprocateAlliance(room, actor) || tryShare(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryAlliance(room, actor) || tryShareFinding(room, actor)) return;
-    if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return;
-    tryPublicChat(room, actor);
+    if (respondToMessage(room, actor)) return true;
+    if (tryAnnounce(room, actor)) return true;
+    if (tryLlmStrategicIntent(room, actor)) return true;
+    if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryReciprocateAlliance(room, actor) || tryShare(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryAlliance(room, actor) || tryShareFinding(room, actor)) return true;
+    if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return true;
+    return tryPublicChat(room, actor);
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }
+  return false;
 }
 
-export function runInvestigationBot(room, { fair = false } = {}) {
-  const investigators = room.players.filter((player) => player.alive && player.aiControlled && !memoryOf(player).inbox.length && hasReadyInvestigation(room, player));
+export function runInvestigationBot(room, { fair = false, actor: scheduledActor = null } = {}) {
+  const investigators = room.players.filter((player) => player.alive && player.aiControlled && !memoryOf(player).inbox.length && hasReadyInvestigation(room, player) && (!scheduledActor || player === scheduledActor));
   if (!investigators.length) return false;
   const actor = fair ? investigators[room.botInvestigationCursor % investigators.length] : pick(room, investigators);
   if (fair) room.botInvestigationCursor += 1;
@@ -646,8 +648,8 @@ export function processPendingBotMessages(room) {
   return processed;
 }
 
-export function runUrgentAttackBot(room) {
-  const attackers = room.players.filter((actor) => actor.alive && actor.aiControlled && (roleSkills[actor.role] ?? []).some((skillId) => ATTACKS.has(skillId) && ready(room, actor, skillId)));
+export function runUrgentAttackBot(room, { actor: scheduledActor = null } = {}) {
+  const attackers = room.players.filter((actor) => actor.alive && actor.aiControlled && (!scheduledActor || actor === scheduledActor) && (roleSkills[actor.role] ?? []).some((skillId) => ATTACKS.has(skillId) && ready(room, actor, skillId)));
   const ranked = attackers.flatMap((actor) => knownEnemies(room, actor).filter((target) => memoryOf(actor).knowledge[target.id]?.role).map((target) => ({ actor, target, score: enemyThreatScore(actor, target) })) ).sort((left, right) => right.score - left.score);
   for (const { actor } of ranked) { try { if (tryKnownAttack(room, actor)) return true; } catch { /* stale target */ } }
   for (const actor of attackers) {

@@ -148,6 +148,42 @@ test("a ready enemy-check takes priority over announcements and non-investigator
   assert.equal(checker.verdict.title, "공표 확인");
 });
 
+test("each due AI gets its own action during the same server tick", () => {
+  let now = 1_000;
+  const room = new SingleRoom({ now: () => now, random: () => 0 });
+  const human = room.join({ nickname: "human", socket: {} });
+  const left = room.join({ nickname: "left", socket: {} });
+  const right = room.join({ nickname: "right", socket: {} });
+  room.start(human.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.nextAiActionAt = null; });
+  left.role = "자경단원"; left.announced = "미공표"; left.aiControlled = true; left.nextAiActionAt = now;
+  right.role = "자경단원"; right.announced = "미공표"; right.aiControlled = true; right.nextAiActionAt = now;
+
+  room.tick();
+
+  assert.ok(left.cooldowns.announce > now);
+  assert.ok(right.cooldowns.announce > now);
+  assert.ok(left.nextAiActionAt > now);
+  assert.ok(right.nextAiActionAt > now);
+});
+
+test("a human message wakes only its AI recipient ahead of schedule", () => {
+  let now = 1_000;
+  const room = new SingleRoom({ now: () => now, random: () => 0 });
+  const human = room.join({ nickname: "human", socket: {} });
+  const listener = room.join({ nickname: "listener", socket: {} });
+  const sleeper = room.join({ nickname: "sleeper", socket: {} });
+  room.start(human.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.nextAiActionAt = null; });
+  listener.aiControlled = true; listener.nextAiActionAt = now + 20_000;
+  sleeper.aiControlled = true; sleeper.nextAiActionAt = now + 20_000;
+
+  room.chat(human.id, { text: `-${listener.id} 너 누구야` });
+
+  assert.equal(listener.nextAiActionAt, now + 650);
+  assert.equal(sleeper.nextAiActionAt, now + 20_000);
+});
+
 test("an allied checker still spends a ready check instead of waiting for an order", () => {
   const room = new SingleRoom({ random: () => 0 }); const checker = room.join({ nickname: "checker", socket: {} }); const ally = room.join({ nickname: "ally", socket: {} }); room.start(checker.id);
   const enemy = room.players.find((player) => ![checker.id, ally.id].includes(player.id));
