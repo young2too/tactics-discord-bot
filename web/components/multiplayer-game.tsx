@@ -21,6 +21,16 @@ export function MultiplayerGame({ room }: { room: RoomController }) {
   const [skillText, setSkillText] = useState("");
   const [dismissedVerdictId, setDismissedVerdictId] = useState<number | null>(null);
   const [dismissedNotificationId, setDismissedNotificationId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!selectedSkill) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setSelectedSkill(null); setSelectedTarget(null); setSkillText("");
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedSkill]);
   const players = useMemo<Player[]>(() => state.players.map((player) => ({
     id: player.id,
     name: player.nickname,
@@ -62,6 +72,7 @@ export function MultiplayerGame({ room }: { room: RoomController }) {
     return true;
   }
   function chooseSkill(skill: Skill) {
+    if (selectedSkill?.id === skill.id) { cancel(); return; }
     setMobilePanel(null); setSelectedTarget(null); setSelectedSkill(skill);
     if (!skill.target && !skill.needsRole && !skill.needsText) { room.act({ skillId: skill.id }); setSelectedSkill(null); }
   }
@@ -75,7 +86,7 @@ export function MultiplayerGame({ room }: { room: RoomController }) {
   }
   function sendChat(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!chatInput.trim()) return; room.chat(chatInput.trim(), chatChannel); setChatInput(""); }
   function sendProclamation(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!skillText.trim()) return; room.act({ skillId: "proclamation", text: skillText.trim() }); setSkillText(""); setSelectedSkill(null); }
-  function cancel() { setSelectedSkill(null); setSelectedTarget(null); }
+  function cancel() { setSelectedSkill(null); setSelectedTarget(null); setSkillText(""); }
 
   return <main className={`game-shell size-${players.length} mobile-panel-${mobilePanel ?? "closed"}`}>
     <header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>실시간 마피아 전술전</small></div></div><div className="room-status"><span className="live-dot" /> LIVE ROOM <b>{players.filter((player) => player.alive).length} 생존</b></div><div className="supply"><span>마나 · 다음 보급 {manaTick}</span><strong>{state.mana ?? 0}</strong><div className="supply-track"><i style={{ width: `${Math.min(100, (state.mana ?? 0) / 2)}%` }} /></div></div></header>

@@ -95,10 +95,19 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
     const timer = window.setTimeout(() => setWhisper(null), 5500);
     return () => window.clearTimeout(timer);
   }, [whisper]);
+  useEffect(() => {
+    if (!selectedSkill) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault(); setSelectedSkill(null); setSelectedTarget(null);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedSkill]);
 
   function record(text: string, icon = "◆", tone = "plain") { setLogs((current) => [...current, { time: "지금", icon, text, tone }]); setPrivateLogs((current) => [...current, { time: "지금", text }]); }
   function next() { setSelectedSkill(null); setSelectedTarget(null); if (step === basicSteps.length - 1) onComplete(); else setStep((current) => current + 1); }
-  function chooseSkill(skill: Skill) { if (expectedSkill !== skill.id) { record(`지금은 ${basicSteps[step][0]} 단계입니다. 안내된 행동을 먼저 수행하세요.`, "!", "danger"); return; } setMobilePanel(null); setSelectedSkill(skill); setSelectedTarget(null); }
+  function chooseSkill(skill: Skill) { if (selectedSkill?.id === skill.id) { setSelectedSkill(null); setSelectedTarget(null); return; } if (expectedSkill !== skill.id) { record(`지금은 ${basicSteps[step][0]} 단계입니다. 안내된 행동을 먼저 수행하세요.`, "!", "danger"); return; } setMobilePanel(null); setSelectedSkill(skill); setSelectedTarget(null); }
   function chooseTarget(player: Player) {
     if (!selectedSkill || player.isMe || !player.alive) return;
     if (step === 4 && player.id === 2) { setAlliances([2]); record("2번 민준과 동맹이 되었습니다. 이제 동맹 채팅을 공유합니다.", "🤝"); next(); return; }

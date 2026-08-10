@@ -54,6 +54,18 @@ export function GameBoard() {
     setFirstVisit(!localStorage.getItem("tactics-onboarding-dismissed") && !localStorage.getItem("tactics-tutorial-complete"));
   }, []);
 
+  useEffect(() => {
+    if (!selectedSkill) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setSelectedSkill(null); setSelectedTarget(null); setSkillText("");
+      setNoticeState("행동을 취소했습니다.");
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedSkill]);
+
   function finishOnboarding(nextMode: "choose" | "tutorial") {
     localStorage.setItem("tactics-onboarding-dismissed", "true");
     setFirstVisit(false);
@@ -201,7 +213,9 @@ export function GameBoard() {
   }
 
   function chooseSkill(skill: Skill) {
-    if (gameResult || (cooldowns[skill.id] ?? 0) > 0) return;
+    if (gameResult) return;
+    if (selectedSkill?.id === skill.id) { cancelTargeting(); return; }
+    if ((cooldowns[skill.id] ?? 0) > 0) return;
     if (["leadership", "successor", "snipe-command", "arrest", "snipe", "revenge"].includes(skill.id) && usedOnce[skill.id]) {
       setNotice(`${skill.name}은(는) 게임 중 1회만 사용할 수 있습니다.`);
       return;
@@ -481,6 +495,7 @@ export function GameBoard() {
   function cancelTargeting() {
     setSelectedSkill(null);
     setSelectedTarget(null);
+    setSkillText("");
     setNotice("행동을 취소했습니다.");
   }
 

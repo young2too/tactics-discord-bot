@@ -161,6 +161,15 @@ export function InteractiveTrackTraining({ track, step, onAdvance, onExit }: { t
     setSelectedSkill(null); setSelectedTarget(null); setEffect(null); setProclamationText(""); setVerdict(null);
     setMobilePanel(exercise.kind === "chat" ? "chat" : "skills");
   }, [step, exercise.kind]);
+  useEffect(() => {
+    if (!selectedSkill) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault(); setSelectedSkill(null); setSelectedTarget(null); setProclamationText("");
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedSkill]);
 
   function record(text: string, icon = "◆", tone = "plain") {
     setLogs((items) => [...items, { time: "지금", icon, text, tone }]);
@@ -182,6 +191,7 @@ export function InteractiveTrackTraining({ track, step, onAdvance, onExit }: { t
   }
   function chooseSkill(skill: Skill) {
     if (verdict) return;
+    if (selectedSkill?.id === skill.id) { setSelectedSkill(null); setSelectedTarget(null); setProclamationText(""); return; }
     if (exercise.kind !== "skill" || exercise.skill !== skill.id) { fail(`지금은 ‘${exercise.prompt}’ 과제를 수행하세요.`); return; }
     setMobilePanel(null); setSelectedSkill(skill); setSelectedTarget(null);
     if (!skill.target && !skill.needsRole && !skill.needsText) finish();
