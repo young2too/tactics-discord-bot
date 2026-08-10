@@ -8,6 +8,7 @@ import type { BattleLog, ChatMessage, Player, PrivateLog, PublicEffect, Skill } 
 import { Battlefield } from "./battlefield";
 import { RoleChoiceModal } from "./game-modals";
 import { CommunicationPanel, MobilePanelDock, PrivateRolePanel, SkillDeck, type MobilePanel } from "./game-panels";
+import { InteractiveTrackTraining } from "./tutorial-role-training";
 
 const basicSteps = [
   ["전장을 읽으세요", "당신은 항상 6시 방향입니다. 번호·공표·생존 여부는 공개되며 실제 직업은 본인과 사망자만 보입니다."],
@@ -46,7 +47,7 @@ export function TrainingCenter({ onExit }: { onExit: () => void }) {
 
   if (mode === "tracks" && !activeTrack) return <main className="training-menu"><section className="track-menu"><small>SPECIALIZED TRAINING</small><h1>직업별 실전 훈련</h1><p>직업을 선택해 공표 전략, 조사 우선순위, 동맹 연결과 승리 루트를 실제 게임판에서 확인하세요.</p><div className="track-grid">{trainingTracks.map((track) => <button className={`${track.faction} ${completedTracks.includes(track.id) ? "complete" : ""}`} key={track.id} onClick={() => { setActiveTrack(track); setTrackStep(0); }}><b>{completedTracks.includes(track.id) ? "✓ " : ""}{track.role}</b><span>{track.summary}</span><small>{track.steps.length}단계 · {track.faction === "mafia" ? "마피아 진영" : "시민 진영"}</small></button>)}</div><button className="training-exit" onClick={() => setMode("menu")}>훈련소 처음으로</button><button className="training-finish" onClick={onExit}>훈련을 마치고 입장</button></section></main>;
 
-  if (activeTrack) return <TrackTraining track={activeTrack} step={trackStep} onAdvance={() => {
+  if (activeTrack) return <InteractiveTrackTraining track={activeTrack} step={trackStep} onAdvance={() => {
     if (trackStep < activeTrack.steps.length - 1) setTrackStep((current) => current + 1);
     else { setCompletedTracks((current) => [...new Set([...current, activeTrack.id])]); setActiveTrack(null); setTrackStep(0); }
   }} onExit={() => { setActiveTrack(null); setMode("tracks"); }} />;
