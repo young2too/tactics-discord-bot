@@ -101,7 +101,7 @@ test("strategic successor finds the boss, allies, and explains itself by whisper
   assert.match(boss.whisper.text, /마피아후계자/);
 });
 
-test("strategic bots use contextual public chat without an LLM", () => {
+test("strategic bots do not emit speculative public filler", () => {
   const room = new SingleRoom({ random: () => 0 });
   const actor = room.join({ nickname: "speaker", socket: {} });
   room.start(actor.id);
@@ -109,7 +109,7 @@ test("strategic bots use contextual public chat without an LLM", () => {
   actor.role = "마피아일원"; actor.announced = "마피아일원"; actor.mana = 0; actor.aiControlled = true;
   const claimant = room.players.find((player) => player.id !== actor.id); claimant.announced = "마피아대부";
   runStrategicBot(room);
-  assert.match(room.chats.at(-1).text, /대부 이름|리더십/);
+  assert.equal(room.chats.length, 0);
 });
 
 test("AI players announce again whenever the announcement cooldown expires", () => {

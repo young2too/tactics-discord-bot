@@ -594,27 +594,6 @@ function claimCheckPlan(room, actor) {
   return candidates.length ? { skillId, candidates } : null;
 }
 
-function publicLine(room, actor) {
-  const unannounced = room.players.filter((player) => player.alive && player.announced === "미공표");
-  if (unannounced.length) return `${unannounced.map((player) => `${player.id}번`).slice(0, 3).join(", ")} 아직 미공표네. 먼저 공표해줘.`;
-  const bossClaims = room.players.filter((player) => player.alive && player.id !== actor.id && player.announced === "마피아대부");
-  if (bossClaims.length) { const target = pick(room, bossClaims); return `${target.id}번이 대부 이름 걸었는데 확인 가능한 사람 있어? 리더십 쓰려는 거 아냐?`; }
-  const suspects = factionOf(actor.role) === "mafia"
-    ? room.players.filter((player) => player.alive && player.id !== actor.id && factionOf(player.announced) === "citizen")
-    : knownEnemies(room, actor);
-  if (suspects.length) { const target = pick(room, suspects); return pick(room, [`${target.id}번 공표 한번 확인해봐야 할 것 같은데.`, `지금 한 명만 몰아가지 말고 ${target.id}번도 같이 보자.`, `${target.id}번 조사 가능한 사람 있어? 공표가 좀 걸려.`]); }
-  const claimed = pick(room, room.players.filter((player) => player.alive && player.id !== actor.id));
-  return claimed ? pick(room, [`${claimed.id}번 공표 근거 있는 사람?`, `탐정 계열 있으면 ${claimed.id}번 한번 봐줘.`, `지금 정보 너무 없는데 확인 결과 있는 사람 공유해봐.`]) : null;
-}
-
-function tryPublicChat(room, actor) {
-  const memory = memoryOf(actor); const now = room.now();
-  if (now - memory.lastPublicAt < 12_000 || room.random() > .38) return false;
-  const line = publicLine(room, actor); if (!line || memory.recentLines.includes(line)) return false;
-  room.chat(actor.id, { text: line, channel: "public" });
-  memory.lastPublicAt = now; memory.recentLines = [...memory.recentLines.slice(-3), line]; return true;
-}
-
 function enemyThreatScore(actor, target) {
   const role = memoryOf(actor).knowledge[target.id]?.role ?? memoryOf(actor).reports[target.id]?.role;
   return threatPriority(actor, role);
@@ -716,7 +695,7 @@ export function runStrategicBot(room, { fair = false, actor: scheduledActor = nu
     if (tryLlmStrategicIntent(room, actor)) return true;
     if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryReciprocateAlliance(room, actor) || tryShare(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryAlliance(room, actor) || tryShareFinding(room, actor)) return true;
     if (tryLeadership(room, actor) || tryRoleCheck(room, actor) || tryScan(room, actor) || tryClaimCheck(room, actor)) return true;
-    return tryPublicChat(room, actor);
+    return false;
   } catch { /* Invalid or stale tactical choices are safely skipped. */ }
   return false;
 }
