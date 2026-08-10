@@ -8,6 +8,13 @@ const MODES = {
   히트맨: ["public-bait", "hidden"], 스파이: ["citizen-infiltration", "mafia-cover"],
 };
 
+function investigationResolved(room, actor) {
+  const deadRoles = new Set(room.players.filter((player) => !player.alive).map((player) => player.role));
+  const targets = formations[room.totalPlayers].filter((role) => factionOf(role) === "mafia" && (actor.role !== "사립탐정" || role !== "마피아대부"));
+  const knownRoles = new Set(Object.values(actor.aiMemory?.knowledge ?? {}).filter((known) => (known.confidence ?? 0) >= .8).map((known) => known.role));
+  return targets.every((role) => deadRoles.has(role) || knownRoles.has(role));
+}
+
 export function ensureDoctrine(room, actor) {
   actor.aiMemory ??= {};
   if (actor.aiMemory.doctrine) return actor.aiMemory.doctrine;
@@ -28,7 +35,7 @@ export function updateDoctrineMode(room, actor) {
   const allies = room.players.filter((player) => player.alive && actor.alliances.has(player.id));
   if (actor.role === "사립탐정" && doctrine.mode === "hidden") {
     const assistantAlive = formations[room.totalPlayers].includes("탐정조수") && !room.players.some((player) => !player.alive && player.role === "탐정조수");
-    const exhausted = Object.values(memory.candidateRoles ?? {}).filter((roles) => roles.some((role) => factionOf(role) === "mafia" && role !== "마피아대부")).every((roles) => roles.length <= 1);
+    const exhausted = investigationResolved(room, actor);
     if (!assistantAlive || exhausted) { doctrine.mode = "public"; doctrine.switchedAt = room.now(); }
   }
   if (["남자연인", "여자연인"].includes(actor.role) && allies.some((ally) => !["남자연인", "여자연인"].includes(memory.knowledge?.[ally.id]?.role))) doctrine.mode = "networked";
@@ -85,7 +92,10 @@ export function shouldPublishInvestigation(room, actor) {
   if (!INVESTIGATORS.has(actor.role) || factionOf(actor.role) !== "citizen") return false;
   const doctrine = updateDoctrineMode(room, actor);
   const hasCitizenAlliance = room.players.some((player) => player.alive && actor.alliances.has(player.id) && factionOf(actor.aiMemory?.knowledge?.[player.id]?.role ?? player.announced) === "citizen");
-  return doctrine.mode === "public" || !hasCitizenAlliance;
+  if (hasCitizenAlliance) return false;
+  if (actor.role === "탐정조수") return true;
+  if (actor.role === "사립탐정" && doctrine.mode === "public") return true;
+  return investigationResolved(room, actor);
 }
 
 export function isAttacker(role) { return ATTACKERS.has(role); }

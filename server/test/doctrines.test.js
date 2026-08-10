@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { desiredAnnouncement, ensureDoctrine, scanRolePriorities } from "../ai/doctrines.js";
+import { desiredAnnouncement, ensureDoctrine, scanRolePriorities, shouldPublishInvestigation } from "../ai/doctrines.js";
 import { runInvestigationBot, runStrategicBot } from "../bot-ai.js";
 import { SingleRoom } from "../room.js";
 
@@ -98,4 +98,13 @@ test("patrol hides by default while lovers split public and hidden roles", () =>
   actor.aiMemory = { knowledge: { [partner.id]: { role: "여자연인", confidence: 1 } } }; partner.aiMemory = { knowledge: { [actor.id]: { role: "남자연인", confidence: 1 } } };
   const actorClaim = desiredAnnouncement(room, actor); const partnerClaim = desiredAnnouncement(room, partner);
   assert.equal([actorClaim === actor.role, partnerClaim === partner.role].filter(Boolean).length, 1);
+});
+
+test("a hidden investigator waits to publish until its scannable mafia roles are resolved", () => {
+  const room = new SingleRoom({ random: () => .75 }); const actor = room.join({ nickname: "detective", socket: {} }); room.start(actor.id);
+  room.players.forEach((player) => { player.aiControlled = false; }); actor.role = "사립탐정";
+  actor.aiMemory = { knowledge: { 2: { role: "히트맨", confidence: 1 } } };
+  assert.equal(ensureDoctrine(room, actor).mode, "hidden"); assert.equal(shouldPublishInvestigation(room, actor), false);
+  actor.aiMemory.knowledge[3] = { role: "마피아일원", confidence: 1 };
+  assert.equal(shouldPublishInvestigation(room, actor), true);
 });
