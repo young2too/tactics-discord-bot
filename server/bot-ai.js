@@ -136,7 +136,7 @@ function tryHumanAllianceOrder(room, actor, sender, text, target, role) {
     if (SCANS.has(skillId) && role && !allowedScanRoles(room, actor, skillId).includes(role)) throw new Error(`${role}은(는) 이 스캔으로 지정할 수 없어.`);
     room.act(actor.id, { skillId, ...payload });
     if (SCANS.has(skillId) && target && role) { if (actor.verdict?.success) remember(actor, target, { role, source: "인간 동맹 지시" }); else remember(actor, target, { source: "인간 동맹 지시", excludedRole: role }); }
-    if (CHECKS.has(skillId) && target && actor.verdict?.success) { remember(actor, target, { role: target.announced, confidence: .8, source: "인간 동맹 확인 지시" }); memoryOf(actor).trust[target.id] = Math.max(memoryOf(actor).trust[target.id] ?? 0, .8); }
+    if (CHECKS.has(skillId) && target) recordClaimCheck(room, actor, target, skillId);
     if (["boss-check", "detective-check"].includes(skillId) && target && actor.verdict?.success) remember(actor, target, { role: skillId === "boss-check" ? "마피아대부" : "사립탐정", source: "인간 동맹 확인 지시" });
     if (skillId === "leadership" && role) { const found = room.players.find((player) => player.alive && player.role === role); if (found) remember(actor, found, { role, source: "인간 동맹 리더십 지시" }); }
     const returnsResult = SCANS.has(skillId) || CHECKS.has(skillId) || ATTACKS.has(skillId) || ["boss-check", "detective-check", "leadership", "snipe", "revenge", "arrest", "snipe-command", "successor"].includes(skillId);
@@ -350,15 +350,18 @@ function tryPublishFinding(room, actor) {
 }
 
 function tryAnnounce(room, actor) {
+  const forcedClaim = memoryOf(actor).forcedAnnouncementRole;
   const hasAnnouncedBefore = Object.hasOwn(actor.cooldowns, "announce");
-  if (actor.announced !== "미공표" && !hasAnnouncedBefore) return false;
+  if (!forcedClaim && actor.announced !== "미공표" && !hasAnnouncedBefore) return false;
   if (!ready(room, actor, "announce")) return false;
   const roles = formations[room.totalPlayers];
   const needsTrueLeadershipClaim = (roleSkills[actor.role] ?? []).includes("leadership") && !actor.usedOnce.leadership;
   const alternatives = roles.filter((role) => role !== actor.announced);
-  const doctrinalClaim = desiredAnnouncement(room, actor);
+  const doctrinalClaim = forcedClaim ?? desiredAnnouncement(room, actor);
   const claim = needsTrueLeadershipClaim ? actor.role : alternatives.includes(doctrinalClaim) ? doctrinalClaim : pick(room, alternatives.length ? alternatives : roles);
-  room.act(actor.id, { skillId: "announce", role: claim }); return true;
+  room.act(actor.id, { skillId: "announce", role: claim });
+  if (forcedClaim) delete memoryOf(actor).forcedAnnouncementRole;
+  return true;
 }
 
 function tryAuthorizeHitman(room, actor) {
@@ -422,7 +425,7 @@ function tryShareFinding(room, actor) {
 function tryKnownAttack(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => ATTACKS.has(id) && ready(room, actor, id));
   if (!skillId) return false;
-  const target = knownEnemies(room, actor).filter((candidate) => memoryOf(actor).knowledge[candidate.id]?.role).sort((left, right) => enemyThreatScore(actor, right) - enemyThreatScore(actor, left))[0];
+  const target = knownEnemies(room, actor).filter((candidate) => memoryOf(actor).knowledge[candidate.id]?.role && !shouldDelegatePublicTarget(room, actor, candidate)).sort((left, right) => enemyThreatScore(actor, right) - enemyThreatScore(actor, left))[0];
   if (!target) return false;
   room.act(actor.id, { skillId, targetId: target.id, role: memoryOf(actor).knowledge[target.id].role }); return true;
 }
@@ -430,7 +433,7 @@ function tryKnownAttack(room, actor) {
 function tryReportedAttack(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => ATTACKS.has(id) && ready(room, actor, id)); if (!skillId) return false;
   const threshold = skillId === "upper-attack" ? .3 : actor.lowAttackFails === 0 ? .45 : .7; const memory = memoryOf(actor);
-  const entry = Object.entries(memory.reports).find(([targetId, report]) => { const target = room.players.find((player) => player.id === Number(targetId)); const verifiedReporter = memory.knowledge[report.reporterId]; const directTrust = verifiedReporter?.faction === factionOf(actor.role) ? verifiedReporter.confidence ?? 0 : 0; const trust = Math.max(memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15, directTrust); return target?.alive && factionOf(report.role) !== factionOf(actor.role) && Math.max(trust, report.evidence ?? .1) >= threshold; });
+  const entry = Object.entries(memory.reports).find(([targetId, report]) => { const target = room.players.find((player) => player.id === Number(targetId)); const verifiedReporter = memory.knowledge[report.reporterId]; const directTrust = verifiedReporter?.faction === factionOf(actor.role) ? verifiedReporter.confidence ?? 0 : 0; const trust = Math.max(memory.trust[report.reporterId] ?? memory.claims[report.reporterId]?.trust ?? .15, directTrust); return target?.alive && !shouldDelegatePublicTarget(room, actor, target) && factionOf(report.role) !== factionOf(actor.role) && Math.max(trust, report.evidence ?? .1) >= threshold; });
   if (!entry) return false; const [targetId, report] = entry; const target = room.player(Number(targetId));
   room.act(actor.id, { skillId, targetId: target.id, role: report.role }); gradeAttackReport(room, actor, target, report); return true;
 }
@@ -542,18 +545,52 @@ function tryScan(room, actor) {
 function tryClaimCheck(room, actor) {
   const plan = claimCheckPlan(room, actor); if (!plan) return false;
   const { skillId, candidates } = plan;
-  const target = pick(room, candidates); if (!target) return false;
+  const challenged = candidates.find((candidate) => memoryOf(actor).spyChallenges?.[candidate.id]?.awaitingRecheck && memoryOf(actor).spyChallenges[candidate.id].challengedRole === candidate.announced);
+  const target = challenged ?? pick(room, candidates); if (!target) return false;
   room.act(actor.id, { skillId, targetId: target.id });
-  if (actor.verdict?.success) { remember(actor, target, { role: target.announced, confidence: .8, source: "공표 확인" }); memoryOf(actor).trust[target.id] = Math.max(memoryOf(actor).trust[target.id] ?? 0, .8); }
-  else remember(actor, target, { confidence: .8, source: "공표 확인 실패", excludedRole: target.announced });
+  recordClaimCheck(room, actor, target, skillId);
   return true;
+}
+
+function shouldDelegatePublicTarget(room, actor, target) {
+  if (actor.role !== "마피아일원") return false;
+  const source = `${memoryOf(actor).knowledge[target.id]?.source ?? ""} ${memoryOf(actor).reports[target.id]?.source ?? ""}`;
+  if (!/공개|수사|신원 노출/.test(source)) return false;
+  const bossKnown = room.players.some((player) => player.alive && memoryOf(actor).knowledge[player.id]?.role === "마피아대부" && (memoryOf(actor).knowledge[player.id]?.confidence ?? 0) >= .8);
+  if (!bossKnown) return false;
+  const memory = memoryOf(actor); memory.delegatedPublicTargets ??= {}; memory.delegatedPublicTargets[target.id] ??= room.now();
+  return room.now() - memory.delegatedPublicTargets[target.id] < 12_000;
+}
+
+function recordClaimCheck(room, actor, target, skillId) {
+  const memory = memoryOf(actor); const success = Boolean(actor.verdict?.success);
+  const spyPresent = formations[room.totalPlayers].includes("스파이") && !room.players.some((player) => !player.alive && player.role === "스파이");
+  const challenge = memory.spyChallenges?.[target.id];
+  if (skillId === "ally-check" && factionOf(actor.role) === "citizen" && spyPresent && challenge?.awaitingRecheck && challenge.challengedRole === target.announced) {
+    memory.spyChallenges[target.id].awaitingRecheck = false;
+    if (success) { remember(actor, target, { role: "스파이", confidence: .9, source: "스파이 이중 아확" }); memory.trust[target.id] = -.8; }
+    else { remember(actor, target, { role: challenge.originalRole, confidence: .9, source: "스파이 이중 아확 통과" }); memory.trust[target.id] = .9; }
+    return;
+  }
+  if (success && skillId === "ally-check" && factionOf(actor.role) === "citizen" && spyPresent) {
+    memory.spyChallenges ??= {};
+    const citizenRoles = formations[room.totalPlayers].filter((role) => factionOf(role) === "citizen" && role !== target.announced);
+    const challengedRole = citizenRoles.find((role) => role !== actor.role) ?? citizenRoles[0];
+    memory.spyChallenges[target.id] = { originalRole: target.announced, challengedRole, awaitingRecheck: true, at: room.now() };
+    memory.trust[target.id] = Math.max(memory.trust[target.id] ?? 0, .45);
+    replyPrivately(room, actor, target, `아확은 성공했지만 스파이 검증이 필요해. ${challengedRole}(으)로 공표를 바꿔줘. 다시 확인할게.`);
+    if (target.aiControlled) { memoryOf(target).forcedAnnouncementRole = challengedRole; room.wakeAi?.(target); }
+    return;
+  }
+  if (success) { remember(actor, target, { role: target.announced, confidence: .8, source: "공표 확인" }); memory.trust[target.id] = Math.max(memory.trust[target.id] ?? 0, .8); }
+  else remember(actor, target, { confidence: .8, source: "공표 확인 실패", excludedRole: target.announced });
 }
 
 function claimCheckPlan(room, actor) {
   const skillId = (roleSkills[actor.role] ?? []).find((id) => CHECKS.has(id) && ready(room, actor, id));
   if (!skillId) return null;
   const mine = factionOf(actor.role);
-  const candidates = room.players.filter((target) => { const known = memoryOf(actor).knowledge[target.id]; return target.alive && target.id !== actor.id && !isConfirmedAlly(room, actor, target) && !known?.role && !known?.excluded?.includes(target.announced) && target.announced !== "미공표" && (skillId === "ally-check") === (factionOf(target.announced) === mine); });
+  const candidates = room.players.filter((target) => { const known = memoryOf(actor).knowledge[target.id]; const challenge = memoryOf(actor).spyChallenges?.[target.id]; return target.alive && target.id !== actor.id && (!isConfirmedAlly(room, actor, target) || challenge?.awaitingRecheck) && !known?.role && !known?.excluded?.includes(target.announced) && target.announced !== "미공표" && (skillId === "ally-check") === (factionOf(target.announced) === mine); });
   return candidates.length ? { skillId, candidates } : null;
 }
 
@@ -604,9 +641,14 @@ function tryAutonomousSpecial(room, actor) {
   }
   if (actor.role === "경찰반장" && ready(room, actor, "arrest")) {
     const target = known("마피아대부"); if (target) { room.act(actor.id, { skillId: "arrest", targetId: target.id }); return true; }
+    const livingCitizenRoles = formations[room.totalPlayers].filter((role) => factionOf(role) === "citizen" && !room.players.some((player) => !player.alive && player.role === role));
+    const comebackCollapsed = livingCitizenRoles.length <= 2;
+    const guess = comebackCollapsed ? room.players.filter((player) => player.alive && player.id !== actor.id && memory.candidateRoles?.[player.id]?.includes("마피아대부")).sort((left, right) => memory.candidateRoles[left.id].length - memory.candidateRoles[right.id].length)[0] : null;
+    if (guess) { room.act(actor.id, { skillId: "arrest", targetId: guess.id }); return true; }
   }
   if (actor.role === "히트맨" && actor.snipeAuthorized && ready(room, actor, "snipe")) {
-    const target = known("경찰반장") ?? known("순찰경찰") ?? knownEnemies(room, actor).sort((left, right) => enemyThreatScore(actor, right) - enemyThreatScore(actor, left))[0];
+    const captainSuspect = room.players.filter((player) => player.alive && player.id !== actor.id && memory.candidateRoles?.[player.id]?.includes("경찰반장")).sort((left, right) => memory.candidateRoles[left.id].length - memory.candidateRoles[right.id].length)[0];
+    const target = known("경찰반장") ?? (captainSuspect && memory.candidateRoles[captainSuspect.id].length <= 2 ? captainSuspect : null) ?? known("순찰경찰") ?? knownEnemies(room, actor).sort((left, right) => enemyThreatScore(actor, right) - enemyThreatScore(actor, left))[0];
     if (target) { room.act(actor.id, { skillId: "snipe", targetId: target.id }); return true; }
   }
   if (["남자연인", "여자연인"].includes(actor.role) && ready(room, actor, "revenge")) {
@@ -615,6 +657,11 @@ function tryAutonomousSpecial(room, actor) {
     if (partner && target) { room.act(actor.id, { skillId: "revenge", targetId: target.id }); return true; }
   }
   if (actor.role === "공무원" && ready(room, actor, "support")) {
+    const publicEnemy = knownEnemies(room, actor).find((target) => memory.knowledge[target.id]?.role && !memory.officialNotices?.[target.id]);
+    if (publicEnemy && ready(room, actor, "proclamation")) {
+      memory.officialNotices ??= {}; memory.officialNotices[publicEnemy.id] = true;
+      room.act(actor.id, { skillId: "proclamation", text: `시민 수사망 공지: ${publicEnemy.id}번 ${memory.knowledge[publicEnemy.id].role} 확정 정보가 공유되었습니다. 공격권자는 확인 후 처리 바랍니다.` }); return true;
+    }
     const priorities = ["순찰경찰", "자경단원", "사립탐정", "탐정조수", "경찰반장"];
     const allies = knownAllies(room, actor); const target = priorities.map(known).find((player) => player && allies.some((ally) => ally.id === player.id)) ?? pick(room, allies.length ? allies : room.players.filter((player) => player.alive && player.id !== actor.id));
     if (target) { room.act(actor.id, { skillId: "support", targetId: target.id }); return true; }
@@ -680,7 +727,15 @@ export function runInvestigationBot(room, { fair = false, actor: scheduledActor 
   if (!investigators.length) return false;
   const actor = fair ? investigators[room.botInvestigationCursor % investigators.length] : pick(room, investigators);
   if (fair) room.botInvestigationCursor += 1;
-  try { return tryClaimCheck(room, actor) || tryScan(room, actor) || tryRoleCheck(room, actor) || tryLeadership(room, actor); }
+  try {
+    const hasBoss = Object.values(memoryOf(actor).knowledge).some((known) => known.role === "마피아대부" && (known.confidence ?? 0) >= .8);
+    if (actor.role === "마피아후계자" && !hasBoss) return tryRoleCheck(room, actor) || tryScan(room, actor);
+    if (actor.role === "탐정조수" && !Object.values(memoryOf(actor).knowledge).some((known) => known.role === "사립탐정" && (known.confidence ?? 0) >= .8)) {
+      memoryOf(actor).assistantInvestigationTurn = (memoryOf(actor).assistantInvestigationTurn ?? 0) + 1;
+      return memoryOf(actor).assistantInvestigationTurn % 2 ? tryClaimCheck(room, actor) || tryRoleCheck(room, actor) : tryRoleCheck(room, actor) || tryClaimCheck(room, actor);
+    }
+    return tryClaimCheck(room, actor) || tryScan(room, actor) || tryRoleCheck(room, actor) || tryLeadership(room, actor);
+  }
   catch { return false; }
 }
 

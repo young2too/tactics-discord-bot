@@ -53,6 +53,11 @@ export function desiredAnnouncement(room, actor) {
   if (["사립탐정", "자경단원", "공무원"].includes(actor.role)) return doctrine.mode === "public" ? actor.role : roles.find((role) => role !== actor.role && role !== actor.announced) ?? actor.role;
   if (actor.role === "히트맨") return doctrine.mode === "public-bait" ? actor.role : roles.find((role) => factionOf(role) === "citizen" && role !== actor.announced) ?? actor.role;
   if (actor.role === "순찰경찰") return roles.find((role) => role !== "순찰경찰" && role !== actor.announced) ?? actor.role;
+  if (["남자연인", "여자연인"].includes(actor.role)) {
+    const partnerRole = actor.role === "남자연인" ? "여자연인" : "남자연인";
+    const partnerId = Number(Object.entries(actor.aiMemory?.knowledge ?? {}).find(([, known]) => known.role === partnerRole)?.[0]);
+    return !partnerId || actor.id < partnerId ? actor.role : roles.find((role) => role !== actor.role && role !== actor.announced) ?? actor.role;
+  }
   return actor.role;
 }
 
