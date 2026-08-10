@@ -145,6 +145,7 @@ export function InteractiveTrackTraining({ track, step, onAdvance, onExit }: { t
   const [effect, setEffect] = useState<PublicEffect>(null);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>(exercise.kind === "chat" ? "chat" : "skills");
   const [proclamationText, setProclamationText] = useState("");
+  const [verdict, setVerdict] = useState<{ success: boolean; title: string; message: string; advance: boolean } | null>(null);
   const skills = [skillCatalog.announce, ...(roleSkillIds[track.role] ?? []).map((id) => skillCatalog[id]), skillCatalog["ally-add"]]
     .filter(Boolean).map((skill, index) => ({ ...skill, key: ["Q", "W", "E", "R", "A"][index] ?? skill.key }));
   const roles = useMemo(() => formations[13].map((name) => ({ name, faction: factionOf(name) })), []);
@@ -157,7 +158,7 @@ export function InteractiveTrackTraining({ track, step, onAdvance, onExit }: { t
   const notice = `${track.role} · ${current.title} — ${exercise.prompt}`;
 
   useEffect(() => {
-    setSelectedSkill(null); setSelectedTarget(null); setEffect(null); setProclamationText("");
+    setSelectedSkill(null); setSelectedTarget(null); setEffect(null); setProclamationText(""); setVerdict(null);
     setMobilePanel(exercise.kind === "chat" ? "chat" : "skills");
   }, [step, exercise.kind]);
 
@@ -167,16 +168,27 @@ export function InteractiveTrackTraining({ track, step, onAdvance, onExit }: { t
   }
   function finish(icon = "✓", tone = "plain") {
     record(exercise.result, icon, tone); setSelectedSkill(null); setSelectedTarget(null);
-    window.setTimeout(onAdvance, 450);
+    setVerdict({ success: true, title: "훈련 판정", message: exercise.result, advance: true });
+  }
+  function fail(message: string) {
+    record(message, "!", "danger");
+    setVerdict({ success: false, title: "다시 시도", message, advance: false });
+  }
+  function dismissVerdict() {
+    if (!verdict) return;
+    const shouldAdvance = verdict.advance;
+    setVerdict(null);
+    if (shouldAdvance) onAdvance();
   }
   function chooseSkill(skill: Skill) {
-    if (exercise.kind !== "skill" || exercise.skill !== skill.id) { record(`지금은 ‘${exercise.prompt}’ 과제를 수행하세요.`, "!", "danger"); return; }
+    if (verdict) return;
+    if (exercise.kind !== "skill" || exercise.skill !== skill.id) { fail(`지금은 ‘${exercise.prompt}’ 과제를 수행하세요.`); return; }
     setMobilePanel(null); setSelectedSkill(skill); setSelectedTarget(null);
     if (!skill.target && !skill.needsRole && !skill.needsText) finish();
   }
   function chooseTarget(player: Player) {
-    if (!selectedSkill?.target || player.isMe || !player.alive) return;
-    if (player.id !== exercise.target) { record(`${exercise.target}번 플레이어를 선택하세요.`, "!", "danger"); return; }
+    if (verdict || !selectedSkill?.target || player.isMe || !player.alive) return;
+    if (player.id !== exercise.target) { fail(`${exercise.target}번 플레이어를 선택하세요.`); return; }
     if (selectedSkill.needsRole) { setSelectedTarget(player); return; }
     if (selectedSkill.id === "ally-add") setAlliances((items) => [...new Set([...items, player.id])]);
     if (["ally-check", "enemy-check", "boss-check", "detective-check"].includes(selectedSkill.id)) {
@@ -185,7 +197,7 @@ export function InteractiveTrackTraining({ track, step, onAdvance, onExit }: { t
     finish(["snipe", "revenge", "arrest"].includes(selectedSkill.id) ? "✦" : "✓");
   }
   function resolveRole(role: string) {
-    if (role !== exercise.role) { record(`이번 훈련에서는 ‘${exercise.role}’을 선택하세요.`, "!", "danger"); return; }
+    if (role !== exercise.role) { fail(`이번 훈련에서는 ‘${exercise.role}’을 선택하세요.`); return; }
     if (selectedSkill?.id === "announce") setPlayers((items) => items.map((player) => player.isMe ? { ...player, announced: role } : player));
     if (selectedTarget && selectedSkill && ["enemy-scan", "advanced-scan"].includes(selectedSkill.id)) {
       setEffect({ id: selectedTarget.id, type: "scan" }); window.setTimeout(() => setEffect(null), 1200);
@@ -194,7 +206,7 @@ export function InteractiveTrackTraining({ track, step, onAdvance, onExit }: { t
   }
   function sendChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const text = chatInput.trim(); if (!text) return;
-    if (exercise.kind !== "chat" || chatChannel !== exercise.channel) { record("동맹 채팅 탭을 선택한 뒤 메시지를 보내세요.", "!", "danger"); return; }
+    if (exercise.kind !== "chat" || chatChannel !== exercise.channel) { fail("동맹 채팅 탭을 선택한 뒤 메시지를 보내세요."); return; }
     setMessages((items) => [...items, { id: Date.now(), from: 1, text, channel: chatChannel }]); setChatInput(""); finish("◇");
   }
   function sendProclamation(event: FormEvent<HTMLFormElement>) {
@@ -210,6 +222,7 @@ export function InteractiveTrackTraining({ track, step, onAdvance, onExit }: { t
     <SkillDeck me={me} notice={notice} skills={skills} selectedSkill={selectedSkill} cooldowns={{}} usedOnce={{}} gameResult={null} onChoose={chooseSkill}/><MobilePanelDock open={mobilePanel} setOpen={setMobilePanel}/>
     {selectedSkill?.needsRole && (selectedTarget || !selectedSkill.target) && <RoleChoiceModal skill={selectedSkill} target={selectedTarget} roles={roles} onResolve={resolveRole} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }}/>} 
     {selectedSkill?.needsText && <ProclamationModal text={proclamationText} setText={setProclamationText} onSubmit={sendProclamation} onCancel={() => setSelectedSkill(null)}/>} 
+    {verdict && <div className={`verdict-popup ${verdict.success ? "success" : "failure"}`} role="button" tabIndex={0} onClick={dismissVerdict} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") dismissVerdict(); }}><span>{verdict.title}</span><strong>{verdict.success ? "성공" : "실패"}</strong><p>{verdict.message}</p><small>{verdict.advance ? "터치하여 다음 단계" : "터치하여 다시 시도"}</small></div>}
   </main>;
 }
 

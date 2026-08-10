@@ -139,6 +139,8 @@ button { font:inherit; }
 .verdict-popup.success strong { color:#78e2b5; }
 .verdict-popup.failure { border-color:#d8635a;box-shadow:0 0 35px #d84a3e44,0 18px 70px #000b; }
 .verdict-popup.failure strong { color:#ff8177; }
+.verdict-popup small { display:block;margin-top:12px;color:#91a7b2;font-size:11px;font-weight:700;letter-spacing:.04em; }
+.tutorial-live .verdict-popup { z-index:150; }
 .skill-upper-attack .skill-icon { font-size:17px;letter-spacing:-3px;transform:translateX(-2px); }
 .skill-lower-attack .skill-icon { font-size:21px;letter-spacing:-2px; }
 .skill-snipe-command .skill-icon { font-size:13px;letter-spacing:-3px;transform:translateX(-3px); }
