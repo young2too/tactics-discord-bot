@@ -1,4 +1,6 @@
 import { factionOf, formations, roleSkills, skills } from "./game-config.js";
+import { refreshDeductions } from "./ai/deduction.js";
+import { desiredAnnouncement, ensureDoctrine, scanRolePriorities, shouldPublishInvestigation, threatPriority, updateDoctrineMode } from "./ai/doctrines.js";
 
 const ATTACKS = new Set(["upper-attack", "lower-attack"]);
 const SCANS = new Set(["ally-scan", "advanced-scan", "enemy-scan"]);
@@ -340,7 +342,7 @@ function tryBridgeAllies(room, actor) {
 
 function tryPublishFinding(room, actor) {
   const canInvestigateEnemies = (roleSkills[actor.role] ?? []).some((skillId) => ["enemy-scan", "advanced-scan", "enemy-check"].includes(skillId));
-  if (factionOf(actor.role) !== "citizen" || !canInvestigateEnemies) return false;
+  if (factionOf(actor.role) !== "citizen" || !canInvestigateEnemies || !shouldPublishInvestigation(room, actor)) return false;
   const memory = memoryOf(actor); const target = room.players.find((player) => player.alive && player.id !== actor.id && memory.knowledge[player.id]?.role && memory.knowledge[player.id].faction !== factionOf(actor.role) && (memory.knowledge[player.id].confidence ?? 0) >= .8 && !memory.publishedFindings[player.id]);
   if (!target) return false;
   const role = memory.knowledge[target.id].role; memory.publishedFindings[target.id] = true;
@@ -354,7 +356,8 @@ function tryAnnounce(room, actor) {
   const roles = formations[room.totalPlayers];
   const needsTrueLeadershipClaim = (roleSkills[actor.role] ?? []).includes("leadership") && !actor.usedOnce.leadership;
   const alternatives = roles.filter((role) => role !== actor.announced);
-  const claim = needsTrueLeadershipClaim || room.random() < .45 ? actor.role : pick(room, alternatives.length ? alternatives : roles);
+  const doctrinalClaim = desiredAnnouncement(room, actor);
+  const claim = needsTrueLeadershipClaim ? actor.role : alternatives.includes(doctrinalClaim) ? doctrinalClaim : pick(room, alternatives.length ? alternatives : roles);
   room.act(actor.id, { skillId: "announce", role: claim }); return true;
 }
 
@@ -525,9 +528,10 @@ function tryScan(room, actor) {
   const candidates = room.players.filter((target) => { const known = memoryOf(actor).knowledge[target.id]; return target.alive && target.id !== actor.id && !known?.role && !isConfirmedAlly(room, actor, target); });
   const target = pick(room, candidates); if (!target) return false;
   const roles = allowedScanRoles(room, actor, skillId);
+  const priorities = scanRolePriorities(actor).filter((role) => roles.includes(role));
   const publicGuess = roles.includes(target.announced) ? target.announced : null;
   const excluded = memoryOf(actor).knowledge[target.id]?.excluded ?? [];
-  const guessedRole = publicGuess ?? pick(room, roles.filter((role) => !excluded.includes(role)));
+  const guessedRole = publicGuess ?? priorities.find((role) => !excluded.includes(role)) ?? pick(room, roles.filter((role) => !excluded.includes(role)));
   if (!guessedRole) return false;
   room.act(actor.id, { skillId, targetId: target.id, role: guessedRole });
   if (target.role === guessedRole) remember(actor, target, { role: guessedRole, source: skillId === "advanced-scan" ? "상급 스캔" : "스캔" });
@@ -576,10 +580,46 @@ function tryPublicChat(room, actor) {
 
 function enemyThreatScore(actor, target) {
   const role = memoryOf(actor).knowledge[target.id]?.role ?? memoryOf(actor).reports[target.id]?.role;
-  const priorities = factionOf(actor.role) === "citizen"
-    ? { "히트맨": 100, "마피아대부": 95, "마피아일원": 85, "마피아후계자": 70, "스파이": 55 }
-    : { "경찰반장": 100, "자경단원": 95, "순찰경찰": 90, "사립탐정": 85, "탐정조수": 80, "남자연인": 55, "여자연인": 55, "공무원": 45 };
-  return priorities[role] ?? 0;
+  return threatPriority(actor, role);
+}
+
+function tryDecisiveMafiaReveal(room, actor) {
+  if (factionOf(actor.role) !== "mafia") return false;
+  const memory = memoryOf(actor); if (memory.decisiveReveal) return false;
+  const entries = Object.entries(memory.knowledge);
+  const patrolEntry = entries.find(([, known]) => known.role === "순찰경찰" && (known.confidence ?? 0) >= .8);
+  const captainEntry = entries.find(([, known]) => known.role === "경찰반장" && (known.confidence ?? 0) >= .8);
+  if (!patrolEntry || !captainEntry) return false;
+  const patrol = room.players.find((player) => player.id === Number(patrolEntry[0])); const captain = room.players.find((player) => player.id === Number(captainEntry[0]));
+  if (!patrol?.alive || !captain?.alive) return false;
+  memory.decisiveReveal = true;
+  room.chat(actor.id, { text: `나는 ${actor.role}이야. ${patrol.id}번 순찰경찰, ${captain.id}번 경찰반장 확정. 마피아 공격권자는 순찰경찰부터 처리하고 다음에 경찰반장을 쳐줘.`, aiBroadcast: true });
+  return true;
+}
+
+function tryAutonomousSpecial(room, actor) {
+  const memory = memoryOf(actor); const known = (role) => room.players.find((player) => player.alive && memory.knowledge[player.id]?.role === role && (memory.knowledge[player.id]?.confidence ?? 0) >= .8);
+  if (actor.role === "마피아대부" && ready(room, actor, "successor")) {
+    const target = known("마피아후계자"); if (target) { room.act(actor.id, { skillId: "successor", targetId: target.id }); return true; }
+  }
+  if (actor.role === "경찰반장" && ready(room, actor, "arrest")) {
+    const target = known("마피아대부"); if (target) { room.act(actor.id, { skillId: "arrest", targetId: target.id }); return true; }
+  }
+  if (actor.role === "히트맨" && actor.snipeAuthorized && ready(room, actor, "snipe")) {
+    const target = known("경찰반장") ?? known("순찰경찰") ?? knownEnemies(room, actor).sort((left, right) => enemyThreatScore(actor, right) - enemyThreatScore(actor, left))[0];
+    if (target) { room.act(actor.id, { skillId: "snipe", targetId: target.id }); return true; }
+  }
+  if (["남자연인", "여자연인"].includes(actor.role) && ready(room, actor, "revenge")) {
+    const partnerRole = actor.role === "남자연인" ? "여자연인" : "남자연인"; const partner = room.players.find((player) => !player.alive && player.role === partnerRole);
+    const target = knownEnemies(room, actor).sort((left, right) => enemyThreatScore(actor, right) - enemyThreatScore(actor, left))[0];
+    if (partner && target) { room.act(actor.id, { skillId: "revenge", targetId: target.id }); return true; }
+  }
+  if (actor.role === "공무원" && ready(room, actor, "support")) {
+    const priorities = ["순찰경찰", "자경단원", "사립탐정", "탐정조수", "경찰반장"];
+    const allies = knownAllies(room, actor); const target = priorities.map(known).find((player) => player && allies.some((ally) => ally.id === player.id)) ?? pick(room, allies.length ? allies : room.players.filter((player) => player.alive && player.id !== actor.id));
+    if (target) { room.act(actor.id, { skillId: "support", targetId: target.id }); return true; }
+  }
+  return false;
 }
 
 function tryLlmStrategicIntent(room, actor) {
@@ -615,6 +655,7 @@ function hasReadyInvestigation(room, actor) {
 export function runStrategicBot(room, { fair = false, actor: scheduledActor = null } = {}) {
   const bots = room.players.filter((player) => player.alive && player.aiControlled); if (!bots.length) return false;
   if (scheduledActor && (!scheduledActor.alive || !scheduledActor.aiControlled)) return false;
+  for (const bot of scheduledActor ? [scheduledActor] : bots) { memoryOf(bot); ensureDoctrine(room, bot); refreshDeductions(room, bot); updateDoctrineMode(room, bot); }
   const waiting = bots.filter((player) => memoryOf(player).inbox.length);
   const isolatedCheckers = bots.filter((player) => !player.alliances.size && knownAllies(room, player).length === 0 && claimCheckPlan(room, player));
   const candidates = scheduledActor ? [scheduledActor] : waiting.length ? waiting : isolatedCheckers.length ? isolatedCheckers : bots;
@@ -622,6 +663,8 @@ export function runStrategicBot(room, { fair = false, actor: scheduledActor = nu
   if (fair) room.botRuleCursor += 1; memoryOf(actor);
   try {
     if (respondToMessage(room, actor)) return true;
+    if (tryDecisiveMafiaReveal(room, actor)) return true;
+    if (tryAutonomousSpecial(room, actor)) return true;
     if (tryAnnounce(room, actor)) return true;
     if (tryLlmStrategicIntent(room, actor)) return true;
     if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryReciprocateAlliance(room, actor) || tryShare(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryAlliance(room, actor) || tryShareFinding(room, actor)) return true;
@@ -632,6 +675,7 @@ export function runStrategicBot(room, { fair = false, actor: scheduledActor = nu
 }
 
 export function runInvestigationBot(room, { fair = false, actor: scheduledActor = null } = {}) {
+  for (const bot of scheduledActor ? [scheduledActor] : room.players.filter((player) => player.alive && player.aiControlled)) { memoryOf(bot); ensureDoctrine(room, bot); refreshDeductions(room, bot); }
   const investigators = room.players.filter((player) => player.alive && player.aiControlled && !memoryOf(player).inbox.length && hasReadyInvestigation(room, player) && (!scheduledActor || player === scheduledActor));
   if (!investigators.length) return false;
   const actor = fair ? investigators[room.botInvestigationCursor % investigators.length] : pick(room, investigators);
@@ -650,6 +694,7 @@ export function processPendingBotMessages(room) {
 
 export function runUrgentAttackBot(room, { actor: scheduledActor = null } = {}) {
   const attackers = room.players.filter((actor) => actor.alive && actor.aiControlled && (!scheduledActor || actor === scheduledActor) && (roleSkills[actor.role] ?? []).some((skillId) => ATTACKS.has(skillId) && ready(room, actor, skillId)));
+  for (const actor of attackers) refreshDeductions(room, actor);
   const ranked = attackers.flatMap((actor) => knownEnemies(room, actor).filter((target) => memoryOf(actor).knowledge[target.id]?.role).map((target) => ({ actor, target, score: enemyThreatScore(actor, target) })) ).sort((left, right) => right.score - left.score);
   for (const { actor } of ranked) { try { if (tryKnownAttack(room, actor)) return true; } catch { /* stale target */ } }
   for (const actor of attackers) {
@@ -660,7 +705,7 @@ export function runUrgentAttackBot(room, { actor: scheduledActor = null } = {}) 
 }
 
 export function buildBotPlanningTurn(room, actor) {
-  const memory = memoryOf(actor); const faction = factionOf(actor.role); const actions = [];
+  const memory = memoryOf(actor); ensureDoctrine(room, actor); refreshDeductions(room, actor); const faction = factionOf(actor.role); const actions = [];
   const add = (action) => actions.push({ ...action, id: `${action.type}:${action.skillId ?? ""}:${action.targetId ?? ""}:${action.role ?? ""}` });
   const available = roleSkills[actor.role] ?? [];
 
