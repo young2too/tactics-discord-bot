@@ -449,7 +449,7 @@ function tryReciprocateAlliance(room, actor) {
 }
 
 export function syncAllianceIntel(room, actor, ally) {
-  if (!actor?.aiControlled || !ally?.alive || !actor.alliances.has(ally.id)) return false;
+  if (!actor?.aiControlled || !ally?.alive || !ally.incomingAlliances.has(actor.id)) return false;
   const memory = memoryOf(actor);
   const findings = Object.entries(memory.knowledge).flatMap(([targetId, known]) => {
     const target = room.players.find((player) => player.id === Number(targetId));

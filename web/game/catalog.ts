@@ -55,7 +55,7 @@ export const skillTooltips: Record<string, SkillTooltip> = {
   revenge: { description: "선택한 생존자를 직업 판정 없이 즉시 처치합니다.", condition: "자신의 연인이 사망한 뒤에만 사용할 수 있습니다.", warning: "게임당 1회입니다." },
   deception: { description: "시민 직업을 공표하면 시민의 아군 확인에서 진명으로 보이는 지속 효과입니다.", condition: "별도로 발동할 필요가 없는 패시브입니다." },
   proclamation: { description: "발신자의 번호와 닉네임을 숨긴 공문을 모든 플레이어의 공개 채팅과 전장에 전달합니다.", condition: "마나를 소모하지 않으며 재사용 대기시간은 5초입니다." },
-  "ally-add": { description: "선택한 플레이어와 동맹을 맺어 동맹 채팅을 공유합니다.", condition: "현재 동맹이 아닌 생존자만 지정할 수 있습니다." },
+  "ally-add": { description: "선택한 플레이어에게 동맹을 보내 내 동맹 채팅과 조사 정보를 수신하게 합니다.", condition: "내가 아직 동맹을 보내지 않은 생존자에게 사용할 수 있습니다. 상대도 보내면 맞동맹이 되어 양방향으로 공유합니다." },
   "ally-remove": { description: "선택한 플레이어와 동맹을 끊고 적대관계로 돌아갑니다.", condition: "현재 동맹인 생존자만 지정할 수 있습니다." },
 };
 

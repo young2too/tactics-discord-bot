@@ -81,7 +81,7 @@ test("private planner can share a verified finding with allies and propagate its
   const room = new SingleRoom({ random: () => 0, llmDirector }); const investigator = room.join({ nickname: "investigator", socket: {} }); const ally = room.join({ nickname: "ally", socket: {} }); const enemy = room.join({ nickname: "enemy", socket: {} }); room.start(investigator.id);
   room.players.forEach((player) => { player.aiControlled = false; player.announced = "자경단원"; });
   investigator.role = "사립탐정"; investigator.announced = "사립탐정"; investigator.aiControlled = true; ally.role = "자경단원"; ally.announced = "자경단원"; ally.aiControlled = true; enemy.role = "히트맨"; enemy.announced = "히트맨";
-  investigator.alliances.add(ally.id); ally.alliances.add(investigator.id);
+  investigator.alliances.add(ally.id); ally.alliances.add(investigator.id); ally.incomingAlliances.add(investigator.id);
   investigator.aiMemory = { knowledge: { [enemy.id]: { role: "히트맨", faction: "mafia", confidence: 1, source: "적군 스캔", excluded: [] } }, trust: { [ally.id]: .8 }, claims: {}, reports: {}, sharedWith: { [ally.id]: true }, inbox: [] };
   room.runBot(); await new Promise((resolve) => setImmediate(resolve));
   assert.equal(ally.aiMemory.knowledge[enemy.id].role, "히트맨"); assert.match(ally.aiMemory.knowledge[enemy.id].source, /동맹 조사 공유/); assert.equal(room.chats.at(-1).channel, "alliance");
