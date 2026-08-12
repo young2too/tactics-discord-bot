@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { botNames, factionOf, formations, MANA_INTERVAL, MANA_MAX, MANA_TICK, roleSkills, shuffle, skills } from "./game-config.js";
+import { botNames, factionOf, formations, MANA_INTERVAL, MANA_MAX, MANA_TICK, roleSkills, shuffle, skillCost, skills } from "./game-config.js";
 import { buildBotPlanningTurn, executeBotPlannedAction, recordPublicDeath, runInvestigationBot, runStrategicBot, runUrgentAttackBot, syncAllianceIntel } from "./bot-ai.js";
 import { checkVictory } from "./game-rules.js";
 
@@ -68,7 +68,8 @@ export class SingleRoom {
     if (skillId !== "announce" && ![...(roleSkills[actor.role] ?? []), "ally-add", "ally-remove"].includes(skillId)) throw new Error("현재 직업이 사용할 수 없는 스킬입니다.");
     const current = this.now(); if ((actor.cooldowns[skillId] ?? 0) > current) throw new Error("아직 쿨타임입니다.");
     if (skill.once && actor.usedOnce[skillId]) throw new Error("게임 중 한 번만 사용할 수 있습니다.");
-    if (actor.mana < skill.cost) throw new Error(`마나 부족 · 필요 ${skill.cost} / 현재 ${actor.mana}`);
+    const cost = skillCost(skillId, this.totalPlayers);
+    if (actor.mana < cost) throw new Error(`마나 부족 · 필요 ${cost} / 현재 ${actor.mana}`);
     const target = skill.target ? this.player(Number(payload.targetId)) : null;
     if (target && (!target.alive || target.id === actor.id)) throw new Error("대상을 선택할 수 없습니다.");
     const guessedRole = payload.role ? String(payload.role) : null;
@@ -81,7 +82,7 @@ export class SingleRoom {
       const message = "순찰경찰이 살아 있어 경찰반장으로 공격할 수 없습니다.";
       this.private(actor, message); this.verdict(actor, "공격 불가", false, message); return;
     }
-    actor.mana -= skill.cost; if (!skill.once) actor.cooldowns[skillId] = current + skill.cooldown * 1000; if (skill.once) actor.usedOnce[skillId] = true;
+    actor.mana -= cost; if (!skill.once) actor.cooldowns[skillId] = current + skill.cooldown * 1000; if (skill.once) actor.usedOnce[skillId] = true;
     this.resolve(actor, skillId, target, guessedRole, String(payload.text ?? "").trim().slice(0, 200));
     if (!this.result) this.result = checkVictory(this.players, this.successorId);
     if (this.result) { const label = this.result.winner === "mafia" ? "마피아 진영 승리" : this.result.winner === "citizen" ? "시민 진영 승리" : "무승부"; if (this.logs.at(-1)?.text !== `게임 종료 · ${label}`) this.addLog("🏁", `게임 종료 · ${label}`, "danger"); }

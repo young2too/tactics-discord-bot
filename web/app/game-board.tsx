@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { botNames, formations, initialPlayers, MANA_INTERVAL_SECONDS, MANA_MAX, MANA_TICK, roleSkillIds, skillCatalog } from "../game/catalog";
+import { botNames, formations, initialPlayers, MANA_INTERVAL_SECONDS, MANA_MAX, MANA_TICK, roleSkillIds, skillCatalog, skillCost } from "../game/catalog";
 import { checkVictory, factionOf, shuffle } from "../game/rules";
 import type { ChatMessage, GameResult, Player, PrivateLog, PublicEffect, Skill } from "../game/types";
 import { CommunicationPanel, DebugLobby, MobilePanelDock, PrivateRolePanel, SkillDeck, type MobilePanel } from "../components/game-panels";
@@ -49,7 +49,7 @@ export function GameBoard() {
   const me = players.find((player) => player.isMe)!;
   const mySeatIndex = players.findIndex((player) => player.isMe);
   const manaTickLabel = `${String(Math.floor(manaTickSeconds / 60)).padStart(2, "0")}:${String(manaTickSeconds % 60).padStart(2, "0")}`;
-  const availableSkills = useMemo(() => [skillCatalog.announce, ...(roleSkillIds[me.role] ?? []).map((id) => skillCatalog[id]), skillCatalog["ally-add"], skillCatalog["ally-remove"]].map((skill, index) => ({ ...skill, key: ["Q", "W", "E", "R", "T", "Y"][index] ?? String(index + 1) })), [me.role]);
+  const availableSkills = useMemo(() => [skillCatalog.announce, ...(roleSkillIds[me.role] ?? []).map((id) => skillCatalog[id]), skillCatalog["ally-add"], skillCatalog["ally-remove"]].map((skill, index) => ({ ...skill, cost: skillCost(skill, playerCount), key: ["Q", "W", "E", "R", "T", "Y"][index] ?? String(index + 1) })), [me.role, playerCount]);
 
   useEffect(() => {
     setFirstVisit(!localStorage.getItem("tactics-onboarding-dismissed") && !localStorage.getItem("tactics-tutorial-complete"));

@@ -20,7 +20,8 @@ export function RulebookLauncher() {
         {tab === "roles" && <div className="guide-card-grid">{roles.map((role) => <article className={role.faction} key={role.name}><small>{role.faction === "mafia" ? "마피아 진영" : "시민 진영"}</small><h2>{role.name}</h2><p>{role.summary}</p><footer>{role.skills.map((id) => <span key={id}>{skillGuide.find((skill) => skill.id === id)?.name}</span>)}</footer></article>)}</div>}
         {tab === "skills" && <div className="guide-card-grid skills">{skills.map((skill) => {
           const oneUse = ["leadership", "successor", "snipe-command", "arrest", "snipe", "revenge"].includes(skill.id);
-          return <article className={skill.tone} key={skill.id}><small>{skill.cost ? `마나 ${skill.cost}` : "무료"} · {skill.cooldown === 0 ? "지속 효과" : oneUse ? "게임당 1회" : `쿨타임 ${skill.cooldown}초`}</small><h2>{skill.icon} {skill.name}</h2><p>{skill.description}</p>{skill.condition && <p><b>조건</b> {skill.condition}</p>}{skill.warning && <p className="guide-warning"><b>주의</b> {skill.warning}</p>}</article>;
+          const costLabel = skill.id === "upper-attack" ? "마나 40 · 11인 이상 30" : skill.cost ? `마나 ${skill.cost}` : "무료";
+          return <article className={skill.tone} key={skill.id}><small>{costLabel} · {skill.cooldown === 0 ? "지속 효과" : oneUse ? "게임당 1회" : `쿨타임 ${skill.cooldown}초`}</small><h2>{skill.icon} {skill.name}</h2><p>{skill.description}</p>{skill.condition && <p><b>조건</b> {skill.condition}</p>}{skill.warning && <p className="guide-warning"><b>주의</b> {skill.warning}</p>}</article>;
         })}</div>}
       </div>
     </section></div>}

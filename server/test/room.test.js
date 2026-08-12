@@ -16,7 +16,7 @@ test("fills one room with bots and privately assigns roles", () => {
 test("lovers know each other from the start without revealing them to others", () => {
   const room = new SingleRoom({ random: () => 0.5 });
   const host = room.join({ nickname: "host", socket: {} });
-  room.setTotal(host.id, 11); room.start(host.id);
+  room.setTotal(host.id, 12); room.start(host.id);
   const male = room.players.find((player) => player.role === "남자연인");
   const female = room.players.find((player) => player.role === "여자연인");
   const outsider = room.players.find((player) => !["남자연인", "여자연인"].includes(player.role));

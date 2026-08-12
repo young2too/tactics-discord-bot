@@ -1,4 +1,4 @@
-import { factionOf, formations, roleSkills, skills } from "./game-config.js";
+import { factionOf, formations, roleSkills, skillCost, skills } from "./game-config.js";
 import { refreshDeductions } from "./ai/deduction.js";
 import { desiredAnnouncement, ensureDoctrine, scanRolePriorities, shouldPublishInvestigation, threatPriority, updateDoctrineMode } from "./ai/doctrines.js";
 
@@ -290,7 +290,7 @@ function respondToMessage(room, actor) {
 
 function ready(room, actor, skillId) {
   const skill = skills[skillId];
-  return Boolean(skill && actor.mana >= skill.cost && (actor.cooldowns[skillId] ?? 0) <= room.now() && !(skill.once && actor.usedOnce[skillId]));
+  return Boolean(skill && actor.mana >= skillCost(skillId, room.totalPlayers) && (actor.cooldowns[skillId] ?? 0) <= room.now() && !(skill.once && actor.usedOnce[skillId]));
 }
 
 function pick(room, values) {

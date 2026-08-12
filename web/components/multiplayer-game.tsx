@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { formations, roleSkillIds, skillCatalog } from "../game/catalog";
+import { formations, roleSkillIds, skillCatalog, skillCost } from "../game/catalog";
 import { factionOf, portraitStyle } from "../game/rules";
 import type { ChatMessage, Player, Skill } from "../game/types";
 import { Battlefield } from "./battlefield";
@@ -43,7 +43,7 @@ export function MultiplayerGame({ room }: { room: RoomController }) {
   })), [state.players, state.yourSeatId]);
   const me = players.find((player) => player.isMe)!;
   const mySeatIndex = players.findIndex((player) => player.isMe);
-  const skills = useMemo(() => [skillCatalog.announce, ...(roleSkillIds[state.yourRole ?? ""] ?? []).map((id) => skillCatalog[id]), skillCatalog["ally-add"], skillCatalog["ally-remove"]].map((skill, index) => ({ ...skill, cost: skill.id === "leadership" ? 40 : skill.id === "enemy-check" ? 10 : skill.cost, key: ["Q", "W", "E", "R", "T", "Y"][index] ?? String(index + 1) })), [state.yourRole]);
+  const skills = useMemo(() => [skillCatalog.announce, ...(roleSkillIds[state.yourRole ?? ""] ?? []).map((id) => skillCatalog[id]), skillCatalog["ally-add"], skillCatalog["ally-remove"]].map((skill, index) => ({ ...skill, cost: skillCost(skill, state.totalPlayers), key: ["Q", "W", "E", "R", "T", "Y"][index] ?? String(index + 1) })), [state.yourRole, state.totalPlayers]);
   const notice = room.error || state.privateLogs?.at(-1)?.text || "스킬을 선택하거나 채팅으로 정보를 교환하세요.";
   const manaTick = `${String(Math.floor((state.nextManaIn ?? 0) / 60)).padStart(2, "0")}:${String((state.nextManaIn ?? 0) % 60).padStart(2, "0")}`;
   useEffect(() => {
