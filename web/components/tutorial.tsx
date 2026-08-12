@@ -9,6 +9,7 @@ import { Battlefield } from "./battlefield";
 import { RoleChoiceModal } from "./game-modals";
 import { CommunicationPanel, MobilePanelDock, PrivateRolePanel, SkillDeck, type MobilePanel } from "./game-panels";
 import { InteractiveTrackTraining } from "./tutorial-role-training";
+import { GameAudio } from "./game-audio";
 
 const basicSteps = [
   ["전장을 읽으세요", "당신은 항상 6시 방향입니다. 번호·공표·생존 여부는 공개되며 실제 직업은 본인과 사망자만 보입니다."],
@@ -130,6 +131,7 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
   }
 
   return <main className={`game-shell tutorial-live tutorial-step-${step} mobile-panel-${mobilePanel ?? "closed"} ${selectedSkill ? "tutorial-target-phase" : ""}`}>
+    <GameAudio logs={logs} chats={messages} effect={effect}/>
     <header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>기본 전술 훈련</small></div></div><div className="room-status"><span className="live-dot"/> TRAINING <b>{step + 1} / {basicSteps.length}</b></div><button className="tutorial-exit" onClick={onExit}>훈련 종료</button></header>
     <div className={`tutorial-guide arrow-${callout.side}`} style={callout.style} role="status"><small>STEP {step + 1}</small><strong>{basicSteps[step][0]}</strong><span>{basicSteps[step][1]}</span>{step === 0 && <button onClick={() => { record("좌석과 공개 정보를 확인했습니다."); next(); }}>확인했어요</button>}</div>
     <section className="battle-layout"><CommunicationPanel players={players} messages={messages} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={logs} privateLogs={privateLogs}/><Battlefield players={players} mySeatIndex={0} selectedSkill={selectedSkill} notice={notice} effectTarget={effect} alliances={alliances} whisper={whisper} onCancel={() => { setSelectedSkill(null); setSelectedTarget(null); }} onTarget={chooseTarget} onWhisperPrefill={(player) => { setChatChannel("public"); setChatInput(`-${player.id} `); setMobilePanel("chat"); }} isTargetable={(player) => !player.isMe && player.alive}/><PrivateRolePanel me={me} notice={notice} logs={privateLogs}/></section>

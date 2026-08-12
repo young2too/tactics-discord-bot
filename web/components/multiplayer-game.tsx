@@ -8,6 +8,7 @@ import { Battlefield } from "./battlefield";
 import { CommunicationPanel, MobilePanelDock, SkillDeck, type MobilePanel } from "./game-panels";
 import { ProclamationModal, RoleChoiceModal } from "./game-modals";
 import type { useMultiplayerRoom } from "../hooks/use-multiplayer-room";
+import { GameAudio } from "./game-audio";
 
 type RoomController = ReturnType<typeof useMultiplayerRoom>;
 
@@ -90,6 +91,7 @@ export function MultiplayerGame({ room }: { room: RoomController }) {
   function cancel() { setSelectedSkill(null); setSelectedTarget(null); setSkillText(""); }
 
   return <main className={`game-shell size-${players.length} mobile-panel-${mobilePanel ?? "closed"}`}>
+    <GameAudio logs={state.logs ?? []} chats={(state.chats ?? []) as ChatMessage[]} effect={state.effect ?? null}/>
     <header className="topbar"><div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>실시간 마피아 전술전</small></div></div><div className="room-status"><span className="live-dot" /> LIVE ROOM <b>{players.filter((player) => player.alive).length} 생존</b></div><div className="supply"><span>마나 · 다음 보급 {manaTick}</span><strong>{state.mana ?? 0}</strong><div className="supply-track"><i style={{ width: `${Math.min(100, (state.mana ?? 0) / 2)}%` }} /></div></div></header>
     <section className="battle-layout">
       <CommunicationPanel players={players} messages={(state.chats ?? []) as ChatMessage[]} channel={chatChannel} setChannel={setChatChannel} input={chatInput} setInput={setChatInput} onSubmit={sendChat} logs={state.logs ?? []} privateLogs={state.privateLogs ?? []} />

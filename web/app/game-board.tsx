@@ -9,6 +9,7 @@ import { Battlefield } from "../components/battlefield";
 import { GameOverModal, ProclamationModal, RoleChoiceModal } from "../components/game-modals";
 import { ModeLobby, MultiplayerLobby } from "../components/multiplayer-lobby";
 import { FirstVisitPrompt, TrainingCenter } from "../components/tutorial";
+import { GameAudio } from "../components/game-audio";
 
 export function GameBoard() {
   const [entryMode, setEntryMode] = useState<"choose" | "debug" | "multiplayer" | "tutorial">("choose");
@@ -518,11 +519,11 @@ export function GameBoard() {
 
   return (
     <main className={`game-shell size-${players.length} mobile-panel-${mobilePanel ?? "closed"}`}>
+      <GameAudio logs={logs} chats={chatMessages} effect={effectTarget}/>
       <header className="topbar">
         <div className="brand"><span className="brand-mark">T</span><div><strong>TACTICS</strong><small>실시간 마피아 전술전</small></div></div>
         <div className="room-status"><span className="live-dot" /> DEBUG ROOM <b>{players.length} / {players.length}</b></div>
         <div className="supply"><span>디버그 마나</span><strong>∞</strong><div className="supply-track"><i style={{ width: "100%" }} /></div></div>
-        <button className="sound-button" aria-label="소리 설정">♪</button>
       </header>
 
       <section className="battle-layout">
