@@ -2,8 +2,9 @@ import { factionOf, portraitStyle } from "../game/rules";
 import { useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import type { Player, PublicEffect, Skill } from "../game/types";
 
-export function Battlefield({ players, mySeatIndex, selectedSkill, notice, effectTarget, alliances, whisper, onCancel, onTarget, onWhisperPrefill, isTargetable }: {
+export function Battlefield({ players, mySeatIndex, selectedSkill, notice, effectTarget, alliances, incomingAlliances = [], outgoingAlliances = [], whisper, onCancel, onTarget, onWhisperPrefill, isTargetable }: {
   players: Player[]; mySeatIndex: number; selectedSkill: Skill | null; notice: string; effectTarget: PublicEffect; alliances: number[];
+  incomingAlliances?: number[]; outgoingAlliances?: number[];
   whisper: { from: number; to: number; text: string } | null; onCancel: () => void; onTarget: (player: Player) => void; onWhisperPrefill?: (player: Player) => void; isTargetable: (player: Player, skill: Skill) => boolean;
 }) {
   const longPressTimer = useRef<number | null>(null);
@@ -46,7 +47,7 @@ export function Battlefield({ players, mySeatIndex, selectedSkill, notice, effec
           <span className="seat-pointer"/><span className="seat-number">{player.id}</span>{effectTarget?.id === player.id && effectTarget.type !== "attack" && <span className="public-action-effect" aria-label="살피는 중"><b>🔎</b><i/><i/></span>}
           <span className="portrait"><span className="portrait-art" style={portraitStyle(roleVisible ? player.role : player.announced)}/>{!player.alive && <b>☠</b>}</span>
           <span className="player-copy"><strong>{player.name}{player.isMe && <em>YOU</em>}</strong><small>공표 · <b className={`${factionOf(player.announced)}-text`}>{player.announced}</b></small>{roleVisible && <small className={`revealed-role ${factionOf(player.role)}-text`}>실제 · {player.role}</small>}</span>
-          <span className={`life-state ${player.alive ? "" : "down"}`}>{player.alive ? "생존" : "사망 · 직업 공개"}</span>{alliances.includes(player.id) && <span className="alliance-mark">동맹</span>}
+          <span className={`life-state ${player.alive ? "" : "down"}`}>{player.alive ? "생존" : "사망 · 직업 공개"}</span>{alliances.includes(player.id) && <span className={`alliance-mark ${incomingAlliances.includes(player.id) && outgoingAlliances.includes(player.id) ? "mutual" : ""}`}>{incomingAlliances.includes(player.id) && outgoingAlliances.includes(player.id) ? "맞동맹" : incomingAlliances.includes(player.id) ? "받은 동맹" : "보낸 동맹"}</span>}
         </button>;
       })}
     </div>

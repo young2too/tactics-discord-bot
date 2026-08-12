@@ -798,6 +798,19 @@ test("mana ticks reward only alliances initiated toward the receiving player", (
   assert.equal(receiver.mana, 20);
 });
 
+test("a received alliance can be reciprocated through the normal ally-add skill", () => {
+  let now = 1_000; const room = new SingleRoom({ now: () => now, random: () => .5 });
+  const first = room.join({ nickname: "first", socket: {} }); const second = room.join({ nickname: "second", socket: {} }); room.start(first.id);
+  room.players.forEach((player) => { player.aiControlled = false; });
+  room.act(first.id, { skillId: "ally-add", targetId: second.id });
+  assert.deepEqual(room.snapshotFor(second).incomingAlliances, [first.id]);
+  assert.deepEqual(room.snapshotFor(second).outgoingAlliances, []);
+  now += 6_000; room.act(second.id, { skillId: "ally-add", targetId: first.id });
+  assert.deepEqual(room.snapshotFor(second).outgoingAlliances, [first.id]);
+  assert.equal(first.incomingAlliances.has(second.id), true);
+  assert.match(second.privateLogs.at(-1).text, /맞동맹/);
+});
+
 test("a confirmed AI ally reciprocates a human-initiated alliance for the human mana bonus", () => {
   const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const detective = room.join({ nickname: "detective", socket: {} }); room.start(human.id);
   room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); human.role = "탐정조수"; detective.role = "사립탐정"; detective.aiControlled = true;

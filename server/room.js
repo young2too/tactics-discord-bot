@@ -95,7 +95,7 @@ export class SingleRoom {
     if (skillId === "leadership" && actor.announced !== actor.role) throw new Error("진명 공표 후에만 리더십을 사용할 수 있습니다.");
     if (skillId === "snipe" && !actor.snipeAuthorized) throw new Error("마피아대부가 히트맨에게 저격명령을 내려야 합니다.");
     if (skillId === "revenge") { const partner = this.players.find((player) => player.role === (actor.role === "남자연인" ? "여자연인" : "남자연인")); if (!partner || partner.alive) throw new Error("연인이 사망한 뒤 사용할 수 있습니다."); }
-    if (skillId === "ally-add" && actor.alliances.has(target.id)) throw new Error("이미 동맹입니다.");
+    if (skillId === "ally-add" && target.incomingAlliances.has(actor.id)) throw new Error("이미 내가 동맹을 보낸 대상입니다.");
     if (skillId === "ally-remove" && !actor.alliances.has(target.id)) throw new Error("현재 동맹이 아닙니다.");
   }
   resolve(actor, skillId, target, guessedRole, text) {
@@ -105,10 +105,11 @@ export class SingleRoom {
     if (skillId === "proclamation") { if (!text) throw new Error("공문 내용을 입력하세요."); const message = "신원을 숨기고 공문을 전체 플레이어에게 발송했습니다."; this.chats.push({ id: this.now(), from: 0, anonymous: true, text: `[공문] ${text}`, channel: "public" }); this.chats = this.chats.slice(-50); this.addLog("📢", `익명 공문 · ${text}`, "plain"); this.private(actor, message); this.verdict(actor, "익명 공문 발송", true, message); return; }
     if (skillId === "ally-add" || skillId === "ally-remove") {
       const adding = skillId === "ally-add";
+      const alreadyConnected = actor.alliances.has(target.id);
       if (adding) { actor.alliances.add(target.id); target.alliances.add(actor.id); target.incomingAlliances.add(actor.id); }
       else { actor.alliances.delete(target.id); target.alliances.delete(actor.id); target.incomingAlliances.delete(actor.id); actor.incomingAlliances.delete(target.id); }
-      const actorMessage = adding ? `${target.id}번 ${target.nickname}와 동맹이 되었습니다.` : `${target.id}번 ${target.nickname}와 적대관계가 되었습니다.`;
-      const targetMessage = adding ? `${actor.id}번 ${actor.nickname}에게 동맹을 받았습니다.` : `${actor.id}번 ${actor.nickname}와 적대관계가 되었습니다.`;
+      const actorMessage = adding ? (alreadyConnected ? `${target.id}번 ${target.nickname}에게 맞동맹을 보냈습니다.` : `${target.id}번 ${target.nickname}와 동맹이 되었습니다.`) : `${target.id}번 ${target.nickname}와 적대관계가 되었습니다.`;
+      const targetMessage = adding ? (alreadyConnected ? `${actor.id}번 ${actor.nickname}과 맞동맹이 되었습니다.` : `${actor.id}번 ${actor.nickname}에게 동맹을 받았습니다.`) : `${actor.id}번 ${actor.nickname}와 적대관계가 되었습니다.`;
       this.private(actor, actorMessage); this.private(target, targetMessage);
       this.notify(actor, adding ? "동맹 체결" : "동맹 파기", actorMessage, adding ? "alliance" : "hostile");
       this.notify(target, adding ? "동맹 요청 수신" : "동맹 파기", targetMessage, adding ? "alliance" : "hostile");
@@ -246,7 +247,7 @@ export class SingleRoom {
       phase: this.phase, totalPlayers: this.totalPlayers, hostId: this.hostId, yourSeatId: viewer.id, yourRole: viewer.role,
       mana: viewer.mana, nextManaIn: this.nextManaAt ? Math.max(0, Math.ceil((this.nextManaAt - current) / 1000)) : 0,
       cooldowns: Object.fromEntries(Object.entries(viewer.cooldowns).map(([id, until]) => [id, Math.max(0, Math.ceil((until - current) / 1000))])),
-      usedOnce: viewer.usedOnce, alliances: [...viewer.alliances], logs: this.logs.slice(-60), privateLogs: viewer.privateLogs.slice(-40), lowAttackFails: viewer.lowAttackFails, result: this.result,
+      usedOnce: viewer.usedOnce, alliances: [...viewer.alliances], incomingAlliances: [...viewer.incomingAlliances], outgoingAlliances: this.players.filter((player) => player.incomingAlliances.has(viewer.id)).map((player) => player.id), logs: this.logs.slice(-60), privateLogs: viewer.privateLogs.slice(-40), lowAttackFails: viewer.lowAttackFails, result: this.result,
       snipeAuthorized: viewer.snipeAuthorized,
       effect: this.effect && this.effect.until > current ? { id: this.effect.id, type: this.effect.type } : null,
       verdict: viewer.verdict && viewer.verdict.until > current ? { id: viewer.verdict.id, title: viewer.verdict.title, success: viewer.verdict.success, message: viewer.verdict.message } : null,

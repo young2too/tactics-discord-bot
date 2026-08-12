@@ -15,6 +15,8 @@ export type RoomState = {
   lowAttackFails?: number;
   snipeAuthorized?: boolean;
   alliances?: number[];
+  incomingAlliances?: number[];
+  outgoingAlliances?: number[];
   logs?: { time: string; icon: string; text: string; tone: string }[];
   privateLogs?: { time: string; text: string }[];
   chats?: { id: number; from: number; text: string; channel: "public" | "alliance" }[];
