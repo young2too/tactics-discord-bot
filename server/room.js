@@ -52,7 +52,7 @@ export class SingleRoom {
       maleLover.aiMemory = { knowledge: { [femaleLover.id]: { role: femaleLover.role, faction: "citizen", confidence: 1, source: "연인", excluded: [] } }, sharedWith: {}, lastPublicAt: 0, recentLines: [] };
       femaleLover.aiMemory = { knowledge: { [maleLover.id]: { role: maleLover.role, faction: "citizen", confidence: 1, source: "연인", excluded: [] } }, sharedWith: {}, lastPublicAt: 0, recentLines: [] };
     }
-    this.phase = "game"; this.nextManaAt = this.now() + MANA_INTERVAL;
+    this.phase = "game"; this.startedAt = this.now(); this.nextManaAt = this.now() + MANA_INTERVAL;
     for (const player of this.players.filter((entry) => entry.aiControlled)) player.nextAiActionAt = this.now() + this.aiActionDelay();
     this.addLog("⚔", `${this.totalPlayers}인 게임이 시작되었습니다.`, "plain");
   }

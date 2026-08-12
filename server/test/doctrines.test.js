@@ -23,6 +23,22 @@ test("hitman and successor scanning priorities reflect their doctrine", () => {
   assert.equal(scanRolePriorities(successor)[0], "히트맨");
 });
 
+test("a boss hides from living enemy-checkers until prolonged isolation", () => {
+  let now = 10_000; const room = new SingleRoom({ now: () => now, random: () => 0 }); const boss = room.join({ nickname: "boss", socket: {} }); room.setTotal(boss.id, 12); room.start(boss.id);
+  room.players.forEach((player) => { player.aiControlled = false; }); boss.role = "마피아대부"; boss.announced = "미공표"; boss.aiMemory = { announcementCount: 0, knowledge: {} };
+  assert.notEqual(desiredAnnouncement(room, boss), "마피아대부");
+  boss.aiMemory.announcementCount = 2; now = room.startedAt + 89_000; assert.notEqual(desiredAnnouncement(room, boss), "마피아대부");
+  now = room.startedAt + 90_000; assert.equal(desiredAnnouncement(room, boss), "마피아대부");
+});
+
+test("a successor uses cover claims while boss-check and advanced scan can build a network", () => {
+  let now = 10_000; const room = new SingleRoom({ now: () => now, random: () => 0 }); const successor = room.join({ nickname: "successor", socket: {} }); room.setTotal(successor.id, 12); room.start(successor.id);
+  room.players.forEach((player) => { player.aiControlled = false; }); successor.role = "마피아후계자"; successor.announced = "미공표"; successor.aiMemory = { announcementCount: 0, knowledge: {} };
+  assert.notEqual(desiredAnnouncement(room, successor), "마피아후계자");
+  successor.cooldowns["boss-check"] = now + 10_000; successor.aiMemory.announcementCount = 3; now = room.startedAt + 119_000; assert.notEqual(desiredAnnouncement(room, successor), "마피아후계자");
+  now = room.startedAt + 120_000; assert.equal(desiredAnnouncement(room, successor), "마피아후계자");
+});
+
 test("mafia publicly reveals a confirmed patrol and captain kill route", () => {
   const { room, actor } = setup(); const [patrol, captain] = room.players.filter((player) => player.id !== actor.id).slice(0, 2);
   actor.role = "마피아후계자"; actor.aiControlled = true; patrol.role = "순찰경찰"; captain.role = "경찰반장";

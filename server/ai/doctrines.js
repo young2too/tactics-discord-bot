@@ -48,9 +48,21 @@ export function desiredAnnouncement(room, actor) {
   if (actor.role === "마피아대부") {
     const deadRoles = new Set(room.players.filter((player) => !player.alive).map((player) => player.role));
     const enemyCheckAlive = roles.some((role) => !deadRoles.has(role) && (roleSkills[role] ?? []).includes("enemy-check"));
-    const connected = actor.alliances.size > 0;
-    if (!enemyCheckAlive || !connected && doctrine.exposure > .55) return actor.role;
-    return roles.find((role) => factionOf(role) === "citizen") ?? actor.role;
+    const knownMafia = room.players.some((player) => player.alive && player.id !== actor.id && actor.alliances.has(player.id) && actor.aiMemory?.knowledge?.[player.id]?.faction === "mafia" && (actor.aiMemory.knowledge[player.id].confidence ?? 0) >= .7);
+    const elapsed = room.now() - (room.startedAt ?? room.now());
+    const disconnectedDesperation = !knownMafia && elapsed >= 90_000 && (actor.aiMemory?.announcementCount ?? 0) >= 2;
+    if (!enemyCheckAlive || disconnectedDesperation) return actor.role;
+    const covers = roles.filter((role) => factionOf(role) === "citizen" && role !== actor.announced);
+    return covers[Math.floor(room.random() * covers.length)] ?? actor.role;
+  }
+  if (actor.role === "마피아후계자") {
+    const knownMafia = room.players.some((player) => player.alive && player.id !== actor.id && actor.alliances.has(player.id) && actor.aiMemory?.knowledge?.[player.id]?.faction === "mafia" && (actor.aiMemory.knowledge[player.id].confidence ?? 0) >= .7);
+    const elapsed = room.now() - (room.startedAt ?? room.now());
+    const hasUsedBossCheck = Object.hasOwn(actor.cooldowns, "boss-check");
+    const desperate = !knownMafia && hasUsedBossCheck && elapsed >= 120_000 && (actor.aiMemory?.announcementCount ?? 0) >= 3;
+    if (desperate) return actor.role;
+    const covers = roles.filter((role) => factionOf(role) === "citizen" && role !== actor.announced);
+    return covers[Math.floor(room.random() * covers.length)] ?? actor.role;
   }
   if (actor.role === "스파이") {
     const faction = doctrine.mode === "citizen-infiltration" ? "citizen" : "mafia";

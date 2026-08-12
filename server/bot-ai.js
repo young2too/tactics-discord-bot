@@ -355,11 +355,11 @@ function tryAnnounce(room, actor) {
   if (!forcedClaim && actor.announced !== "미공표" && !hasAnnouncedBefore) return false;
   if (!ready(room, actor, "announce")) return false;
   const roles = formations[room.totalPlayers];
-  const needsTrueLeadershipClaim = (roleSkills[actor.role] ?? []).includes("leadership") && !actor.usedOnce.leadership;
   const alternatives = roles.filter((role) => role !== actor.announced);
   const doctrinalClaim = forcedClaim ?? desiredAnnouncement(room, actor);
-  const claim = needsTrueLeadershipClaim ? actor.role : alternatives.includes(doctrinalClaim) ? doctrinalClaim : pick(room, alternatives.length ? alternatives : roles);
+  const claim = alternatives.includes(doctrinalClaim) ? doctrinalClaim : pick(room, alternatives.length ? alternatives : roles);
   room.act(actor.id, { skillId: "announce", role: claim });
+  memoryOf(actor).announcementCount = (memoryOf(actor).announcementCount ?? 0) + 1;
   if (forcedClaim) delete memoryOf(actor).forcedAnnouncementRole;
   return true;
 }
