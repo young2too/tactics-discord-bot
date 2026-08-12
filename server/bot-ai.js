@@ -814,12 +814,28 @@ export function recordPublicDeath(room, target) {
   for (const observer of room.players.filter((player) => player.aiControlled)) {
     const memory = memoryOf(observer);
     remember(observer, target, { role: target.role, confidence: 1, source: "사후 직업 공개" });
-    if (target.role === "사립탐정") {
+    const investigationSkills = roleSkills[target.role] ?? [];
+    const canValidateReport = (report) => {
+      const sameFaction = factionOf(report.role) === factionOf(target.role);
+      if (investigationSkills.some((skillId) => ["enemy-scan", "advanced-scan", "enemy-check"].includes(skillId)) && !sameFaction) return true;
+      if (investigationSkills.includes("ally-check") && sameFaction) return true;
+      if (investigationSkills.includes("boss-check") && report.role === "마피아대부") return true;
+      return investigationSkills.includes("detective-check") && report.role === "사립탐정";
+    };
+    const validatedReports = Object.entries(memory.reports).filter(([, report]) => report.reporterId === target.id && canValidateReport(report));
+    if (validatedReports.length) {
       memory.trust[target.id] = 1;
       memory.claims[target.id] = { role: target.role, trust: 1, source: "사후 직업 공개" };
-      for (const report of Object.values(memory.reports).filter((entry) => entry.reporterId === target.id)) {
+      for (const [reportedTargetId, report] of validatedReports) {
         report.evidence = Math.max(report.evidence ?? .1, .85);
-        report.source = "사망한 사립탐정의 공개 제보";
+        report.source = `사망한 ${target.role}의 검증 가능한 공개 제보`;
+        const reportedTarget = room.players.find((player) => player.id === Number(reportedTargetId));
+        if (!reportedTarget?.alive) continue;
+        remember(observer, reportedTarget, { role: report.role, confidence: .85, source: `${target.role} 사후 제보 인증` });
+        if (factionOf(report.role) === factionOf(observer.role)) {
+          memory.trust[reportedTarget.id] = Math.max(memory.trust[reportedTarget.id] ?? 0, .85);
+          memory.claims[reportedTarget.id] = { role: report.role, trust: .85, source: `${target.role} 사후 제보 인증` };
+        }
       }
     }
     const report = memory.reports[target.id]; if (!report) continue;
