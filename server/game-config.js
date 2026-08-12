@@ -24,7 +24,7 @@ export const skills = {
   leadership: { cost: 40, cooldown: 10, role: true, once: true }, successor: { cost: 0, cooldown: 10, target: true, once: true },
   arrest: { cost: 0, cooldown: 10, target: true, once: true }, "snipe-command": { cost: 0, cooldown: 10, target: true, once: true }, snipe: { cost: 0, cooldown: 10, target: true, once: true },
   revenge: { cost: 150, cooldown: 10, target: true, once: true }, deception: { cost: 0, cooldown: 0 },
-  proclamation: { cost: 20, cooldown: 10, text: true }, "ally-add": { cost: 0, cooldown: 5, target: true },
+  proclamation: { cost: 0, cooldown: 5, text: true }, "ally-add": { cost: 0, cooldown: 5, target: true },
   "ally-remove": { cost: 0, cooldown: 5, target: true },
 };
 export const attackerRoles = new Set(["마피아대부", "히트맨", "마피아일원", "자경단원", "순찰경찰"]);

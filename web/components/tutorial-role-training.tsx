@@ -221,7 +221,7 @@ export function InteractiveTrackTraining({ track, step, onAdvance, onExit }: { t
   }
   function sendProclamation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!proclamationText.trim()) return;
-    setMessages((items) => [...items, { id: Date.now(), from: 1, text: `[공문] ${proclamationText.trim()}`, channel: "public" }]);
+    setMessages((items) => [...items, { id: Date.now(), from: 0, anonymous: true, text: `[공문] ${proclamationText.trim()}`, channel: "public" }]);
     setProclamationText(""); finish("✉");
   }
 

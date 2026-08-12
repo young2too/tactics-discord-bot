@@ -205,9 +205,9 @@
             },
             {
               "name": "공문",
-              "cost": 20,
-              "cooldownSec" : 2,
-              "effect": "공무원 이름으로 전체 공지 메시지 발송. /say 명령어로 사용함"
+              "cost": 0,
+              "cooldownSec" : 5,
+              "effect": "발신자의 정체를 숨기고 전체 공지 메시지 발송. /say 명령어로 사용함"
             }
           ]
         }

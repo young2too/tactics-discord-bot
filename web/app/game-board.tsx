@@ -485,10 +485,10 @@ export function GameBoard() {
     const text = skillText.trim().slice(0, 200);
     if (!text || selectedSkill?.id !== "proclamation") return;
     setCooldowns((current) => ({ ...current, proclamation: skillCatalog.proclamation.cooldown }));
-    setChatMessages((current) => [...current.slice(-30), { id: Date.now(), from: me.id, text: `📜 [공문] ${text}`, channel: "public" }]);
-    setLogs((current) => [...current, { time: "지금", icon: "✉", text: `공무원 공문 · ${text}`, tone: "plain" }]);
-    setNotice("공문을 전체 플레이어에게 발송했습니다.");
-    showVerdict("공문 발송", true, "공문을 전체 플레이어에게 발송했습니다.");
+    setChatMessages((current) => [...current.slice(-30), { id: Date.now(), from: 0, anonymous: true, text: `[공문] ${text}`, channel: "public" }]);
+    setLogs((current) => [...current, { time: "지금", icon: "✉", text: `익명 공문 · ${text}`, tone: "plain" }]);
+    setNotice("신원을 숨기고 공문을 전체 플레이어에게 발송했습니다.");
+    showVerdict("익명 공문 발송", true, "번호와 닉네임을 공개하지 않고 발송했습니다.");
     setSkillText(""); setSelectedSkill(null); setChatChannel("public");
   }
 

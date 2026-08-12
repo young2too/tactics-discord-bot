@@ -72,6 +72,8 @@ test("an official turns shared confirmed intel into a public proclamation", () =
   actor.aiMemory = { knowledge: { [enemy.id]: { role: "히트맨", faction: "mafia", confidence: 1, source: "동맹 조사 공유", excluded: [] } } };
   runStrategicBot(room, { actor });
   assert.match(room.chats.at(-1).text, /\[공문\].*히트맨 확정/);
+  assert.equal(room.chats.at(-1).from, 0);
+  assert.equal(room.chats.at(-1).anonymous, true);
 });
 
 test("a boss designates a confirmed successor autonomously", () => {

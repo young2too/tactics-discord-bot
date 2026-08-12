@@ -39,7 +39,7 @@ export const roleGuide: { name: string; faction: Faction; summary: string; skill
   { name: "탐정조수", faction: "citizen", summary: "탐정을 찾고 적군 공표의 진위를 확인합니다.", skills: ["detective-check", "enemy-check"] },
   { name: "남자연인", faction: "citizen", summary: "연인의 죽음 뒤 복수귀로 한 명을 즉사시킬 수 있습니다.", skills: ["ally-check", "revenge"] },
   { name: "여자연인", faction: "citizen", summary: "연인의 죽음 뒤 복수귀로 한 명을 즉사시킬 수 있습니다.", skills: ["enemy-check", "revenge"] },
-  { name: "공무원", faction: "citizen", summary: "마나를 지원하고 공개 공문을 발송합니다.", skills: ["support", "proclamation"] },
+  { name: "공무원", faction: "citizen", summary: "마나를 지원하고 발신자를 숨긴 익명 공문을 발송합니다.", skills: ["support", "proclamation"] },
 ];
 
 export const skillGuide = Object.values(skillCatalog).map((skill) => ({ ...skill, ...skillTooltips[skill.id] }));
@@ -124,6 +124,6 @@ export const trainingTracks = [
     step("두 가지 보급 운영", "정체를 모르는 사람에게도 마나를 뿌릴 수 있고, 진명을 내 아군 확인으로 시민에게 붙은 뒤 안정적으로 보급할 수도 있습니다.", "board"),
     step("공격권자와 조사직 우선", "확정 시민망에서는 즉시 공격할 순찰경찰·자경단원, 스캔할 사립탐정, 적군 확인할 탐정조수, 리더십이 필요한 경찰반장 순으로 지원하세요.", "skills"),
     step("지원 대상은 공개됩니다", "누구에게 마나를 줬는지는 모두가 봅니다. 별도 추적 능력은 없으므로 지원 직후 행동을 확정 정보처럼 단정하지 마세요.", "intel"),
-    step("공문은 구조화된 공개 제보", "동맹에서 받은 확정 정보가 전체 공격망에 필요할 때 대상 번호·직업·근거·요청 행동을 공문으로 알리세요.", "chat"),
+    step("공문은 익명 공개 제보", "동맹에서 받은 확정 정보가 전체 공격망에 필요할 때 대상 번호·직업·근거·요청 행동을 익명 공문으로 알리세요. 발신자의 번호와 닉네임은 공개되지 않습니다.", "chat"),
   ]},
 ] as const;

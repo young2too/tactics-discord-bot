@@ -30,7 +30,7 @@ export const skillCatalog: Record<string, Skill> = {
   snipe: { id: "snipe", key: "R", name: "저격", icon: "⌾", cost: 0, target: true, needsRole: false, tone: "red", cooldown: 10 },
   revenge: { id: "revenge", key: "R", name: "복수귀", icon: "☠", cost: 150, target: true, needsRole: false, tone: "red", cooldown: 10 },
   deception: { id: "deception", key: "W", name: "기만", icon: "◈", cost: 0, target: false, needsRole: false, tone: "gold", cooldown: 0 },
-  proclamation: { id: "proclamation", key: "E", name: "공문", icon: "✉", cost: 20, target: false, needsRole: false, needsText: true, tone: "blue", cooldown: 10 },
+  proclamation: { id: "proclamation", key: "E", name: "공문", icon: "✉", cost: 0, target: false, needsRole: false, needsText: true, tone: "blue", cooldown: 5 },
   "ally-add": { id: "ally-add", key: "A", name: "동맹 추가", icon: "🤝", cost: 0, target: true, needsRole: false, tone: "gold", cooldown: 5 },
   "ally-remove": { id: "ally-remove", key: "S", name: "동맹 파기", icon: "🤝", cost: 0, target: true, needsRole: false, tone: "red", cooldown: 5 },
 };
@@ -54,7 +54,7 @@ export const skillTooltips: Record<string, SkillTooltip> = {
   snipe: { description: "선택한 생존자를 직업 판정 없이 즉시 처치합니다.", condition: "마피아대부가 올바른 히트맨에게 저격명령을 내려야 활성화됩니다.", warning: "게임당 1회입니다." },
   revenge: { description: "선택한 생존자를 직업 판정 없이 즉시 처치합니다.", condition: "자신의 연인이 사망한 뒤에만 사용할 수 있습니다.", warning: "게임당 1회입니다." },
   deception: { description: "시민 직업을 공표하면 시민의 아군 확인에서 진명으로 보이는 지속 효과입니다.", condition: "별도로 발동할 필요가 없는 패시브입니다." },
-  proclamation: { description: "작성한 공문을 모든 플레이어의 공개 채팅과 전장에 전달합니다." },
+  proclamation: { description: "발신자의 번호와 닉네임을 숨긴 공문을 모든 플레이어의 공개 채팅과 전장에 전달합니다.", condition: "마나를 소모하지 않으며 재사용 대기시간은 5초입니다." },
   "ally-add": { description: "선택한 플레이어와 동맹을 맺어 동맹 채팅을 공유합니다.", condition: "현재 동맹이 아닌 생존자만 지정할 수 있습니다." },
   "ally-remove": { description: "선택한 플레이어와 동맹을 끊고 적대관계로 돌아갑니다.", condition: "현재 동맹인 생존자만 지정할 수 있습니다." },
 };

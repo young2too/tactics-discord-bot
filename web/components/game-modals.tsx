@@ -12,7 +12,7 @@ export function RoleChoiceModal({ skill, target, roles, onResolve, onCancel }: {
 
 export function ProclamationModal({ text, setText, onSubmit, onCancel }: { text: string; setText: (text: string) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onCancel: () => void }) {
   return <div className="modal-backdrop" role="presentation" onMouseDown={onCancel}><section className="role-modal proclamation-modal" role="dialog" aria-modal="true" aria-label="공문 작성" onMouseDown={(event) => event.stopPropagation()}>
-    <header><span>✉</span><div><small>공무원 전용 스킬</small><h2>전체 플레이어에게 보낼 공문을 작성하세요</h2></div><button onClick={onCancel}>×</button></header>
+    <header><span>✉</span><div><small>공무원 전용 · 익명 발송</small><h2>전체 플레이어에게 보낼 공문을 작성하세요</h2></div><button onClick={onCancel}>×</button></header>
     <form onSubmit={onSubmit}><textarea autoFocus value={text} onChange={(event) => setText(event.target.value)} maxLength={200} placeholder="공문 내용 (최대 200자)"/><div><small>{text.length} / 200</small><button type="submit" disabled={!text.trim()}>공문 발송</button></div></form>
   </section></div>;
 }
