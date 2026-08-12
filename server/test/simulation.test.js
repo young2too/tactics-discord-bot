@@ -24,6 +24,12 @@ test("11-player formation adds the spy before introducing the lover pair", () =>
   assert.ok(formations[12].includes("여자연인"));
 });
 
+test("9-player formation replaces the official with the mafia successor", () => {
+  assert.ok(formations[9].includes("마피아후계자"));
+  assert.equal(formations[9].includes("공무원"), false);
+  assert.equal(formations[9].filter((role) => role === "마피아후계자").length, 1);
+});
+
 for (const total of [8, 9, 10, 11, 12, 13]) {
   test(`${total}-player doctrine simulation preserves authoritative invariants`, () => {
     let now = 10_000; const random = seededRandom(total * 997);
