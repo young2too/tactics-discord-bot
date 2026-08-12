@@ -552,6 +552,13 @@ function tryClaimCheck(room, actor) {
   return true;
 }
 
+function tryBetrayal(room, actor) {
+  if (actor.role !== "스파이" || !ready(room, actor, "betrayal")) return false;
+  const target = knownEnemies(room, actor).filter((candidate) => actor.incomingAlliances.has(candidate.id) && candidate.incomingAlliances.has(actor.id)).sort((left, right) => enemyThreatScore(actor, right) - enemyThreatScore(actor, left))[0];
+  if (!target) return false;
+  room.act(actor.id, { skillId: "betrayal", targetId: target.id }); return true;
+}
+
 function shouldDelegatePublicTarget(room, actor, target) {
   if (actor.role !== "마피아일원") return false;
   const source = `${memoryOf(actor).knowledge[target.id]?.source ?? ""} ${memoryOf(actor).reports[target.id]?.source ?? ""}`;
@@ -690,7 +697,7 @@ export function runStrategicBot(room, { fair = false, actor: scheduledActor = nu
   try {
     if (respondToMessage(room, actor)) return true;
     if (tryDecisiveMafiaReveal(room, actor)) return true;
-    if (tryAutonomousSpecial(room, actor)) return true;
+    if (tryAutonomousSpecial(room, actor) || tryBetrayal(room, actor)) return true;
     if (tryAnnounce(room, actor)) return true;
     if (tryLlmStrategicIntent(room, actor)) return true;
     if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryReciprocateAlliance(room, actor) || tryShare(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryAlliance(room, actor) || tryShareFinding(room, actor)) return true;

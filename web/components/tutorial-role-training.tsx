@@ -56,8 +56,8 @@ const exercises: Record<string, Exercise[]> = {
   스파이: [
     s("announce", "공표에서 사립탐정을 골라 시민 진영에 침투하세요.", "시민 직업을 공표했습니다. 아군 확인을 속일 준비가 됐습니다.", undefined, "사립탐정"),
     s("deception", "기만을 눌러 지속 효과를 확인하세요.", "기만 효과: 시민 직업 공표가 아군 확인에서 진명으로 보입니다."),
-    s("announce", "이번에는 마피아일원을 공표해 다른 은폐 운영을 시험하세요.", "마피아 직업을 공표해 시민 아군 확인 대상에서 벗어났습니다.", undefined, "마피아일원"),
-    s("ally-add", "시민으로 위장한 상황을 가정해 2번과 동맹을 맺으세요.", "시민 동맹에 침투했습니다. 오래 생존하며 규합을 지연시키세요.", 2),
+    s("ally-add", "속아 넘어간 2번과 동맹을 맺으세요. 훈련에서는 상대도 맞동맹을 보냅니다.", "2번과 맞동맹이 되어 배신 조건을 완성했습니다.", 2),
+    s("betrayal", "배신을 눌러 맞동맹인 2번을 즉시 처치하세요.", "배신 성공. 신뢰를 역이용해 시민 조사직을 처치했습니다.", 2),
   ],
   경찰반장: [
     s("announce", "연결이 막힌 상황입니다. 경찰반장 진명을 공표하세요.", "진명 공표로 마나와 시민의 접촉 기회를 얻었습니다.", undefined, "경찰반장"),
@@ -204,7 +204,7 @@ export function InteractiveTrackTraining({ track, step, onAdvance, onExit }: { t
     if (["ally-check", "enemy-check", "boss-check", "detective-check"].includes(selectedSkill.id)) {
       setEffect({ id: player.id, type: "inspect" }); window.setTimeout(() => setEffect(null), 1200);
     }
-    finish(["snipe", "revenge", "arrest"].includes(selectedSkill.id) ? "✦" : "✓");
+    finish(["snipe", "revenge", "arrest", "betrayal"].includes(selectedSkill.id) ? "✦" : "✓");
   }
   function resolveRole(role: string) {
     if (role !== exercise.role) { fail(`이번 훈련에서는 ‘${exercise.role}’을 선택하세요.`); return; }

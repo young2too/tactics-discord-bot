@@ -826,6 +826,18 @@ test("alliance chat follows outgoing alliance direction and cannot be wiretapped
   assert.equal(room.snapshotFor(sender).chats.at(-1).text, "mutual reply");
 });
 
+test("a spy can instantly betray only a mutual ally", () => {
+  let now = 1_000; const room = new SingleRoom({ now: () => now, random: () => .5 });
+  const spy = room.join({ nickname: "spy", socket: {} }); const target = room.join({ nickname: "target", socket: {} }); room.start(spy.id);
+  room.players.forEach((player) => { player.aiControlled = false; }); spy.role = "스파이"; spy.mana = 30;
+  room.act(spy.id, { skillId: "ally-add", targetId: target.id }); now += 6_000;
+  assert.throws(() => room.act(spy.id, { skillId: "betrayal", targetId: target.id }), /맞동맹/);
+  room.act(target.id, { skillId: "ally-add", targetId: spy.id }); now += 6_000;
+  room.act(spy.id, { skillId: "betrayal", targetId: target.id });
+  assert.equal(target.alive, false); assert.equal(spy.mana, 20); assert.equal(spy.cooldowns.betrayal, now + 10_000);
+  assert.match(room.logs.at(-1).text, /배신.*직업은/); assert.doesNotMatch(room.logs.at(-1).text, /spy|스파이/);
+});
+
 test("a confirmed AI ally reciprocates a human-initiated alliance for the human mana bonus", () => {
   const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const detective = room.join({ nickname: "detective", socket: {} }); room.start(human.id);
   room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); human.role = "탐정조수"; detective.role = "사립탐정"; detective.aiControlled = true;

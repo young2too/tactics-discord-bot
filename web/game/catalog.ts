@@ -30,6 +30,7 @@ export const skillCatalog: Record<string, Skill> = {
   snipe: { id: "snipe", key: "R", name: "저격", icon: "⌾", cost: 0, target: true, needsRole: false, tone: "red", cooldown: 10 },
   revenge: { id: "revenge", key: "R", name: "복수귀", icon: "☠", cost: 150, target: true, needsRole: false, tone: "red", cooldown: 10 },
   deception: { id: "deception", key: "W", name: "기만", icon: "◈", cost: 0, target: false, needsRole: false, tone: "gold", cooldown: 0 },
+  betrayal: { id: "betrayal", key: "E", name: "배신", icon: "🗡", cost: 10, target: true, needsRole: false, tone: "red", cooldown: 10 },
   proclamation: { id: "proclamation", key: "E", name: "공문", icon: "✉", cost: 0, target: false, needsRole: false, needsText: true, tone: "blue", cooldown: 5 },
   "ally-add": { id: "ally-add", key: "A", name: "동맹 추가", icon: "🤝", cost: 0, target: true, needsRole: false, tone: "gold", cooldown: 5 },
   "ally-remove": { id: "ally-remove", key: "S", name: "동맹 파기", icon: "🤝", cost: 0, target: true, needsRole: false, tone: "red", cooldown: 5 },
@@ -54,6 +55,7 @@ export const skillTooltips: Record<string, SkillTooltip> = {
   snipe: { description: "선택한 생존자를 직업 판정 없이 즉시 처치합니다.", condition: "마피아대부가 올바른 히트맨에게 저격명령을 내려야 활성화됩니다.", warning: "게임당 1회입니다." },
   revenge: { description: "선택한 생존자를 직업 판정 없이 즉시 처치합니다.", condition: "자신의 연인이 사망한 뒤에만 사용할 수 있습니다.", warning: "게임당 1회입니다." },
   deception: { description: "시민 직업을 공표하면 시민의 아군 확인에서 진명으로 보이는 지속 효과입니다.", condition: "별도로 발동할 필요가 없는 패시브입니다." },
+  betrayal: { description: "맞동맹 상태인 생존자 한 명을 직업 추측 없이 즉시 처치합니다.", condition: "서로 동맹을 보낸 맞동맹만 지정할 수 있습니다.", warning: "피해자의 실제 직업은 사망과 함께 공개되지만 시전자의 정체는 공개되지 않습니다." },
   proclamation: { description: "발신자의 번호와 닉네임을 숨긴 공문을 모든 플레이어의 공개 채팅과 전장에 전달합니다.", condition: "마나를 소모하지 않으며 재사용 대기시간은 5초입니다." },
   "ally-add": { description: "선택한 플레이어에게 동맹을 보내 내 동맹 채팅과 조사 정보를 수신하게 합니다.", condition: "내가 아직 동맹을 보내지 않은 생존자에게 사용할 수 있습니다. 상대도 보내면 맞동맹이 되어 양방향으로 공유합니다." },
   "ally-remove": { description: "선택한 플레이어와 동맹을 끊고 적대관계로 돌아갑니다.", condition: "현재 동맹인 생존자만 지정할 수 있습니다." },
@@ -61,7 +63,7 @@ export const skillTooltips: Record<string, SkillTooltip> = {
 
 export const roleSkillIds: Record<string, string[]> = {
   마피아대부: ["leadership", "lower-attack", "successor", "snipe-command"], 히트맨: ["enemy-scan", "snipe"], 마피아일원: ["ally-check", "upper-attack"],
-  마피아후계자: ["advanced-scan", "boss-check"], 스파이: ["deception"], 경찰반장: ["ally-check", "leadership", "arrest"],
+  마피아후계자: ["advanced-scan", "boss-check"], 스파이: ["deception", "betrayal"], 경찰반장: ["ally-check", "leadership", "arrest"],
   자경단원: ["upper-attack"], 사립탐정: ["enemy-scan"], 순찰경찰: ["ally-check", "lower-attack"],
   탐정조수: ["detective-check", "enemy-check"], 남자연인: ["ally-check", "revenge"], 여자연인: ["enemy-check", "revenge"], 공무원: ["support", "proclamation"],
 };
@@ -88,4 +90,4 @@ export const portraitRoles = ["마피아대부", "히트맨", "마피아일원",
 export const MANA_MAX = 200;
 export const MANA_TICK = 20;
 export const MANA_INTERVAL_SECONDS = 90;
-export const ATTACKER_ROLES = new Set(["마피아대부", "히트맨", "마피아일원", "자경단원", "순찰경찰"]);
+export const ATTACKER_ROLES = new Set(["마피아대부", "히트맨", "마피아일원", "스파이", "자경단원", "순찰경찰"]);

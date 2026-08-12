@@ -252,6 +252,7 @@ export function GameBoard() {
     if (skill.id === "enemy-check") return announcedFaction !== me.faction;
     if (skill.id === "ally-add") return !alliances.includes(player.id);
     if (skill.id === "ally-remove") return alliances.includes(player.id);
+    if (skill.id === "betrayal") return alliances.includes(player.id);
     return true;
   }
 
@@ -471,6 +472,13 @@ export function GameBoard() {
       const message = `${target.id}번 ${target.name}과(와)의 동맹을 파기했습니다.`;
       setNotice(message); showVerdict("동맹 파기", true, message);
       return;
+    }
+
+    if (skill.id === "betrayal") {
+      const nextPlayers = players.map((player) => player.id === target.id ? { ...player, alive: false } : player);
+      const result = checkVictory(nextPlayers, successorId, ...remainingThreats(nextPlayers));
+      setPlayers(nextPlayers); setLogs((current) => [...current, { time: "지금", icon: "🗡", text: `${target.name}이(가) 배신으로 사망했습니다. 직업은 ${target.role}입니다.`, tone: "danger" }]);
+      setNotice(`배신 성공 · ${target.name}을(를) 즉시 처치했습니다.`); showVerdict("배신 성공", true, `${target.name}의 실제 직업은 ${target.role}입니다.`); if (result) setGameResult(result); return;
     }
 
     setLogs((current) => [...current, { time: "지금", icon: "🔍", text: `누군가 ${target.name}을 살피고 있습니다.`, tone: "scan" }]);

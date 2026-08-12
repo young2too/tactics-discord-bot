@@ -69,6 +69,7 @@ export function MultiplayerGame({ room }: { room: RoomController }) {
     if (skill.id === "enemy-check") return !sameClaimFaction;
     if (skill.id === "ally-add") return !(state.outgoingAlliances ?? []).includes(player.id);
     if (skill.id === "ally-remove") return (state.alliances ?? []).includes(player.id);
+    if (skill.id === "betrayal") return (state.incomingAlliances ?? []).includes(player.id) && (state.outgoingAlliances ?? []).includes(player.id);
     return true;
   }
   function chooseSkill(skill: Skill) {

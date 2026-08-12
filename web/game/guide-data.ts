@@ -31,7 +31,7 @@ export const roleGuide: { name: string; faction: Faction; summary: string; skill
   { name: "히트맨", faction: "mafia", summary: "적을 스캔하고 대부의 명령으로 결정적인 저격을 합니다.", skills: ["enemy-scan", "snipe"] },
   { name: "마피아일원", faction: "mafia", summary: "패널티 없는 상급공격을 사용하는 공격수입니다.", skills: ["upper-attack"] },
   { name: "마피아후계자", faction: "mafia", summary: "대부의 뒤를 잇고 양 진영의 정체를 폭넓게 추적합니다.", skills: ["advanced-scan", "boss-check"] },
-  { name: "스파이", faction: "mafia", summary: "시민 공표로 아군 확인을 속이는 잠입자입니다.", skills: ["deception"] },
+  { name: "스파이", faction: "mafia", summary: "시민 공표로 잠입하고 맞동맹을 배신해 즉시 처치합니다.", skills: ["deception", "betrayal"] },
   { name: "경찰반장", faction: "citizen", summary: "시민의 리더. 검거의 성공과 실패가 즉시 승패를 결정합니다.", skills: ["ally-check", "leadership", "arrest"] },
   { name: "자경단원", faction: "citizen", summary: "패널티 없는 상급공격을 사용하는 시민 공격수입니다.", skills: ["upper-attack"] },
   { name: "사립탐정", faction: "citizen", summary: "적군의 실제 직업을 추적하는 조사관입니다.", skills: ["enemy-scan"] },
@@ -72,11 +72,11 @@ export const trainingTracks = [
     step("히트맨을 찾으면 저격이 열립니다", "히트맨을 찾아 대부에게 전달하면 저격명령을 빠르게 활성화할 수 있습니다. 조직이 끊겼다면 아군 탐색을 우선하세요.", "chat"),
     step("적을 찾으면 대부에게", "순찰경찰·탐정조수 같은 핵심 시민을 찾았다면 대부의 하급공격에 넘깁니다. 나머지 후보로 경찰반장을 소거하세요.", "intel"),
   ]},
-  { id: "spy", role: "스파이", faction: "mafia", summary: "살아남아 시민 아군 확인의 신뢰와 규합 속도를 무너뜨립니다.", skillIds: ["deception"], steps: [
+  { id: "spy", role: "스파이", faction: "mafia", summary: "시민에게 잠입해 맞동맹을 얻고 결정적인 순간에 배신합니다.", skillIds: ["deception", "betrayal"], steps: [
     step("시민 명함으로 침투", "시민 직업을 공표하면 시민의 아군 확인에서 진명으로 보입니다. 시민 동맹에 섞여 규합과 소거를 늦출 수 있습니다.", "board"),
     step("마피아 명함으로 은폐", "마피아 이름을 내 시민 아군 확인 대상에서 빠지는 운영도 가능합니다. 대신 적군 확인의 표적이 된다는 점을 계산하세요.", "skills"),
     step("재검증을 피하세요", "경찰반장이 다른 시민 명함으로 바꾸라고 하면 스파이 검증 중입니다. 공표를 바꾸거나 접촉을 늦춰 시간을 버세요.", "chat"),
-    step("생존이 곧 방해입니다", "직접 처치보다 오래 살아남는 것이 중요합니다. 스파이가 생존하는 동안 시민은 아군 확인 성공만으로 전원을 확정할 수 없습니다.", "intel"),
+    step("맞동맹을 배신하세요", "상대와 서로 동맹을 보낸 맞동맹이 되면 배신으로 즉시 처치할 수 있습니다. 피해자의 직업은 공개되지만 스파이의 정체는 드러나지 않습니다.", "skills"),
   ]},
   { id: "captain", role: "경찰반장", faction: "citizen", summary: "시민을 규합하고 소거된 대부를 검거해 게임을 끝냅니다.", skillIds: ["ally-check", "leadership", "arrest"], steps: [
     step("진명 시점을 고르세요", "적군 확인 담당이 없거나 시민 연결이 막혔다면 진명으로 마나를 모으세요. 항상 같은 초반 진명 패턴은 노출 위험이 큽니다.", "board"),
