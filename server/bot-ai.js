@@ -244,6 +244,17 @@ function respondToMessage(room, actor) {
   const reciprocalAllyProof = incoming.channel !== "public" && ((!recipientTrueRoleClaim && observedSelfInspection && /아확|아군\s*확인|확인.*왔|찾아왔/.test(incoming.text)) || recipientTrueRoleProof) && (!selfRoleClaim || Boolean(reciprocalClaimRole));
   const privateMafiaApproach = incoming.channel !== "public" && factionOf(actor.role) === "mafia" && selfRoleClaim && factionOf(selfRoleClaim) === "mafia";
   const privateAllyTrust = Math.max(memory.trust[sender.id] ?? memory.claims[sender.id]?.trust ?? 0, verified?.faction === factionOf(actor.role) ? verified.confidence ?? 0 : 0);
+  const asksAllies = /(?:아군|우리\s*(?:편|팀)|동맹)(?:은|이|들|측)?\s*(?:누구|어디|알려|정리)|누가\s*(?:아군|우리\s*(?:편|팀)|동맹)/.test(incoming.text);
+  if (asksAllies) {
+    if (privateAllyTrust < .7 && !actor.alliances.has(sender.id)) return true;
+    if (incoming.respond === false) return true;
+    const allies = knownAllies(room, actor).filter((player) => player.id !== sender.id && player.alive).map((player) => {
+      const known = memory.knowledge[player.id]; const claim = memory.claims[player.id]; const role = (known?.confidence ?? 0) >= .7 ? known.role : (memory.trust[player.id] ?? claim?.trust ?? 0) >= .7 ? claim?.role : null;
+      return `${player.id}번 ${player.nickname}${role ? `(${role})` : ""}`;
+    });
+    replyPrivately(room, actor, sender, allies.length ? `내가 확인한 생존 아군은 ${allies.join(", ")}이야.` : "내가 확실히 확인한 다른 생존 아군은 아직 없어.");
+    return true;
+  }
   if (incoming.channel !== "public" && leadershipDiscovery && /리더십|리더쉽/.test(incoming.text) && incoming.text.includes(actor.role)) {
     memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: leadershipDiscovery.leaderRole, trust: 1, source: "리더십 발견 접촉" }; remember(actor, sender, { role: leadershipDiscovery.leaderRole, confidence: 1, source: "리더십 발견 접촉" });
     response = `실제로 리더십으로 나를 찾은 기록과 일치해. 당신을 ${leadershipDiscovery.leaderRole}(으)로 확정하고 따를게.`;
@@ -343,10 +354,13 @@ function tryBridgeAllies(room, actor) {
 function tryPublishFinding(room, actor) {
   const canInvestigateEnemies = (roleSkills[actor.role] ?? []).some((skillId) => ["enemy-scan", "advanced-scan", "enemy-check"].includes(skillId));
   if (factionOf(actor.role) !== "citizen" || !canInvestigateEnemies || !shouldPublishInvestigation(room, actor)) return false;
-  const memory = memoryOf(actor); const target = room.players.find((player) => player.alive && player.id !== actor.id && memory.knowledge[player.id]?.role && memory.knowledge[player.id].faction !== factionOf(actor.role) && (memory.knowledge[player.id].confidence ?? 0) >= .8 && !memory.publishedFindings[player.id]);
-  if (!target) return false;
-  const role = memory.knowledge[target.id].role; memory.publishedFindings[target.id] = true;
-  room.chat(actor.id, { text: `나는 ${actor.role}이야. ${target.id}번 ${role} 조사 성공. 공격권 있는 시민은 ${role}(으)로 쳐줘.`, aiBroadcast: true }); return true;
+  const memory = memoryOf(actor); if (room.now() - (memory.lastPublicAt ?? 0) < 15_000) return false;
+  const findings = room.players.filter((player) => { const known = memory.knowledge[player.id]; const key = `${player.id}:${known?.role ?? ""}`; return player.alive && player.id !== actor.id && known?.role && known.faction !== factionOf(actor.role) && (known.confidence ?? 0) >= .8 && !memory.publishedFindings[player.id] && !room.publicIntel.has(key); }).slice(0, 4);
+  if (!findings.length) return false;
+  const details = findings.map((target) => `${target.id}번 ${memory.knowledge[target.id].role}`);
+  for (const target of findings) { const role = memory.knowledge[target.id].role; memory.publishedFindings[target.id] = true; room.publicIntel.add(`${target.id}:${role}`); }
+  memory.lastPublicAt = room.now();
+  room.chat(actor.id, { text: `나는 ${actor.role}이야. 조사 결과 ${details.join(" / ")}. 공격권 있는 시민은 확인 후 처리해줘.`, aiBroadcast: true }); return true;
 }
 
 function tryAnnounce(room, actor) {
@@ -616,14 +630,14 @@ function enemyThreatScore(actor, target) {
 
 function tryDecisiveMafiaReveal(room, actor) {
   if (factionOf(actor.role) !== "mafia") return false;
-  const memory = memoryOf(actor); if (memory.decisiveReveal) return false;
+  const memory = memoryOf(actor); if (memory.decisiveReveal || room.publicIntel.has("mafia:patrol-captain-route")) return false;
   const entries = Object.entries(memory.knowledge);
   const patrolEntry = entries.find(([, known]) => known.role === "순찰경찰" && (known.confidence ?? 0) >= .8);
   const captainEntry = entries.find(([, known]) => known.role === "경찰반장" && (known.confidence ?? 0) >= .8);
   if (!patrolEntry || !captainEntry) return false;
   const patrol = room.players.find((player) => player.id === Number(patrolEntry[0])); const captain = room.players.find((player) => player.id === Number(captainEntry[0]));
   if (!patrol?.alive || !captain?.alive) return false;
-  memory.decisiveReveal = true;
+  memory.decisiveReveal = true; room.publicIntel.add("mafia:patrol-captain-route"); room.publicIntel.add(`${patrol.id}:순찰경찰`); room.publicIntel.add(`${captain.id}:경찰반장`);
   room.chat(actor.id, { text: `나는 ${actor.role}이야. ${patrol.id}번 순찰경찰, ${captain.id}번 경찰반장 확정. 마피아 공격권자는 순찰경찰부터 처리하고 다음에 경찰반장을 쳐줘.`, aiBroadcast: true });
   return true;
 }

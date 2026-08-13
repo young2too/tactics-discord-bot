@@ -148,6 +148,30 @@ test("a ready enemy-check takes priority over announcements and non-investigator
   assert.equal(checker.verdict.title, "공표 확인");
 });
 
+test("a trusted ally can ask an AI for its known living ally roster", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const bot = room.join({ nickname: "bot", socket: {} }); room.start(human.id);
+  const detective = room.players.find((player) => ![human.id, bot.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  human.role = "순찰경찰"; bot.role = "경찰반장"; bot.aiControlled = true; detective.role = "사립탐정";
+  bot.aiMemory = { knowledge: { [human.id]: { role: "순찰경찰", faction: "citizen", confidence: 1, source: "아군 확인", excluded: [] }, [detective.id]: { role: "사립탐정", faction: "citizen", confidence: 1, source: "리더십", excluded: [] } }, trust: { [human.id]: 1, [detective.id]: 1 }, claims: {}, reports: {}, inbox: [] };
+  room.chat(human.id, { text: `-${bot.id} 아군 누구누구야?` }); runStrategicBot(room, { actor: bot });
+  assert.equal(bot.whisper.to, human.id); assert.match(bot.whisper.text, new RegExp(`${detective.id}번 ${detective.nickname}\\(사립탐정\\)`));
+  assert.doesNotMatch(bot.whisper.text, new RegExp(`${human.id}번`));
+});
+
+test("AI investigators publish the same living finding only once per room", () => {
+  const room = new SingleRoom({ random: () => 0 }); const first = room.join({ nickname: "first", socket: {} }); const second = room.join({ nickname: "second", socket: {} }); room.start(first.id);
+  const enemy = room.players.find((player) => ![first.id, second.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  first.role = "탐정조수"; second.role = "사립탐정"; enemy.role = "히트맨"; first.aiControlled = true; second.aiControlled = true;
+  const knownEnemy = { role: "히트맨", faction: "mafia", confidence: 1, source: "조사", excluded: [] };
+  first.aiMemory = { knowledge: { [enemy.id]: { ...knownEnemy } }, doctrine: { mode: "public" }, publishedFindings: {}, inbox: [] };
+  second.aiMemory = { knowledge: { [enemy.id]: { ...knownEnemy } }, doctrine: { mode: "public" }, publishedFindings: {}, inbox: [] };
+  runStrategicBot(room, { actor: first }); const afterFirst = room.chats.filter((chat) => chat.channel === "public" && chat.text.includes(`${enemy.id}번 히트맨`)).length;
+  room.result = null; runStrategicBot(room, { actor: second }); const afterSecond = room.chats.filter((chat) => chat.channel === "public" && chat.text.includes(`${enemy.id}번 히트맨`)).length;
+  assert.equal(afterFirst, 1); assert.equal(afterSecond, 1);
+});
+
 test("each due AI gets its own action during the same server tick", () => {
   let now = 1_000;
   const room = new SingleRoom({ now: () => now, random: () => 0 });
@@ -700,7 +724,7 @@ test("an AI private detective publishes a finding that an AI vigilante acts on",
   const hitman = room.players.find((player) => ![detective.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); detective.role = "사립탐정"; detective.announced = "마피아일원"; detective.aiControlled = true; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.mana = 200; vigilante.aiControlled = true; hitman.role = "히트맨"; hitman.announced = "히트맨";
   detective.aiMemory = { knowledge: { [hitman.id]: { role: "히트맨", faction: "mafia", confidence: 1, source: "스캔", excluded: [] } }, trust: {}, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
   room.recordInspection(hitman);
-  runStrategicBot(room); assert.match(room.chats.at(-1)?.text ?? "", new RegExp(`${hitman.id}번 히트맨 조사 성공`));
+  runStrategicBot(room); assert.match(room.chats.at(-1)?.text ?? "", new RegExp(`조사 결과 ${hitman.id}번 히트맨`));
   detective.aiControlled = false; room.result = null; runStrategicBot(room); room.result = null; runStrategicBot(room);
   assert.equal(hitman.alive, false);
 });
@@ -709,7 +733,7 @@ test("a citizen AI that enemy-checks mafia publishes the result for attackers", 
   const room = new SingleRoom({ random: () => 0 }); const assistant = room.join({ nickname: "assistant", socket: {} }); const vigilante = room.join({ nickname: "vigilante", socket: {} }); room.start(assistant.id);
   const member = room.players.find((player) => ![assistant.id, vigilante.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); assistant.role = "탐정조수"; assistant.announced = "탐정조수"; assistant.aiControlled = true; vigilante.role = "자경단원"; vigilante.announced = "자경단원"; vigilante.aiControlled = true; vigilante.mana = 200; member.role = "마피아일원"; member.announced = "마피아일원";
   assistant.aiMemory = { knowledge: { [member.id]: { role: "마피아일원", faction: "mafia", confidence: .8, source: "공표 확인", excluded: [] } }, trust: {}, claims: {}, reports: {}, sharedWith: {}, lastPublicAt: 0, recentLines: [], inbox: [] };
-  room.recordInspection(member); runStrategicBot(room); assert.match(room.chats.at(-1)?.text ?? "", /탐정조수.*마피아일원 조사 성공/);
+  room.recordInspection(member); runStrategicBot(room); assert.match(room.chats.at(-1)?.text ?? "", /탐정조수.*조사 결과.*마피아일원/);
   assistant.aiControlled = false; room.result = null; runStrategicBot(room); room.result = null; runStrategicBot(room); assert.equal(member.alive, false);
 });
 
