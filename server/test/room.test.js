@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SingleRoom } from "../room.js";
-import { runStrategicBot } from "../bot-ai.js";
+import { buildBotPlanningTurn, runStrategicBot } from "../bot-ai.js";
 import { checkVictory } from "../game-rules.js";
 
 test("fills one room with bots and privately assigns roles", () => {
@@ -146,6 +146,32 @@ test("a ready enemy-check takes priority over announcements and non-investigator
   assert.ok(checker.cooldowns["enemy-check"] > room.now());
   assert.equal(checker.cooldowns.announce, undefined);
   assert.equal(checker.verdict.title, "공표 확인");
+});
+
+test("AI removes every already resolved unique role from later checks and scans", () => {
+  const room = new SingleRoom({ random: () => 0 }); const captain = room.join({ nickname: "captain", socket: {} }); room.start(captain.id);
+  const ally = room.players.find((player) => player.id !== captain.id); const duplicate = room.players.find((player) => ![captain.id, ally.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = "미공표"; });
+  captain.role = "경찰반장"; captain.mana = 200; ally.role = "자경단원"; duplicate.announced = "자경단원";
+  captain.aiMemory = { knowledge: { [ally.id]: { role: "자경단원", faction: "citizen", confidence: 1, source: "수사망 합류", excluded: [] } }, trust: { [ally.id]: 1 }, claims: {}, reports: {}, inbox: [] };
+  const captainTurn = buildBotPlanningTurn(room, captain);
+  assert.equal(captainTurn.actions.some((action) => action.skillId === "ally-check" && action.targetId === duplicate.id), false);
+
+  captain.role = "마피아후계자"; captain.aiMemory = { knowledge: { [ally.id]: { role: "마피아대부", faction: "mafia", confidence: 1, source: "보스 확인", excluded: [] } }, trust: { [ally.id]: 1 }, claims: {}, reports: {}, inbox: [] };
+  duplicate.announced = "마피아대부";
+  const successorTurn = buildBotPlanningTurn(room, captain);
+  assert.equal(successorTurn.actions.some((action) => action.skillId === "advanced-scan" && action.role === "마피아대부"), false);
+  assert.equal(successorTurn.actions.some((action) => action.skillId === "boss-check"), false);
+});
+
+test("citizen ally-check keeps duplicate citizen claims investigable while a spy may be alive", () => {
+  const room = new SingleRoom({ random: () => 0 }); const captain = room.join({ nickname: "captain", socket: {} }); room.setTotal(captain.id, 11); room.start(captain.id);
+  const ally = room.players.find((player) => player.id !== captain.id); const duplicate = room.players.find((player) => ![captain.id, ally.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = "미공표"; });
+  captain.role = "경찰반장"; captain.mana = 200; ally.role = "자경단원"; duplicate.announced = "자경단원";
+  captain.aiMemory = { knowledge: { [ally.id]: { role: "자경단원", faction: "citizen", confidence: 1, source: "수사망 합류", excluded: [] } }, trust: { [ally.id]: 1 }, claims: {}, reports: {}, inbox: [] };
+  const turn = buildBotPlanningTurn(room, captain);
+  assert.equal(turn.actions.some((action) => action.skillId === "ally-check" && action.targetId === duplicate.id), true);
 });
 
 test("a trusted ally can ask an AI for its known living ally roster", () => {
