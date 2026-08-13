@@ -308,12 +308,14 @@ function pick(room, values) {
   return values.length ? values[Math.floor(room.random() * values.length)] : null;
 }
 
-function remember(actor, target, { role = null, faction = null, confidence = 1, source, excludedRole = null }) {
+function remember(actor, target, { role = null, faction = null, confidence = 1, source, excludedRole = null, intelId = null, intelSource = null }) {
   const memory = memoryOf(actor);
   const known = memory.knowledge[target.id] ?? { excluded: [] };
   if (role) { known.role = role; known.faction = factionOf(role); known.confidence = confidence; }
   else if (faction) { known.faction = faction; known.confidence = Math.max(known.confidence ?? 0, confidence); }
   if (excludedRole && !known.excluded.includes(excludedRole)) known.excluded.push(excludedRole);
+  if (intelId) known.intelId = intelId;
+  if (intelSource) known.intelSource = intelSource;
   known.source = source; memory.knowledge[target.id] = known;
 }
 
@@ -430,23 +432,27 @@ function tryShareFinding(room, actor) {
   const memory = memoryOf(actor);
   const finding = Object.entries(memory.knowledge).find(([targetId, known]) => {
     const target = room.players.find((player) => player.id === Number(targetId));
-    if (!target || target.id === actor.id || known.source === "사후 직업 공개" || (!known.role && !known.faction && !known.excluded?.length)) return false;
+    if (!target || target.id === actor.id || isConfirmedAlly(room, actor, target) || known.source === "사후 직업 공개" || (!known.role && !known.faction && !known.excluded?.length)) return false;
     const signature = `${known.role ?? ""}|${known.faction ?? ""}|${(known.excluded ?? []).join(",")}`;
-    return [...actor.alliances].some((allyId) => !memory.sharedFindings[`${allyId}:${target.id}:${signature}`]);
+    const intelId = known.intelId ?? `${actor.id}:${target.id}:${signature}`; known.intelId = intelId; room.allianceIntelDeliveries.add(`${intelId}:${actor.id}`);
+    return [...actor.alliances].some((allyId) => !room.allianceIntelDeliveries.has(`${intelId}:${allyId}`));
   });
   if (!finding) return false;
   const [targetId, known] = finding; const target = room.player(Number(targetId));
   const detail = known.role ? `${target.id}번은 ${known.role}` : known.faction ? `${target.id}번은 ${known.faction === "mafia" ? "마피아" : "시민"} 진영` : `${target.id}번은 ${(known.excluded ?? []).join(", ")} 아님`;
-  room.chat(actor.id, { text: `${known.source ?? "조사"} 결과 공유: ${detail}.`, channel: "alliance" });
+  const signature = `${known.role ?? ""}|${known.faction ?? ""}|${(known.excluded ?? []).join(",")}`; const intelId = known.intelId ?? `${actor.id}:${target.id}:${signature}`; const intelSource = known.intelSource ?? known.source ?? "조사";
+  const recipients = [...actor.alliances].filter((allyId) => !room.allianceIntelDeliveries.has(`${intelId}:${allyId}`));
+  room.chats.push({ id: room.now(), from: actor.id, text: `${intelSource} 결과 공유: ${detail}.`, channel: "alliance", recipients: [actor.id, ...recipients] }); room.chats = room.chats.slice(-50);
   for (const allyId of actor.alliances) {
     const ally = room.players.find((player) => player.id === allyId); if (!ally?.alive) continue;
-    const signature = `${known.role ?? ""}|${known.faction ?? ""}|${(known.excluded ?? []).join(",")}`; memory.sharedFindings[`${ally.id}:${target.id}:${signature}`] = true;
+    if (room.allianceIntelDeliveries.has(`${intelId}:${ally.id}`)) continue;
+    room.allianceIntelDeliveries.add(`${intelId}:${ally.id}`); memory.sharedFindings[`${ally.id}:${target.id}:${signature}`] = true;
     if (!ally.aiControlled) continue;
     const confidence = Math.min(known.confidence ?? .8, .8);
     memoryOf(ally).sharedFindings[`${actor.id}:${target.id}:${signature}`] = true;
-    if (known.role) remember(ally, target, { role: known.role, confidence, source: `${actor.nickname}의 동맹 조사 공유` });
-    else if (known.faction) remember(ally, target, { faction: known.faction, confidence, source: `${actor.nickname}의 동맹 조사 공유` });
-    for (const excludedRole of known.excluded ?? []) remember(ally, target, { confidence, source: `${actor.nickname}의 동맹 조사 공유`, excludedRole });
+    if (known.role) remember(ally, target, { role: known.role, confidence, source: `${actor.nickname}의 동맹 조사 공유`, intelId, intelSource });
+    else if (known.faction) remember(ally, target, { faction: known.faction, confidence, source: `${actor.nickname}의 동맹 조사 공유`, intelId, intelSource });
+    for (const excludedRole of known.excluded ?? []) remember(ally, target, { confidence, source: `${actor.nickname}의 동맹 조사 공유`, excludedRole, intelId, intelSource });
     if (known.role && factionOf(known.role) !== factionOf(ally.role)) memoryOf(ally).reports[target.id] = { role: known.role, reporterId: actor.id, source: "동맹 조사 공유", evidence: .7 };
   }
   return true;
@@ -483,10 +489,11 @@ export function syncAllianceIntel(room, actor, ally) {
   const memory = memoryOf(actor);
   const findings = Object.entries(memory.knowledge).flatMap(([targetId, known]) => {
     const target = room.players.find((player) => player.id === Number(targetId));
-    if (!target || target.id === actor.id || target.id === ally.id || known.source === "사후 직업 공개" || (!known.role && !known.faction && !known.excluded?.length)) return [];
+    if (!target || target.id === actor.id || target.id === ally.id || isConfirmedAlly(room, actor, target) || known.source === "사후 직업 공개" || (!known.role && !known.faction && !known.excluded?.length)) return [];
     const signature = `${known.role ?? ""}|${known.faction ?? ""}|${(known.excluded ?? []).join(",")}`;
-    if (memory.sharedFindings[`${ally.id}:${target.id}:${signature}`]) return [];
-    return [{ target, known, signature }];
+    const intelId = known.intelId ?? `${actor.id}:${target.id}:${signature}`; known.intelId = intelId; room.allianceIntelDeliveries.add(`${intelId}:${actor.id}`);
+    if (room.allianceIntelDeliveries.has(`${intelId}:${ally.id}`)) return [];
+    return [{ target, known, signature, intelId }];
   });
   if (!findings.length) return false;
 
@@ -495,16 +502,18 @@ export function syncAllianceIntel(room, actor, ally) {
     : known.faction
       ? `${target.id}번 ${known.faction === "mafia" ? "마피아" : "시민"} 진영`
       : `${target.id}번 ${(known.excluded ?? []).join(", ")} 아님`);
-  room.chat(actor.id, { text: `지금까지 조사 결과 공유: ${details.join(" / ")}.`, channel: "alliance" });
+  room.chats.push({ id: room.now(), from: actor.id, text: `지금까지 조사 결과 공유: ${details.join(" / ")}.`, channel: "alliance", recipients: [actor.id, ally.id] }); room.chats = room.chats.slice(-50);
 
-  for (const { target, known, signature } of findings) {
+  for (const { target, known, signature, intelId } of findings) {
+    room.allianceIntelDeliveries.add(`${intelId}:${ally.id}`);
     memory.sharedFindings[`${ally.id}:${target.id}:${signature}`] = true;
     if (!ally.aiControlled) continue;
     const confidence = Math.min(known.confidence ?? .8, .8);
+    const intelSource = known.intelSource ?? known.source ?? "조사";
     memoryOf(ally).sharedFindings[`${actor.id}:${target.id}:${signature}`] = true;
-    if (known.role) remember(ally, target, { role: known.role, confidence, source: `${actor.nickname}의 동맹 조사 공유` });
-    else if (known.faction) remember(ally, target, { faction: known.faction, confidence, source: `${actor.nickname}의 동맹 조사 공유` });
-    for (const excludedRole of known.excluded ?? []) remember(ally, target, { confidence, source: `${actor.nickname}의 동맹 조사 공유`, excludedRole });
+    if (known.role) remember(ally, target, { role: known.role, confidence, source: `${actor.nickname}의 동맹 조사 공유`, intelId, intelSource });
+    else if (known.faction) remember(ally, target, { faction: known.faction, confidence, source: `${actor.nickname}의 동맹 조사 공유`, intelId, intelSource });
+    for (const excludedRole of known.excluded ?? []) remember(ally, target, { confidence, source: `${actor.nickname}의 동맹 조사 공유`, excludedRole, intelId, intelSource });
     if (known.role && factionOf(known.role) !== factionOf(ally.role)) memoryOf(ally).reports[target.id] = { role: known.role, reporterId: actor.id, source: "동맹 조사 공유", evidence: .7 };
   }
   return true;

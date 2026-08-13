@@ -9,7 +9,7 @@ export class SingleRoom {
   constructor({ random = Math.random, now = () => Date.now(), llmDirector = null, onAsyncChange = null, strategyMinIntervalMs = Number(process.env.OPENAI_STRATEGY_MIN_INTERVAL_MS ?? 30_000), strategyMaxCallsPerGame = Number(process.env.OPENAI_STRATEGY_MAX_CALLS_PER_GAME ?? 12) } = {}) { this.random = random; this.now = now; this.llmDirector = llmDirector; this.onAsyncChange = onAsyncChange; this.strategyMinIntervalMs = strategyMinIntervalMs; this.strategyMaxCallsPerGame = strategyMaxCallsPerGame; this.reset(); }
   reset() {
     this.phase = "lobby"; this.totalPlayers = 8; this.players = []; this.hostId = null; this.logs = [];
-    this.chats = []; this.result = null; this.successorId = null; this.effect = null; this.publicInspections = []; this.leadershipDiscoveries = []; this.publicIntel = new Set(); this.tails = []; this.nextManaAt = null; this.botPlanInFlight = false; this.botPlannerCursor = 0; this.botRuleCursor = 0; this.botInvestigationCursor = 0; this.botTurnsSinceInvestigation = 0; this.strategyCallsThisGame = 0; this.lastStrategyAt = -Infinity;
+    this.chats = []; this.result = null; this.successorId = null; this.effect = null; this.publicInspections = []; this.leadershipDiscoveries = []; this.publicIntel = new Set(); this.allianceIntelDeliveries = new Set(); this.tails = []; this.nextManaAt = null; this.botPlanInFlight = false; this.botPlannerCursor = 0; this.botRuleCursor = 0; this.botInvestigationCursor = 0; this.botTurnsSinceInvestigation = 0; this.strategyCallsThisGame = 0; this.lastStrategyAt = -Infinity;
   }
   join({ nickname, token, socket }) {
     const cleanName = String(nickname ?? "").trim().slice(0, 16);

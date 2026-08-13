@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SingleRoom } from "../room.js";
-import { buildBotPlanningTurn, runStrategicBot } from "../bot-ai.js";
+import { buildBotPlanningTurn, runStrategicBot, syncAllianceIntel } from "../bot-ai.js";
 import { checkVictory } from "../game-rules.js";
 
 test("fills one room with bots and privately assigns roles", () => {
@@ -862,6 +862,25 @@ test("mana ticks reward only alliances initiated toward the receiving player", (
   assert.equal(initiator.mana, 20); assert.equal(receiver.mana, 30);
   room.act(receiver.id, { skillId: "ally-remove", targetId: initiator.id }); receiver.mana = 0; now = room.nextManaAt; room.tick();
   assert.equal(receiver.mana, 20);
+});
+
+test("AI does not broadcast confirmed ally identities as investigation findings", () => {
+  const room = new SingleRoom({ random: () => 0 }); const actor = room.join({ nickname: "actor", socket: {} }); const human = room.join({ nickname: "human", socket: {} }); room.start(actor.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); actor.role = "경찰반장"; actor.aiControlled = true; human.role = "공무원";
+  actor.alliances.add(human.id); human.incomingAlliances.add(actor.id); actor.aiMemory = { knowledge: { [human.id]: { role: "공무원", faction: "citizen", confidence: 1, source: "아군 확인", excluded: [] } }, trust: { [human.id]: 1 }, claims: {}, reports: {}, sharedFindings: {}, sharedWith: { [human.id]: true }, inbox: [] };
+  const chatCount = room.chats.length; runStrategicBot(room, { actor });
+  assert.equal(room.chats.slice(chatCount).some((chat) => /공무원.*결과 공유/.test(chat.text)), false);
+});
+
+test("relayed alliance intel keeps one identity and cannot loop back to its origin", () => {
+  const room = new SingleRoom({ random: () => 0 }); const first = room.join({ nickname: "first", socket: {} }); const second = room.join({ nickname: "second", socket: {} }); room.start(first.id);
+  const third = room.players.find((player) => ![first.id, second.id].includes(player.id)); const enemy = room.players.find((player) => ![first.id, second.id, third.id].includes(player.id));
+  room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); first.role = "사립탐정"; second.role = "자경단원"; third.role = "순찰경찰"; enemy.role = "히트맨"; first.aiControlled = true; second.aiControlled = true; third.aiControlled = true;
+  first.alliances.add(second.id); second.incomingAlliances.add(first.id); second.alliances.add(third.id); third.incomingAlliances.add(second.id); third.alliances.add(first.id); first.incomingAlliances.add(third.id);
+  first.aiMemory = { knowledge: { [enemy.id]: { role: "히트맨", faction: "mafia", confidence: 1, source: "적군 스캔", excluded: [] } }, trust: {}, claims: {}, reports: {}, sharedFindings: {}, sharedWith: {}, inbox: [] };
+  syncAllianceIntel(room, first, second); syncAllianceIntel(room, second, third); const beforeLoop = room.chats.length; syncAllianceIntel(room, third, first);
+  assert.equal(room.chats.length, beforeLoop);
+  assert.equal(third.aiMemory.knowledge[enemy.id].intelSource, "적군 스캔");
 });
 
 test("tactical logs keep skill results but exclude whispers, alliance notices, and mana ticks", () => {
