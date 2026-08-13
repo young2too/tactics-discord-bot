@@ -76,12 +76,12 @@ export function CommunicationPanel({ players, messages, channel, setChannel, inp
   </aside>;
 }
 
-export function PrivateRolePanel({ me, notice, logs }: { me: Player; notice: string; logs: PrivateLog[] }) {
+export function PrivateRolePanel({ me, notice, logs, mana = null, nextManaIn = null, incomingAllianceCount = 0 }: { me: Player; notice: string; logs: PrivateLog[]; mana?: number | null; nextManaIn?: number | null; incomingAllianceCount?: number }) {
   const privateListRef = useBottomLockedScroll(logs.length);
   return <aside className="detail-panel panel"><div className="panel-heading"><span>전술 정보</span><b>PRIVATE</b></div>
     <div className="role-card"><span className="role-kicker">나의 실제 직업</span><div className="role-portrait-large"><span style={portraitStyle(me.role)} /></div><h2>{me.role}</h2><p>시민 진영을 제거하고 팀의 승리 조건을 완성하십시오.</p><span className="faction-tag">{me.faction === "mafia" ? "마피아" : "시민"} 진영</span></div>
     <div className="private-result"><span>개인 판정</span><div className="private-log-list" ref={privateListRef}>{logs.length ? logs.map((log, index) => <p key={`${log.time}-${index}`}><time>{log.time}</time>{log.text}</p>) : <p><time>현재</time>{notice}</p>}</div></div>
-    <div className="mana-block"><div><span>디버그 마나</span><strong>∞<small> 무제한</small></strong></div><div className="mana-track"><i style={{ width: "100%" }} /></div></div>
+    <div className="mana-block"><div><span>{mana === null ? "디버그 마나" : `마나 · 보급 ${nextManaIn ?? 0}초 · 수신 동맹 ${incomingAllianceCount}`}</span><strong>{mana === null ? "∞" : mana}<small>{mana === null ? " 무제한" : ` / 200 · 다음 +${20 + incomingAllianceCount * 10}`}</small></strong></div><div className="mana-track"><i style={{ width: mana === null ? "100%" : `${Math.min(100, mana / 2)}%` }} /></div></div>
   </aside>;
 }
 
