@@ -84,10 +84,9 @@ export function scanRolePriorities(actor) {
   if (actor.role === "히트맨") return ["순찰경찰", "탐정조수", "자경단원", "사립탐정", "공무원", "남자연인", "여자연인"];
   if (actor.role === "마피아후계자") {
     const hasBoss = Object.values(actor.aiMemory?.knowledge ?? {}).some((known) => known.role === "마피아대부" && (known.confidence ?? 0) >= .8);
-    const hasHitman = Object.values(actor.aiMemory?.knowledge ?? {}).some((known) => known.role === "히트맨" && (known.confidence ?? 0) >= .8);
-    return hasBoss && !hasHitman
-      ? ["히트맨", "순찰경찰", "탐정조수", "자경단원", "사립탐정", "마피아일원", "스파이"]
-      : ["순찰경찰", "히트맨", "탐정조수", "자경단원", "사립탐정", "마피아일원", "스파이"];
+    return hasBoss
+      ? ["순찰경찰", "탐정조수", "자경단원", "사립탐정", "공무원", "남자연인", "여자연인", "히트맨", "마피아일원", "스파이"]
+      : ["마피아대부", "히트맨", "마피아일원", "스파이", "순찰경찰", "탐정조수", "자경단원", "사립탐정"];
   }
   return factionOf(actor.role) === "citizen"
     ? ["히트맨", "마피아일원", "마피아후계자", "스파이"]

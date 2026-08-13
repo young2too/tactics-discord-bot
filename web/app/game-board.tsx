@@ -332,6 +332,12 @@ export function GameBoard() {
     }
 
     if (!target) return;
+    if (skill.id === "tail") {
+      const message = `${target.id}번 ${target.name}을(를) 30초 동안 미행합니다. 대상은 누군가 지켜보고 있다는 사실을 압니다.`;
+      setPrivateLogs((current) => [...current, { time: "지금", text: message }]);
+      setNotice(message); showVerdict("미행 시작", true, message);
+      return;
+    }
     const inspectSkills = ["ally-scan", "advanced-scan", "enemy-scan", "ally-check", "enemy-check", "boss-check", "detective-check"];
     const attackSkills = ["upper-attack", "lower-attack", "snipe", "revenge", "arrest"];
     const publicEffectType = inspectSkills.includes(skill.id) ? "inspect" : attackSkills.includes(skill.id) ? "attack" : null;

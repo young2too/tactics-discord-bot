@@ -856,6 +856,20 @@ test("a spy can instantly betray only a mutual ally", () => {
   assert.match(room.logs.at(-1).text, /배신.*직업은/); assert.doesNotMatch(room.logs.at(-1).text, /spy|스파이/);
 });
 
+test("tail warns its target and reveals actions without their result", () => {
+  let now = 1_000; const room = new SingleRoom({ now: () => now, random: () => .5 });
+  const spy = room.join({ nickname: "spy", socket: {} }); const successor = room.join({ nickname: "successor", socket: {} }); room.start(spy.id);
+  const boss = room.players.find((player) => ![spy.id, successor.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.mana = 100; });
+  spy.role = "스파이"; successor.role = "마피아후계자"; boss.role = "마피아대부";
+  room.act(spy.id, { skillId: "tail", targetId: successor.id });
+  assert.match(successor.privateLogs.at(-1).text, /누군가 당신을 지켜보고/); assert.equal(spy.mana, 80);
+  room.act(successor.id, { skillId: "boss-check", targetId: boss.id });
+  assert.match(spy.privateLogs.at(-1).text, new RegExp(`${successor.id}번.*보스 확인.*대상 ${boss.id}번`));
+  assert.doesNotMatch(spy.privateLogs.at(-1).text, /성공|실패|마피아대부/);
+  const logCount = spy.privateLogs.length; now += 31_000; room.act(successor.id, { skillId: "boss-check", targetId: boss.id });
+  assert.equal(spy.privateLogs.length, logCount);
+});
+
 test("a confirmed AI ally reciprocates a human-initiated alliance for the human mana bonus", () => {
   const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const detective = room.join({ nickname: "detective", socket: {} }); room.start(human.id);
   room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; }); human.role = "탐정조수"; detective.role = "사립탐정"; detective.aiControlled = true;

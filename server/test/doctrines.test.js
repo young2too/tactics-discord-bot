@@ -20,7 +20,17 @@ test("hitman and successor scanning priorities reflect their doctrine", () => {
   const hitman = { role: "히트맨", aiMemory: {} };
   assert.deepEqual(scanRolePriorities(hitman).slice(0, 2), ["순찰경찰", "탐정조수"]);
   const successor = { role: "마피아후계자", aiMemory: { knowledge: { 2: { role: "마피아대부", confidence: 1 } } } };
-  assert.equal(scanRolePriorities(successor)[0], "히트맨");
+  assert.deepEqual(scanRolePriorities(successor).slice(0, 2), ["순찰경찰", "탐정조수"]);
+});
+
+test("a designated successor treats the boss as proven and scans enemies first", () => {
+  const { room, actor: boss } = setup(); const successor = room.players.find((player) => player.id !== boss.id);
+  boss.role = "마피아대부"; boss.aiControlled = true; successor.role = "마피아후계자"; successor.aiControlled = true;
+  room.act(boss.id, { skillId: "successor", targetId: successor.id });
+  assert.equal(successor.aiMemory.knowledge[boss.id].role, "마피아대부");
+  assert.equal(successor.aiMemory.trust[boss.id], 1);
+  assert.deepEqual(scanRolePriorities(successor).slice(0, 4), ["순찰경찰", "탐정조수", "자경단원", "사립탐정"]);
+  assert.match(successor.privateLogs.at(-1).text, /마피아대부.*후계자로 지정/);
 });
 
 test("a boss hides from living enemy-checkers until prolonged isolation", () => {

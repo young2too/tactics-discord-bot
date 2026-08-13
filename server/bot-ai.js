@@ -5,7 +5,7 @@ import { desiredAnnouncement, ensureDoctrine, scanRolePriorities, shouldPublishI
 const ATTACKS = new Set(["upper-attack", "lower-attack"]);
 const SCANS = new Set(["ally-scan", "advanced-scan", "enemy-scan"]);
 const CHECKS = new Set(["ally-check", "enemy-check"]);
-const ORDER_LABELS = { "snipe-command": "저격명령", successor: "후계자 지정", leadership: "리더십", snipe: "저격", revenge: "복수", arrest: "검거", support: "마나 지원", "boss-check": "보스 확인", "detective-check": "탐정 확인", "ally-check": "아군 확인", "enemy-check": "적군 확인", "ally-scan": "아군 스캔", "advanced-scan": "상급 스캔", "enemy-scan": "적군 스캔", "upper-attack": "상급공격", "lower-attack": "하급공격", "ally-add": "동맹 추가", "ally-remove": "동맹 파기" };
+const ORDER_LABELS = { "snipe-command": "저격명령", successor: "후계자 지정", leadership: "리더십", snipe: "저격", revenge: "복수", arrest: "검거", support: "마나 지원", tail: "미행", "boss-check": "보스 확인", "detective-check": "탐정 확인", "ally-check": "아군 확인", "enemy-check": "적군 확인", "ally-scan": "아군 스캔", "advanced-scan": "상급 스캔", "enemy-scan": "적군 스캔", "upper-attack": "상급공격", "lower-attack": "하급공격", "ally-add": "동맹 추가", "ally-remove": "동맹 파기" };
 
 const ROLE_ALIASES = {
   "마피아대부": ["마피아대부", "마피아 대부", "맢대부", "대부"],
@@ -559,6 +559,14 @@ function tryBetrayal(room, actor) {
   room.act(actor.id, { skillId: "betrayal", targetId: target.id }); return true;
 }
 
+function tryTail(room, actor) {
+  if (actor.role !== "스파이" || memoryOf(actor).forcedAnnouncementRole || !ready(room, actor, "tail")) return false;
+  const activeTargetIds = new Set((room.tails ?? []).filter((entry) => entry.until > room.now() && entry.spyId === actor.id).map((entry) => entry.targetId));
+  const candidates = room.players.filter((target) => target.alive && target.id !== actor.id && !activeTargetIds.has(target.id) && !isConfirmedAlly(room, actor, target));
+  const target = pick(room, candidates); if (!target) return false;
+  room.act(actor.id, { skillId: "tail", targetId: target.id }); return true;
+}
+
 function shouldDelegatePublicTarget(room, actor, target) {
   if (actor.role !== "마피아일원") return false;
   const source = `${memoryOf(actor).knowledge[target.id]?.source ?? ""} ${memoryOf(actor).reports[target.id]?.source ?? ""}`;
@@ -697,7 +705,7 @@ export function runStrategicBot(room, { fair = false, actor: scheduledActor = nu
   try {
     if (respondToMessage(room, actor)) return true;
     if (tryDecisiveMafiaReveal(room, actor)) return true;
-    if (tryAutonomousSpecial(room, actor) || tryBetrayal(room, actor)) return true;
+    if (tryAutonomousSpecial(room, actor) || tryBetrayal(room, actor) || tryTail(room, actor)) return true;
     if (tryAnnounce(room, actor)) return true;
     if (tryLlmStrategicIntent(room, actor)) return true;
     if (tryPublishFinding(room, actor) || tryAuthorizeHitman(room, actor) || tryBridgeAllies(room, actor) || tryReciprocateAlliance(room, actor) || tryShare(room, actor) || tryKnownAttack(room, actor) || tryReportedAttack(room, actor) || tryAlliance(room, actor) || tryShareFinding(room, actor)) return true;
