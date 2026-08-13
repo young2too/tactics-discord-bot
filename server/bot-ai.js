@@ -107,7 +107,7 @@ function introducedAllies(room, actor, sender, incoming) {
 function replyPrivately(room, actor, recipient, text) {
   if (!room.result) { room.chat(actor.id, { text: `-${recipient.id} ${text}` }); return; }
   const sentAt = room.now(); const message = { from: actor.id, to: recipient.id, text, until: sentAt + 5500 };
-  actor.whisper = message; recipient.whisper = message; room.private(actor, `${recipient.id}번 ${recipient.nickname}에게 귓말 · ${text}`); room.private(recipient, `${actor.id}번 ${actor.nickname}의 귓말 · ${text}`);
+  actor.whisper = message; recipient.whisper = message;
 }
 
 function tryHumanAllianceOrder(room, actor, sender, text, target, role) {
@@ -333,7 +333,7 @@ function tryBridgeAllies(room, actor) {
       if (trustScore(recipient, actor) < .7) continue;
       const actorMemory = memoryOf(actor); const role = actorMemory.knowledge[subject.id]?.role ?? actorMemory.claims[subject.id]?.role ?? subject.announced;
       const recipientMemory = memoryOf(recipient); recipientMemory.trust[subject.id] = Math.max(recipientMemory.trust[subject.id] ?? 0, .7); recipientMemory.claims[subject.id] = { role, trust: .7, source: `${actor.nickname}의 동맹 보증` }; remember(recipient, subject, { role, confidence: .7, source: `${actor.nickname}의 동맹 보증` });
-      room.private(recipient, `${actor.id}번 ${actor.nickname}이(가) ${subject.id}번 ${subject.nickname}을(를) 신뢰 가능한 동맹으로 소개했습니다.`);
+      room.notify(recipient, "동맹 소개", `${actor.id}번 ${actor.nickname}이(가) ${subject.id}번 ${subject.nickname}을(를) 신뢰 가능한 동맹으로 소개했습니다.`, "alliance");
     }
     memory.bridged[key] = true; return true;
   }
@@ -443,7 +443,7 @@ function tryReciprocateAlliance(room, actor) {
   if (!target) return false;
   target.incomingAlliances.add(actor.id);
   const message = `${actor.id}번 ${actor.nickname}이(가) 맞동맹을 걸었습니다.`;
-  room.private(target, message); room.notify(target, "맞동맹 수신", message, "alliance");
+  room.notify(target, "맞동맹 수신", message, "alliance");
   room.chat(actor.id, { text: `${target.id}번 아군 확인. 나도 맞동맹 걸었어.`, channel: "alliance" });
   return true;
 }

@@ -23,7 +23,7 @@ test("lovers know each other from the start without revealing them to others", (
   assert.equal(room.snapshotFor(male).players.find((player) => player.id === female.id).role, "여자연인");
   assert.equal(room.snapshotFor(female).players.find((player) => player.id === male.id).role, "남자연인");
   assert.equal(room.snapshotFor(outsider).players.find((player) => player.id === male.id).role, null);
-  assert.match(male.privateLogs.at(-1).text, /연인 정보/);
+  assert.match(male.notification.title, /연인 정보/);
   assert.equal(male.aiMemory.knowledge[female.id].confidence, 1);
 });
 
@@ -756,7 +756,7 @@ test("mafia AI contacts a member exposed by a detective assistant after the assi
   assert.equal(mafiaBot.aiMemory.trust[member.id], .85);
   runStrategicBot(room, { actor: mafiaBot });
   assert.ok(mafiaBot.alliances.has(member.id));
-  assert.match(member.privateLogs.at(-1).text, /동맹|귓말/);
+  assert.match(member.notification.message, /동맹/);
 });
 
 test("AI allies share investigation findings through alliance chat", () => {
@@ -794,15 +794,13 @@ test("both sides receive distinct alliance and shared hostility notifications", 
   const target = room.join({ nickname: "beta", socket: {} });
   room.start(actor.id);
   room.act(actor.id, { skillId: "ally-add", targetId: target.id });
-  assert.equal(actor.privateLogs.at(-1).text, `${target.id}번 beta와 동맹이 되었습니다.`);
-  assert.equal(target.privateLogs.at(-1).text, `${actor.id}번 alpha에게 동맹을 받았습니다.`);
+  assert.equal(actor.privateLogs.length, 0); assert.equal(target.privateLogs.length, 0);
   assert.equal(room.snapshotFor(actor).notification.tone, "alliance");
   assert.equal(room.snapshotFor(target).notification.tone, "alliance");
   assert.equal(actor.alliances.has(target.id), true); assert.equal(target.alliances.has(actor.id), true);
   now += 6_000;
   room.act(actor.id, { skillId: "ally-remove", targetId: target.id });
-  assert.equal(actor.privateLogs.at(-1).text, `${target.id}번 beta와 적대관계가 되었습니다.`);
-  assert.equal(target.privateLogs.at(-1).text, `${actor.id}번 alpha와 적대관계가 되었습니다.`);
+  assert.equal(actor.privateLogs.length, 0); assert.equal(target.privateLogs.length, 0);
   assert.equal(room.snapshotFor(actor).notification.tone, "hostile");
   assert.equal(room.snapshotFor(target).notification.tone, "hostile");
 });
@@ -816,6 +814,20 @@ test("mana ticks reward only alliances initiated toward the receiving player", (
   assert.equal(receiver.mana, 20);
 });
 
+test("tactical logs keep skill results but exclude whispers, alliance notices, and mana ticks", () => {
+  let now = 1_000; const room = new SingleRoom({ now: () => now, random: () => .5 });
+  const actor = room.join({ nickname: "alpha", socket: {} }); const target = room.join({ nickname: "beta", socket: {} }); room.start(actor.id);
+  room.players.forEach((player) => { player.aiControlled = false; player.privateLogs = []; player.mana = 100; });
+  actor.role = "탐정조수"; target.role = "마피아일원"; target.announced = "마피아일원";
+  room.chat(actor.id, { text: `-${target.id} 비밀 메시지` });
+  room.act(actor.id, { skillId: "ally-add", targetId: target.id });
+  now = room.nextManaAt; room.tick();
+  assert.equal(actor.privateLogs.length, 0); assert.equal(target.privateLogs.length, 0);
+  room.act(actor.id, { skillId: "enemy-check", targetId: target.id });
+  assert.equal(actor.privateLogs.length, 1); assert.match(actor.privateLogs[0].text, /진명/);
+  assert.equal(target.privateLogs.length, 0);
+});
+
 test("a received alliance can be reciprocated through the normal ally-add skill", () => {
   let now = 1_000; const room = new SingleRoom({ now: () => now, random: () => .5 });
   const first = room.join({ nickname: "first", socket: {} }); const second = room.join({ nickname: "second", socket: {} }); room.start(first.id);
@@ -826,7 +838,7 @@ test("a received alliance can be reciprocated through the normal ally-add skill"
   now += 6_000; room.act(second.id, { skillId: "ally-add", targetId: first.id });
   assert.deepEqual(room.snapshotFor(second).outgoingAlliances, [first.id]);
   assert.equal(first.incomingAlliances.has(second.id), true);
-  assert.match(second.privateLogs.at(-1).text, /맞동맹/);
+  assert.match(second.notification.message, /맞동맹/);
 });
 
 test("alliance chat follows outgoing alliance direction and cannot be wiretapped", () => {
@@ -862,7 +874,7 @@ test("tail warns its target and reveals actions without their result", () => {
   const boss = room.players.find((player) => ![spy.id, successor.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.mana = 100; });
   spy.role = "스파이"; successor.role = "마피아후계자"; boss.role = "마피아대부";
   room.act(spy.id, { skillId: "tail", targetId: successor.id });
-  assert.match(successor.privateLogs.at(-1).text, /누군가 당신을 지켜보고/); assert.equal(spy.mana, 80);
+  assert.match(successor.notification.message, /누군가 당신을 지켜보고/); assert.equal(spy.mana, 80);
   room.act(successor.id, { skillId: "boss-check", targetId: boss.id });
   assert.match(spy.privateLogs.at(-1).text, new RegExp(`${successor.id}번.*보스 확인.*대상 ${boss.id}번`));
   assert.doesNotMatch(spy.privateLogs.at(-1).text, /성공|실패|마피아대부/);

@@ -30,7 +30,7 @@ test("a designated successor treats the boss as proven and scans enemies first",
   assert.equal(successor.aiMemory.knowledge[boss.id].role, "마피아대부");
   assert.equal(successor.aiMemory.trust[boss.id], 1);
   assert.deepEqual(scanRolePriorities(successor).slice(0, 4), ["순찰경찰", "탐정조수", "자경단원", "사립탐정"]);
-  assert.match(successor.privateLogs.at(-1).text, /마피아대부.*후계자로 지정/);
+  assert.match(successor.notification.message, /후계자로 지정/);
 });
 
 test("a boss hides from living enemy-checkers until prolonged isolation", () => {

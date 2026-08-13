@@ -67,7 +67,7 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [logs, setLogs] = useState<BattleLog[]>([{ time: "지금", icon: "◆", text: "실제 게임 UI를 사용하는 기본 훈련이 시작되었습니다.", tone: "plain" }]);
-  const [privateLogs, setPrivateLogs] = useState<PrivateLog[]>([{ time: "지금", text: "훈련 안내에 따라 직접 조작하세요." }]);
+  const [privateLogs, setPrivateLogs] = useState<PrivateLog[]>([]);
   const [effect, setEffect] = useState<PublicEffect>(null);
   const [whisper, setWhisper] = useState<{ from: number; to: number; text: string } | null>(null);
   const [alliances, setAlliances] = useState<number[]>([]);
@@ -112,20 +112,20 @@ function BasicTraining({ onComplete, onExit }: { onComplete: () => void; onExit:
     return () => window.removeEventListener("keydown", handleEscape);
   }, [selectedSkill]);
 
-  function record(text: string, icon = "◆", tone = "plain") { setLogs((current) => [...current, { time: "지금", icon, text, tone }]); setPrivateLogs((current) => [...current, { time: "지금", text }]); }
+  function record(text: string, icon = "◆", tone = "plain", tactical = false) { setLogs((current) => [...current, { time: "지금", icon, text, tone }]); if (tactical) setPrivateLogs((current) => [...current, { time: "지금", text }]); }
   function next() { setSelectedSkill(null); setSelectedTarget(null); if (step === basicSteps.length - 1) onComplete(); else setStep((current) => current + 1); }
   function chooseSkill(skill: Skill) { if (selectedSkill?.id === skill.id) { setSelectedSkill(null); setSelectedTarget(null); return; } if (expectedSkill !== skill.id) { record(`지금은 ${basicSteps[step][0]} 단계입니다. 안내된 행동을 먼저 수행하세요.`, "!", "danger"); return; } setMobilePanel(null); setSelectedSkill(skill); setSelectedTarget(null); }
   function chooseTarget(player: Player) {
     if (!selectedSkill || player.isMe || !player.alive) return;
     if (step === 4 && player.id === 2) { setAlliances([2]); record("2번 민준과 동맹이 되었습니다. 이제 동맹 채팅을 공유합니다.", "🤝"); next(); return; }
-    if (step === 7 && player.id === 4) { setEffect({ id: 4, type: "inspect" }); record("4번 서아의 자경단원 공표는 진명입니다.", "🔎", "scan"); window.setTimeout(() => setEffect(null), 1400); next(); return; }
+    if (step === 7 && player.id === 4) { setEffect({ id: 4, type: "inspect" }); record("4번 서아의 자경단원 공표는 진명입니다.", "🔎", "scan", true); window.setTimeout(() => setEffect(null), 1400); next(); return; }
     if ((step === 8 || step === 9) && player.id === 3) setSelectedTarget(player);
     else record("훈련 안내에 지정된 번호의 플레이어를 선택하세요.", "!", "danger");
   }
   function resolveRole(role: string) {
-    if (step === 1 && role === "순찰경찰") { setPlayers((current) => current.map((player) => player.id === 1 ? { ...player, announced: role } : player)); setMana(30); record("순찰경찰 진명 공표 · 마나 +10", "⚑"); next(); return; }
-    if (step === 8 && role === "히트맨") { record("하급공격 실패 1/2 · 현우는 히트맨이 아닙니다.", "↗", "danger"); next(); return; }
-    if (step === 9 && role === "마피아일원") { setPlayers((current) => current.map((player) => player.id === 3 ? { ...player, alive: false, role: "마피아일원" } : player)); record("현우가 공격으로 사망했습니다. 실제 직업은 마피아일원입니다.", "☠", "danger"); window.setTimeout(onComplete, 900); return; }
+    if (step === 1 && role === "순찰경찰") { setPlayers((current) => current.map((player) => player.id === 1 ? { ...player, announced: role } : player)); setMana(30); record("순찰경찰 진명 공표", "⚑", "plain", true); next(); return; }
+    if (step === 8 && role === "히트맨") { record("하급공격 실패 1/2 · 현우는 히트맨이 아닙니다.", "↗", "danger", true); next(); return; }
+    if (step === 9 && role === "마피아일원") { setPlayers((current) => current.map((player) => player.id === 3 ? { ...player, alive: false, role: "마피아일원" } : player)); record("현우가 공격으로 사망했습니다. 실제 직업은 마피아일원입니다.", "☠", "danger", true); window.setTimeout(onComplete, 900); return; }
     record("안내된 직업을 선택해 판정 과정을 확인하세요.", "!", "danger");
   }
   function sendChat(event: FormEvent<HTMLFormElement>) {
