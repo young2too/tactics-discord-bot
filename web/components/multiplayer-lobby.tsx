@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMultiplayerRoom } from "../hooks/use-multiplayer-room";
 import { MultiplayerGame } from "./multiplayer-game";
+import { SpectatorGame } from "./spectator-game";
 
 export function ModeLobby({ onDebug, onMultiplayer, onTutorial }: { onDebug: () => void; onMultiplayer: () => void; onTutorial: () => void }) {
   return <main className="debug-lobby"><section className="lobby-card mode-card">
@@ -32,6 +33,7 @@ export function MultiplayerLobby() {
   </section></main>;
 
   const isHost = room.state.yourSeatId === room.state.hostId;
+  if (room.state.phase === "game" && room.state.spectator) return <SpectatorGame room={room} />;
   if (room.state.phase === "game") return <MultiplayerGame room={room} />;
   return <main className="debug-lobby"><section className="lobby-card multiplayer-card">
     <span className="result-kicker">{room.status === "connected" ? "● LIVE" : "● RECONNECTING"}</span>

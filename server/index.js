@@ -31,7 +31,7 @@ const server = http.createServer((request, response) => {
 const wss = new WebSocketServer({ server, path: "/ws" });
 
 function send(socket, payload) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(payload)); }
-function broadcastState() { for (const player of room.players) if (player.socket) send(player.socket, { type: "state", state: room.snapshotFor(player) }); }
+function broadcastState() { for (const viewer of [...room.players, ...room.spectators]) if (viewer.socket) send(viewer.socket, { type: "state", state: room.snapshotFor(viewer) }); }
 room.onAsyncChange = broadcastState;
 
 wss.on("connection", (socket) => {
@@ -39,14 +39,16 @@ wss.on("connection", (socket) => {
   socket.on("message", (raw) => {
     try {
       const message = JSON.parse(raw.toString());
-      if (message.type === "join") { const player = room.join({ nickname: message.nickname, token: message.token, socket }); socket.playerId = player.id; send(socket, { type: "welcome", token: player.ownerToken, seatId: player.id }); broadcastState(); return; }
-      if (!socket.playerId) throw new Error("먼저 입장하세요.");
-      if (message.type === "set_total") room.setTotal(socket.playerId, message.total);
-      else if (message.type === "start") room.start(socket.playerId);
-      else if (message.type === "action") room.act(socket.playerId, message);
-      else if (message.type === "chat") room.chat(socket.playerId, message);
-      else if (message.type === "restart") room.restart(socket.playerId);
-      else if (message.type === "ping") { send(socket, { type: "pong" }); return; }
+      if (message.type === "join") { const viewer = room.join({ nickname: message.nickname, token: message.token, socket }); socket.viewer = viewer; send(socket, { type: "welcome", token: viewer.ownerToken, seatId: viewer.spectator ? null : viewer.id, spectator: Boolean(viewer.spectator) }); broadcastState(); return; }
+      if (!socket.viewer) throw new Error("먼저 입장하세요.");
+      if (message.type === "ping") { send(socket, { type: "pong" }); return; }
+      if (socket.viewer.spectator) throw new Error("관전 중에는 게임에 개입할 수 없습니다.");
+      const playerId = socket.viewer.id;
+      if (message.type === "set_total") room.setTotal(playerId, message.total);
+      else if (message.type === "start") room.start(playerId);
+      else if (message.type === "action") room.act(playerId, message);
+      else if (message.type === "chat") room.chat(playerId, message);
+      else if (message.type === "restart") room.restart(playerId);
       else throw new Error("지원하지 않는 요청입니다.");
       broadcastState();
     } catch (error) { send(socket, { type: "error", message: error instanceof Error ? error.message : "요청 처리 실패" }); }

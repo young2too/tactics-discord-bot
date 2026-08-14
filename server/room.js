@@ -8,6 +8,7 @@ const nowLabel = () => new Date().toLocaleTimeString("ko-KR", { hour: "2-digit",
 export class SingleRoom {
   constructor({ random = Math.random, now = () => Date.now(), llmDirector = null, onAsyncChange = null, strategyMinIntervalMs = Number(process.env.OPENAI_STRATEGY_MIN_INTERVAL_MS ?? 30_000), strategyMaxCallsPerGame = Number(process.env.OPENAI_STRATEGY_MAX_CALLS_PER_GAME ?? 12) } = {}) { this.random = random; this.now = now; this.llmDirector = llmDirector; this.onAsyncChange = onAsyncChange; this.strategyMinIntervalMs = strategyMinIntervalMs; this.strategyMaxCallsPerGame = strategyMaxCallsPerGame; this.reset(); }
   reset() {
+    this.spectators ??= [];
     this.phase = "lobby"; this.totalPlayers = 8; this.players = []; this.hostId = null; this.logs = [];
     this.chats = []; this.result = null; this.successorId = null; this.effect = null; this.publicInspections = []; this.leadershipDiscoveries = []; this.publicIntel = new Set(); this.allianceIntelDeliveries = new Set(); this.tails = []; this.nextManaAt = null; this.botPlanInFlight = false; this.botPlannerCursor = 0; this.botRuleCursor = 0; this.botInvestigationCursor = 0; this.botTurnsSinceInvestigation = 0; this.strategyCallsThisGame = 0; this.lastStrategyAt = -Infinity;
   }
@@ -16,8 +17,13 @@ export class SingleRoom {
     if (!cleanName) throw new Error("닉네임을 입력하세요.");
     const returning = token && this.players.find((player) => player.ownerToken === token && !player.isBot);
     if (returning) { returning.socket = socket; returning.connected = true; returning.aiControlled = false; returning.nickname = cleanName; return returning; }
-    if (this.phase !== "lobby") throw new Error("게임 진행 중에는 새 좌석에 참가할 수 없습니다.");
-    if (this.players.some((player) => !player.isBot && player.nickname === cleanName)) throw new Error("이미 사용 중인 닉네임입니다.");
+    const returningSpectator = token && this.spectators.find((spectator) => spectator.ownerToken === token);
+    if (returningSpectator) { returningSpectator.socket = socket; returningSpectator.connected = true; returningSpectator.nickname = cleanName; return returningSpectator; }
+    if ([...this.players, ...this.spectators].some((entry) => entry.nickname === cleanName)) throw new Error("이미 사용 중인 닉네임입니다.");
+    if (this.phase !== "lobby") {
+      const spectator = { spectator: true, id: `spectator-${randomUUID()}`, nickname: cleanName, ownerToken: randomUUID(), socket, connected: true, joinedAt: this.now() };
+      this.spectators.push(spectator); return spectator;
+    }
     if (this.players.length >= 13) throw new Error("좌석이 모두 찼습니다.");
     const player = this.createPlayer(this.nextSeat(), cleanName, false, socket, randomUUID());
     this.players.push(player); if (this.hostId === null) this.hostId = player.id; this.totalPlayers = Math.max(this.totalPlayers, this.players.length); return player;
@@ -26,6 +32,8 @@ export class SingleRoom {
     return { id, nickname, ownerToken, socket, connected: true, isBot, aiControlled: isBot, nextAiActionAt: null, alive: true, role: null, announced: "미공표", mana: 20, cooldowns: {}, usedOnce: {}, alliances: new Set(), incomingAlliances: new Set(), privateLogs: [], lowAttackFails: 0, whisper: null, verdict: null, notification: null, snipeAuthorized: false, snipeCommanderId: null };
   }
   disconnect(socket) {
+    const spectator = this.spectators.find((entry) => entry.socket === socket);
+    if (spectator) { spectator.socket = null; spectator.connected = false; return; }
     const player = this.players.find((entry) => entry.socket === socket); if (!player) return;
     player.socket = null; player.connected = false;
     if (this.phase === "game" && !player.isBot && player.alive) { player.aiControlled = true; player.nextAiActionAt = this.now() + this.aiReactionDelay(); this.finishIfOnlyAi(); }
@@ -60,7 +68,11 @@ export class SingleRoom {
     if (playerId !== this.hostId) throw new Error("방장만 다음 게임 로비를 열 수 있습니다.");
     if (!this.result) throw new Error("게임 종료 후에만 다음 게임을 준비할 수 있습니다.");
     const humans = this.players.filter((player) => !player.isBot && player.connected).map((player) => this.createPlayer(player.id, player.nickname, false, player.socket, player.ownerToken));
-    this.reset(); this.players = humans; this.hostId = humans.find((player) => player.id === playerId)?.id ?? humans[0]?.id ?? null; this.totalPlayers = Math.max(8, humans.length);
+    const waiting = this.spectators.filter((spectator) => spectator.connected).sort((left, right) => left.joinedAt - right.joinedAt);
+    this.reset(); this.players = humans; this.hostId = humans.find((player) => player.id === playerId)?.id ?? humans[0]?.id ?? null;
+    const promoted = waiting.slice(0, Math.max(0, 13 - humans.length)); this.spectators = waiting.slice(promoted.length);
+    for (const spectator of promoted) { const player = this.createPlayer(this.nextSeat(), spectator.nickname, false, spectator.socket, spectator.ownerToken); if (spectator.socket) spectator.socket.viewer = player; this.players.push(player); }
+    this.players.sort((left, right) => left.id - right.id); this.totalPlayers = Math.max(8, this.players.length);
   }
   act(playerId, payload) {
     this.assertGame(); const actor = this.player(playerId); if (!actor.alive) throw new Error("사망한 플레이어는 행동할 수 없습니다.");
@@ -247,6 +259,7 @@ export class SingleRoom {
     this.addLog("🏁", `게임 종료 · ${label}`, "danger"); return true;
   }
   snapshotFor(viewer) {
+    if (viewer.spectator) return this.spectatorSnapshot(viewer);
     const current = this.now(); return {
       phase: this.phase, totalPlayers: this.totalPlayers, hostId: this.hostId, yourSeatId: viewer.id, yourRole: viewer.role,
       mana: viewer.mana, nextManaIn: this.nextManaAt ? Math.max(0, Math.ceil((this.nextManaAt - current) / 1000)) : 0,
@@ -259,6 +272,15 @@ export class SingleRoom {
       whisper: viewer.whisper && viewer.whisper.until > current ? { from: viewer.whisper.from, to: viewer.whisper.to, text: viewer.whisper.text } : null,
       chats: this.chats.filter((chat) => chat.channel === "public" || chat.recipients?.includes(viewer.id)).map(({ recipients, ...chat }) => chat),
       players: this.players.map((player) => { const loverVisible = (viewer.role === "남자연인" && player.role === "여자연인") || (viewer.role === "여자연인" && player.role === "남자연인"); return { id: player.id, nickname: player.nickname, connected: player.connected, isBot: player.isBot, aiControlled: player.aiControlled, alive: player.alive, announced: player.announced, faction: player.id === viewer.id || loverVisible || !player.alive || this.result ? factionOf(player.role) : null, role: player.id === viewer.id || loverVisible || !player.alive || this.result ? player.role : null }; }),
+    };
+  }
+  spectatorSnapshot(viewer) {
+    const current = this.now(); return {
+      phase: this.phase, spectator: true, queuedForNextGame: true, totalPlayers: this.totalPlayers, hostId: this.hostId, yourSeatId: null, yourRole: null, mana: 0, nextManaIn: this.nextManaAt ? Math.max(0, Math.ceil((this.nextManaAt - current) / 1000)) : 0,
+      cooldowns: {}, usedOnce: {}, alliances: [], incomingAlliances: [], outgoingAlliances: [], logs: this.logs.slice(-60), privateLogs: [], lowAttackFails: 0, result: this.result, snipeAuthorized: false,
+      effect: this.effect && this.effect.until > current ? { id: this.effect.id, type: this.effect.type } : null, verdict: null, notification: null, whisper: null,
+      chats: this.chats.filter((chat) => chat.channel === "public").map(({ recipients, ...chat }) => chat),
+      players: this.players.map((player) => ({ id: player.id, nickname: player.nickname, connected: player.connected, isBot: player.isBot, aiControlled: player.aiControlled, alive: player.alive, announced: player.announced, faction: !player.alive || this.result ? factionOf(player.role) : null, role: !player.alive || this.result ? player.role : null })),
     };
   }
   addLog(icon, text, tone) { this.logs.push({ time: nowLabel(), icon, text, tone }); this.logs = this.logs.slice(-60); }

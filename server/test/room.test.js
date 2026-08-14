@@ -112,6 +112,24 @@ test("strategic bots do not emit speculative public filler", () => {
   assert.equal(room.chats.length, 0);
 });
 
+test("a mid-game arrival spectates without receiving private game information", () => {
+  const room = new SingleRoom({ random: () => 0 }); const host = room.join({ nickname: "host", socket: {} }); room.start(host.id);
+  const spectator = room.join({ nickname: "late", socket: {} }); const living = room.players.find((player) => player.id !== host.id);
+  assert.equal(spectator.spectator, true); assert.equal(room.players.some((player) => player.nickname === "late"), false);
+  room.chat(host.id, { text: "public intel", channel: "public" }); host.incomingAlliances.add(living.id); room.chat(living.id, { text: "alliance secret", channel: "alliance" });
+  const state = room.snapshotFor(spectator);
+  assert.equal(state.yourSeatId, null); assert.equal(state.yourRole, null); assert.equal(state.players.filter((player) => player.alive).every((player) => player.role === null), true);
+  assert.equal(state.chats.some((chat) => chat.text === "public intel"), true); assert.equal(state.chats.some((chat) => chat.text === "alliance secret"), false);
+  assert.deepEqual(state.privateLogs, []); assert.equal(state.whisper, null);
+});
+
+test("connected spectators automatically take seats when the next lobby opens", () => {
+  const hostSocket = {}; const spectatorSocket = {}; const room = new SingleRoom({ random: () => 0 }); const host = room.join({ nickname: "host", socket: hostSocket }); room.start(host.id);
+  const spectator = room.join({ nickname: "late", socket: spectatorSocket }); room.result = { winner: "citizen", reason: "test" }; room.restart(host.id);
+  const promoted = room.players.find((player) => player.nickname === "late");
+  assert.ok(promoted); assert.equal(room.spectators.length, 0); assert.equal(promoted.ownerToken, spectator.ownerToken); assert.equal(spectatorSocket.viewer, promoted); assert.equal(room.phase, "lobby");
+});
+
 test("AI players announce again whenever the announcement cooldown expires", () => {
   let now = 1_000; const room = new SingleRoom({ now: () => now, random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); room.start(human.id);
   const bot = room.players.find((player) => player.isBot); room.players.forEach((player) => { player.aiControlled = false; }); bot.aiControlled = true; bot.mana = 0;

@@ -6,8 +6,10 @@ export type RoomState = {
   phase: "lobby" | "game";
   totalPlayers: number;
   hostId: number | null;
-  yourSeatId: number;
+  yourSeatId: number | null;
   yourRole: string | null;
+  spectator?: boolean;
+  queuedForNextGame?: boolean;
   mana?: number;
   nextManaIn?: number;
   cooldowns?: Record<string, number>;
