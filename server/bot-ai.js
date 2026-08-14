@@ -78,8 +78,10 @@ function reportedPairs(room, text) {
   return matches.map((match, index) => {
     const target = room.players.find((player) => player.id === match.id);
     const segment = text.slice(match.index, matches[index + 1]?.index ?? text.length);
-    const role = claimedRole(room, segment);
-    return target && role ? { target, role } : null;
+    const roleMention = roleMentions(room, segment)[0]; const role = roleMention?.role ?? null;
+    const roleEnd = roleMention ? roleMention.index + roleMention.alias.length : 0;
+    const negated = role ? /(?:아님|아니야|아니다|아니라고|아닐|틀림|가명)/.test(segment.slice(roleEnd)) : false;
+    return target && role ? { target, role, negated } : null;
   }).filter(Boolean);
 }
 
@@ -173,7 +175,8 @@ function respondToMessage(room, actor) {
   if (selfRoleClaim) memory.claims[sender.id] = { ...(memory.claims[sender.id] ?? {}), role: selfRoleClaim, trust: memory.trust[sender.id] ?? .15 };
   const publicInvestigationOrder = incoming.channel === "public" && observedInspection && selfRoleClaim && (roleSkills[selfRoleClaim] ?? []).some((id) => SCANS.has(id)) && /공격|쳐|때려|잡아/.test(incoming.text);
   const relay = attributedSource(room, incoming.text);
-  for (const { target, role } of reportedPairs(room, incoming.text)) {
+  const parsedReports = reportedPairs(room, incoming.text);
+  for (const { target, role, negated } of parsedReports) {
     if (target.id === sender.id || target.id === relay?.player.id) continue;
     const pairObserved = Boolean(room.publicInspections?.some((entry) => entry.targetId === target.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
     const knownSenderRole = memory.knowledge[sender.id]?.role; const senderSkills = roleSkills[knownSenderRole] ?? [];
@@ -181,13 +184,19 @@ function respondToMessage(room, actor) {
     const knownRelayRole = relay ? memory.knowledge[relay.player.id]?.role : null; const relayRole = knownRelayRole ?? relay?.role ?? null; const relaySkills = roleSkills[relayRole] ?? [];
     const relayCanProve = Boolean(relay && relayRole && (relaySkills.some((skillId) => ["enemy-scan", "advanced-scan"].includes(skillId)) || (relaySkills.includes("enemy-check") && target.announced === role)));
     const relayVerified = Boolean(relayCanProve && knownRelayRole && (memory.knowledge[relay.player.id]?.confidence ?? 0) >= .7);
-    if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || incoming.channel === "public" || senderIntelTrust >= .7 || roleCanProveReport || relayCanProve) memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : roleCanProveReport ? `${knownSenderRole}의 조사 가능 정보` : relayCanProve ? `${relay.player.id}번 ${relayRole}에게 전달받은 정보` : senderIntelTrust >= .7 ? "신뢰 동맹 제보" : skillClaim?.label ?? "공개 제보", evidence: pairObserved ? .55 : roleCanProveReport ? .8 : relayVerified ? .8 : relayCanProve ? .55 : senderIntelTrust >= .7 ? .7 : incoming.channel === "public" ? .45 : .1, sourceId: relay?.player.id };
+    const evidence = pairObserved ? .55 : roleCanProveReport ? .8 : relayVerified ? .8 : relayCanProve ? .55 : senderIntelTrust >= .7 ? .7 : incoming.channel === "public" ? .45 : .1;
+    if (negated) {
+      if (evidence >= .45) remember(actor, target, { confidence: evidence, source: senderIntelTrust >= .7 ? "신뢰 동맹 부정 제보" : "부정 제보", excludedRole: role });
+      continue;
+    }
+    if (/진명|확인|성공|맞아|맞음|찾았/.test(incoming.text) || incoming.channel === "public" || senderIntelTrust >= .7 || roleCanProveReport || relayCanProve) memory.reports[target.id] = { role, reporterId: sender.id, source: publicInvestigationOrder || pairObserved ? "공개 합동수사" : roleCanProveReport ? `${knownSenderRole}의 조사 가능 정보` : relayCanProve ? `${relay.player.id}번 ${relayRole}에게 전달받은 정보` : senderIntelTrust >= .7 ? "신뢰 동맹 제보" : skillClaim?.label ?? "공개 제보", evidence, sourceId: relay?.player.id };
   }
   const publicCitizenInvestigator = incoming.channel === "public" && selfRoleClaim && factionOf(selfRoleClaim) === "citizen" && (roleSkills[selfRoleClaim] ?? []).some((skillId) => ["enemy-scan", "enemy-check"].includes(skillId));
-  if (factionOf(actor.role) === "mafia" && publicCitizenInvestigator && reportedPairs(room, incoming.text).length) {
+  if (factionOf(actor.role) === "mafia" && publicCitizenInvestigator && parsedReports.some((report) => !report.negated)) {
     memory.reports[sender.id] = { role: selfRoleClaim, reporterId: sender.id, source: "공개수사 신원 노출", evidence: observedInspection ? .8 : .55 };
     remember(actor, sender, { role: selfRoleClaim, confidence: observedInspection ? .8 : .55, source: "공개수사 신원 노출" });
-    for (const { target, role } of reportedPairs(room, incoming.text)) {
+    for (const { target, role, negated } of parsedReports) {
+      if (negated) continue;
       if (target.id === sender.id || factionOf(role) !== "mafia") continue;
       const pairObserved = Boolean(room.publicInspections?.some((entry) => entry.targetId === target.id && reportAt >= entry.at && reportAt - entry.at <= 8_000));
       if (!pairObserved) continue;
@@ -197,6 +206,7 @@ function respondToMessage(room, actor) {
     }
   }
   const verified = memory.knowledge[sender.id]; let response;
+  const negativeReports = parsedReports.filter((report) => report.negated);
   const knownHitman = verified?.role === "히트맨" && (verified.confidence ?? 0) >= .8;
   const requestsSnipeProof = actor.role === "마피아대부" && (selfRoleClaim === "히트맨" || knownHitman) && requestsSnipeAuthorization(incoming.text);
   if (requestsSnipeProof && ready(room, actor, "snipe-command")) {
@@ -255,7 +265,9 @@ function respondToMessage(room, actor) {
     replyPrivately(room, actor, sender, allies.length ? `내가 확인한 생존 아군은 ${allies.join(", ")}이야.` : "내가 확실히 확인한 다른 생존 아군은 아직 없어.");
     return true;
   }
-  if (incoming.channel !== "public" && leadershipDiscovery && /리더십|리더쉽/.test(incoming.text) && incoming.text.includes(actor.role)) {
+  if (negativeReports.length && senderIntelTrust >= .7) {
+    response = `${negativeReports.map(({ target, role }) => `${target.id}번은 ${role} 아님`).join(", ")}으로 기록했어. 다음 조사 후보에서 뺄게.`;
+  } else if (incoming.channel !== "public" && leadershipDiscovery && /리더십|리더쉽/.test(incoming.text) && incoming.text.includes(actor.role)) {
     memory.trust[sender.id] = 1; memory.claims[sender.id] = { role: leadershipDiscovery.leaderRole, trust: 1, source: "리더십 발견 접촉" }; remember(actor, sender, { role: leadershipDiscovery.leaderRole, confidence: 1, source: "리더십 발견 접촉" });
     response = `실제로 리더십으로 나를 찾은 기록과 일치해. 당신을 ${leadershipDiscovery.leaderRole}(으)로 확정하고 따를게.`;
   } else if (asksIdentity && incoming.channel !== "public" && privateAllyTrust >= .7) {

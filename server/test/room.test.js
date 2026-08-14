@@ -230,8 +230,22 @@ test("a human message wakes only its AI recipient ahead of schedule", () => {
 
   room.chat(human.id, { text: `-${listener.id} 너 누구야` });
 
-  assert.equal(listener.nextAiActionAt, now + 650);
+  assert.equal(listener.nextAiActionAt, now + 1800);
   assert.equal(sleeper.nextAiActionAt, now + 20_000);
+});
+
+test("AI understands terse negative role intel from a trusted human ally", () => {
+  const room = new SingleRoom({ random: () => 0 }); const human = room.join({ nickname: "human", socket: {} }); const bot = room.join({ nickname: "bot", socket: {} }); room.start(human.id);
+  const target = room.players.find((player) => ![human.id, bot.id].includes(player.id)); room.players.forEach((player) => { player.aiControlled = false; player.announced = player.role; });
+  human.role = "사립탐정"; bot.role = "자경단원"; bot.aiControlled = true; bot.aiMemory = { knowledge: { [human.id]: { role: "사립탐정", faction: "citizen", confidence: 1, source: "아군 확인", excluded: [] } }, trust: { [human.id]: 1 }, claims: {}, reports: {}, inbox: [] };
+  room.chat(human.id, { text: `-${bot.id} ${target.id} 히트맨 아님` }); runStrategicBot(room, { actor: bot });
+  assert.deepEqual(bot.aiMemory.knowledge[target.id].excluded, ["히트맨"]);
+  assert.match(bot.whisper.text, new RegExp(`${target.id}번은 히트맨 아님.*기록`));
+});
+
+test("AI autonomous turns take six to ten seconds", () => {
+  const slow = new SingleRoom({ random: () => 0 }); const late = new SingleRoom({ random: () => .999 });
+  assert.equal(slow.aiActionDelay(), 6000); assert.ok(late.aiActionDelay() >= 9995 && late.aiActionDelay() < 10000);
 });
 
 test("an allied checker still spends a ready check instead of waiting for an order", () => {

@@ -194,11 +194,11 @@ export class SingleRoom {
     if (this.effect && current >= this.effect.until) { this.effect = null; changed = true; }
     return true;
   }
-  aiActionDelay() { return 2500 + Math.floor(this.random() * 2500); }
-  aiReactionDelay() { return 650 + Math.floor(this.random() * 850); }
+  aiActionDelay() { return 6000 + Math.floor(this.random() * 4000); }
+  aiReactionDelay() { return 1800 + Math.floor(this.random() * 1800); }
   wakeAi(actor, sentAt = this.now(), minimumDelay = null) {
     if (!actor?.alive || !actor.aiControlled) return;
-    const delay = minimumDelay ?? (this.llmDirector?.enabled ? 2200 : this.aiReactionDelay());
+    const delay = minimumDelay ?? (this.llmDirector?.enabled ? 3200 : this.aiReactionDelay());
     actor.nextAiActionAt = Math.min(actor.nextAiActionAt ?? Infinity, sentAt + delay);
   }
   runBot(actor = null) {
