@@ -161,7 +161,17 @@ export class SingleRoom {
       }
     }
   }
-  kill(target, cause) { if (!target.alive) return; target.alive = false; this.addLog("☠", `${target.nickname}이(가) ${cause}(으)로 사망했습니다. 직업은 ${target.role}입니다.`, "danger"); recordPublicDeath(this, target); this.finishIfOnlyAi(); }
+  kill(target, cause) {
+    if (!target.alive) return;
+    target.alive = false;
+    this.addLog("☠", `${target.nickname}이(가) ${cause}(으)로 사망했습니다. 직업은 ${target.role}입니다.`, "danger");
+    // 승패는 AI 메모리 갱신보다 먼저 확정한다. 사후 추론 데이터가 손상돼도
+    // 경찰반장/마피아대부 사망 같은 권위 규칙이 누락되어서는 안 된다.
+    this.result ??= checkVictory(this.players, this.successorId);
+    try { recordPublicDeath(this, target); }
+    catch (error) { console.warn(`Post-death AI memory update skipped: ${error instanceof Error ? error.message : "unknown error"}`); }
+    if (!this.result) this.finishIfOnlyAi();
+  }
   chat(playerId, payload) {
     this.assertGame(); const actor = this.player(playerId); const text = String(payload.text ?? "").trim().slice(0, 160); if (!text) return;
     const whisper = text.match(/^-(\d+)\s+(.+)$/s);

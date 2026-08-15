@@ -998,6 +998,15 @@ test("a game ends immediately when only AI-controlled survivors remain", () => {
   assert.deepEqual(room.result, { winner: "draw", reason: "생존한 인간 플레이어가 없어 자동 종료" }); assert.equal(room.strategyCallsThisGame, 0);
 });
 
+test("captain death ends the game even when stale AI report metadata is malformed", () => {
+  const room = new SingleRoom({ random: () => .5 }); const human = room.join({ nickname: "human", socket: {} }); room.start(human.id);
+  const captain = room.players.find((player) => player.role === "경찰반장"); const observer = room.players.find((player) => player.id !== captain.id);
+  room.players.forEach((player) => { player.aiControlled = false; }); observer.aiControlled = true;
+  observer.aiMemory = { knowledge: {}, trust: {}, claims: {}, reports: { [captain.id]: { role: "경찰반장", evidence: .4 } }, inbox: [] };
+  room.kill(captain, "공격");
+  assert.deepEqual(room.result, { winner: "mafia", reason: "경찰반장 사망" });
+});
+
 test("a living captain always prevents an attacker-extinction victory", () => {
   const players = [
     { role: "마피아대부", alive: true }, { role: "마피아일원", alive: true },
